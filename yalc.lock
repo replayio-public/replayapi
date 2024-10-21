@@ -1,0 +1,17 @@
+{
+  "version": "v1",
+  "packages": {
+    "shared": {
+      "signature": "94b263f591221c208bcb439521f7c94b",
+      "pure": true
+    },
+    "protocol": {
+      "signature": "d4de327aca8b796d285e8e3d8570fa27",
+      "pure": true
+    },
+    "replay-next": {
+      "signature": "de7f5fa35a0b940c8e3e6db74eb5d509",
+      "pure": true
+    }
+  }
+}

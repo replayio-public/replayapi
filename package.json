@@ -1,0 +1,54 @@
+{
+  "name": "replayapi",
+  "version": "0.0.1",
+  "main": "index.js",
+  "scripts": {
+    "typecheck": "tsc",
+    "format": "prettier -w ./*.js ./*.ts packages",
+    "lint": "eslint packages",
+    "publish-devtools": "cd $REPLAY_DIR/devtools && cd packages/shared && yalc publish --private && cd ../../packages/protocol && yalc publish --private && cd ../../packages/replay-next && yalc publish --private",
+    "link-devtools": "yalc link shared && yalc link protocol && yalc link replay-next"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "workspaces": [
+    "packages/*"
+  ],
+  "importSort": {
+    ".js, .jsx, .ts, .tsx": {
+      "style": "module",
+      "parser": "typescript"
+    }
+  },
+  "dependencies": {
+    "@replayio/protocol": "^0.76.0",
+    "cli": "workspace:*",
+    "commander": "^12.1.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.2.1",
+    "graphql": "^16.9.0",
+    "lodash": "^4.17.21",
+    "uuid": "^10.0.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.13.0",
+    "@tsconfig/node22": "^22.0.0",
+    "@types/eslint__js": "^8.42.3",
+    "@types/jest": "^29.5.13",
+    "@types/lodash": "^4.14.181",
+    "@types/node": "^22.7.7",
+    "@types/uuid": "^10.0.0",
+    "@types/ws": "^8.5.12",
+    "eslint": "^9.13.0",
+    "import-sort-style-module": "^6.0.0",
+    "jest": "^29.7.0",
+    "prettier": "^3.3.3",
+    "prettier-plugin-import-sort": "^0.0.7",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3",
+    "typescript-eslint": "^8.11.0"
+  },
+  "packageManager": "yarn@4.5.1"
+}
