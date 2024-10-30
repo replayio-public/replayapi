@@ -163,7 +163,7 @@ type Message = ErrorMessage | ServerStartedMessage;
 export function startServer(recordingId: string): Deferred<ServerInfo> {
   const deferred = defer<ServerInfo>();
 
-  const child = fork(path.join(__dirname, "server-process.ts"), [], {
+  const child = fork(path.join(__dirname, "server-process.ts"), [recordingId], {
     // Detach the child process so it can run independently
     detached: true,
     // Ignore parent's stdio after getting the port
@@ -171,10 +171,11 @@ export function startServer(recordingId: string): Deferred<ServerInfo> {
   });
 
   // Set a timeout for the initial startup only
+  const timeoutMillis = 5_000;
   const timeout = setTimeout(() => {
     child.kill();
-    deferred.reject(new Error("Server start timeout"));
-  }, 5000);
+    deferred.reject(new Error(`Server start timeout (${timeoutMillis / 1000}s)`));
+  }, timeoutMillis);
 
   // Listen for the port number from the child process
   child.on("message", (message: Message) => {

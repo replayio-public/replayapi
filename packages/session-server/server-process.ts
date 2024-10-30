@@ -1,28 +1,36 @@
-import fs from "fs";
-
-import { v4 as uuidv4 } from "uuid";
+import { createReplayClientForProduction } from "shared/utils/client";
 import { WebSocketServer } from "ws";
 
+import { initializeLogging } from "./logging";
 import { handleRequest } from "./requests";
 
-function startServer() {
+function startServer(recordingId: string) {
   console.log("Starting server...");
   // Create server with port 0 to let the system assign an available port
-  const wss = new WebSocketServer({ port: 0 }, () => {
+  const wss = new WebSocketServer({ port: 0 }, async () => {
     try {
+      console.log("Starting replay session");
+
+      // start the session
+      const client = createReplayClientForProduction();
+      const sessionId = await client.initialize(recordingId, process.env["REPLAY_API_KEY"]!);
+      //   const endpoint = await client.getSessionEndpoint();
+
+      console.log(`Session started with id ${sessionId}`);
+
       // Get the actual port that was assigned
       const address = wss.address();
       if (typeof address === "object" && address !== null) {
-        // Send the port number back to the parent process
+        // Send the port number and session id back to the parent process
         process.send?.({
           type: "server-started",
-          sessionId: `fake-session-id-${uuidv4()}`,
+          sessionId: sessionId,
           pid: process.pid,
           port: address.port,
         });
       }
     } catch (e) {
-      console.error(e);
+      console.error(`Error: ${e}`);
     }
   });
 
@@ -76,14 +84,9 @@ function startServer() {
   console.log("Websocket server process started");
 }
 
-// Redirect console output to a file since we're detached
-const logFile = fs.createWriteStream("/tmp/replay-server.log", { flags: "a" });
-console.log = (...args) => {
-  const message =
-    args.map(arg => (typeof arg === "string" ? arg : JSON.stringify(arg))).join(" ") + "\n";
-  logFile.write(`${new Date().toISOString()} - ${message}`);
-};
-console.error = console.log;
+initializeLogging();
 
 console.log("Starting server process using command", process.argv.join(" "));
-startServer();
+const recordingId = process.argv[2];
+
+startServer(recordingId);

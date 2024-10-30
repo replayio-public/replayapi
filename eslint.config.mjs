@@ -30,7 +30,7 @@ export default tseslint.config(
       "@typescript-eslint/no-unused-vars": [
         "warn",
         { "argsIgnorePattern": "^_" },
-      ]
+      ],
       "@typescript-eslint/prefer-nullish-coalescing": "off",
       "@typescript-eslint/no-require-imports": "off",
       "@typescript-eslint/require-await": "off",
