@@ -92,6 +92,7 @@ function pingServer(serverInfo: ServerInfo): Promise<true> {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(`ws://localhost:${serverInfo.port}`);
     ws.on("open", () => {
+      // send a PingRequest
       ws.send(JSON.stringify({ type: "ping" }));
     });
     ws.on("message", (message: string) => {
@@ -209,8 +210,28 @@ export function startServer(recordingId: string): Deferred<ServerInfo> {
 }
 
 export async function endServer(sessionId: string): Promise<void> {
-  // send a signal to the server to shut down, if we can
+  const serverInfos = getServerInfos();
+  const serverInfo = serverInfos.find(info => info.sessionId === sessionId);
+  if (!serverInfo) {
+    throw new Error(`No session found for id ${sessionId}`);
+  }
 
-  // remove the symlink
-  unregisterServer(sessionId);
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket(`ws://localhost:${serverInfo.port}`);
+    ws.on("open", () => {
+      // send a ShutdownRequest
+      ws.send(JSON.stringify({ type: "die" }));
+      // remove the symlink
+      unregisterServer(sessionId);
+          
+      resolve();
+    });
+    ws.on("message", (message: string) => {
+      reject(new Error(`Unexpected message: ${message}`));
+      ws.close();
+    });
+    ws.on("error", err => {
+      reject(err);
+    });
+  });    
 }
