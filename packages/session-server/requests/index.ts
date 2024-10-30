@@ -1,7 +1,16 @@
 import { WebSocket } from "ws";
 
-import { PingRequest, PingRequestType, PingResponse, handleRequest as handlePingRequest } from "./ping";
-import { ShutdownRequest, ShutdownRequestType, handleRequest as handleShutdownRequest } from "./shutdown";
+import {
+  PingRequest,
+  PingRequestType,
+  PingResponse,
+  handleRequest as handlePingRequest,
+} from "./ping";
+import {
+  ShutdownRequest,
+  ShutdownRequestType,
+  handleRequest as handleShutdownRequest,
+} from "./shutdown";
 
 type Request = PingRequest | ShutdownRequest;
 type Response = PingResponse;

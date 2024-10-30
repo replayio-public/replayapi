@@ -1,8 +1,7 @@
 import { endServer } from "session-server/client";
 
 import { SessionOption, requiresSession } from "../options";
-
-import { sessionCommand } from "./root"
+import { sessionCommand } from "./root";
 
 // ends a session and cleans up
 const endSessionCommand = sessionCommand

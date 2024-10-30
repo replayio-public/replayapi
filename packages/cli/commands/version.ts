@@ -1,5 +1,6 @@
-import { program } from "commander";
 import path from "path";
+
+import { program } from "commander";
 
 const pkg = require(path.join(__dirname, "../../../package.json"));
 

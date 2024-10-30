@@ -7,6 +7,6 @@ export type ShutdownRequest = {
 };
 
 export function handleRequest(_ws: WebSocket, _req: ShutdownRequest): void {
-    // don't bother sending a response, just exit
-    process.exit(0);
+  // don't bother sending a response, just exit
+  process.exit(0);
 }

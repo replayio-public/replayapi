@@ -1,8 +1,7 @@
 import { startServer } from "session-server/client";
 
 import { RecordingOption, requiresRecording } from "../options";
-
-import { sessionCommand } from "./root"
+import { sessionCommand } from "./root";
 
 const startSessionCommand = sessionCommand
   .command("start")

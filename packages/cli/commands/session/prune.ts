@@ -1,6 +1,6 @@
 import { pruneServers } from "session-server/client";
 
-import { sessionCommand } from "./root"
+import { sessionCommand } from "./root";
 
 sessionCommand
   .command("prune")

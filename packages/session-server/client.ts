@@ -223,7 +223,7 @@ export async function endServer(sessionId: string): Promise<void> {
       ws.send(JSON.stringify({ type: "die" }));
       // remove the symlink
       unregisterServer(sessionId);
-          
+
       resolve();
     });
     ws.on("message", (message: string) => {
@@ -233,5 +233,5 @@ export async function endServer(sessionId: string): Promise<void> {
     ws.on("error", err => {
       reject(err);
     });
-  });    
+  });
 }
