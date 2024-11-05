@@ -1,5 +1,10 @@
 #!/bin/bash
+set -ex
+
 cd "$(dirname "$0")"/..
+
+export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+corepack enable
 yarn
 
 # clone devtools and use yalc to hook up packages we depend on
