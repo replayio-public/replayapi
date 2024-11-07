@@ -1,7 +1,7 @@
 // commands auto-register themselves when imported
 import "./commands/fetch-comments";
 import "./commands/session";
-import "./commands/sources";
+//import "./commands/sources";
 import "./commands/version";
 
 import { program } from "commander";
