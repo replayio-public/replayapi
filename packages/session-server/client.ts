@@ -6,6 +6,8 @@ import { SessionId } from "@replayio/protocol";
 import { Deferred, defer } from "protocol/utils";
 import { WebSocket } from "ws";
 
+import { type Request, type Response } from "./requests";
+
 export type ServerInfo = {
   sessionId: SessionId;
   recordingId: string;
@@ -160,10 +162,14 @@ type ServerStartedMessage = {
 
 type Message = ErrorMessage | ServerStartedMessage;
 
-export function startServer(recordingId: string): Deferred<ServerInfo> {
+export function startServer(apiKey: string, recordingId: string): Deferred<ServerInfo> {
   const deferred = defer<ServerInfo>();
 
   const child = fork(path.join(__dirname, "server-process.ts"), [recordingId], {
+    env: {
+      ...process.env,
+      REPLAY_API_KEY: apiKey
+    },
     // Detach the child process so it can run independently
     detached: true,
     // Ignore parent's stdio after getting the port
@@ -229,6 +235,28 @@ export async function endServer(sessionId: string): Promise<void> {
     });
     ws.on("message", (message: string) => {
       reject(new Error(`Unexpected message: ${message}`));
+      ws.close();
+    });
+    ws.on("error", err => {
+      reject(err);
+    });
+  });
+}
+
+export function sendRequestToServer<ResponseT extends Response>(sessionId: string, request: Request): Promise<ResponseT> {
+  const serverInfos = getServerInfos();
+  const serverInfo = serverInfos.find(info => info.sessionId === sessionId);
+  if (!serverInfo) {
+    throw new Error(`No session found for id ${sessionId}`);
+  }
+
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket(`ws://localhost:${serverInfo.port}`);
+    ws.on("open", () => {
+      ws.send(JSON.stringify(request));
+    });
+    ws.on("message", (message: string) => {
+      resolve(JSON.parse(message));
       ws.close();
     });
     ws.on("error", err => {
