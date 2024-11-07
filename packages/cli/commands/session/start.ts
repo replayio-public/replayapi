@@ -1,6 +1,6 @@
 import { startServer } from "session-server/client";
 
-import { RecordingOption, requiresRecording, APIKeyOption } from "../options";
+import { RecordingOption, requiresRecording, APIKeyOption, requiresAPIKey } from "../options";
 import { sessionCommand } from "./root";
 
 const startSessionCommand = sessionCommand
@@ -8,6 +8,7 @@ const startSessionCommand = sessionCommand
   .description("start a persistent session.  Outputs the session id")
   .action(startSession);
 requiresRecording(startSessionCommand);
+requiresAPIKey(startSessionCommand);
 
 type StartSessionOptions = RecordingOption & APIKeyOption;
 
