@@ -16,7 +16,7 @@ export function initializeLogging(): void {
           return JSON.stringify(arg);
         })
         .join(" ") + "\n";
-    logFile.write(`${new Date().toISOString()} - ${message}:\n${new Error().stack}\n`);
+    logFile.write(`${new Date().toISOString()} - ${message}`);
   };
   console.error = console.log;
 }
