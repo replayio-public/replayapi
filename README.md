@@ -1,11 +1,20 @@
+## Setup
+* Install with `yarn` and initialize `yalc` linkage.
 
+```sh
+yarn
+yarn publish-devtools
+yarn link-devtools
 ```
-% yarn
-% yarn publish-devtools
-% yarn link-devtools
-% tsx main.ts version
-0.0.1
-% tsx main.ts --help
+
+**Test it:**
+```sh
+tsx main.ts version # 0.0.1
+tsx main.ts --help
+```
+
+Expected result:
+```
 Usage: main [options] [command]
 
 Options:
