@@ -43,9 +43,14 @@ export default class PointQueries {
   }
 
   async thisFrame(): Promise<Frame> {
+    // NOTE: We could use `getPointStack` instead.
     const frames = await this.getStackFrames();
     return frames[0];
   }
+
+  // async getPointStack() {
+  //   // TODO: getPointStack
+  // }
 
   /** ###########################################################################
    * High-level Queries.
