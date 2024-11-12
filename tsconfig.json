@@ -44,6 +44,8 @@
       "cli/*": ["packages/cli/*"],
       "session-server": ["packages/session-server/client.ts"],
       "session-server/*": ["packages/session-server/*"],
+      "@replay/data/*": ["packages/replay-data/*"],
+      "@replay/tools/*": ["packages/replay-tools/*"],
       "protocol/*": [".yalc/protocol/*"],
       "replay-next/*": [".yalc/replay-next/*"],
       "shared/*": [".yalc/shared/*"],
