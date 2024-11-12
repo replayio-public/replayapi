@@ -14,7 +14,7 @@ export const FirstCheckpointExecutionPoint = {
   progress: 0,
 };
 
-export type ExecutionPoint =
+export type ExecutionPointInfo =
   | FrameExecutionPoint
   | CheckpointExecutionPoint
   | BookmarkExecutionPoint
@@ -88,7 +88,7 @@ export type HitPosition = BreakPosition | FrameStepPosition;
 // are converted to bigints that are less than each other. Any changes to this
 // function need to be synchronized with BigIntToPoint below, and with
 // CurrentExecutionPoint in Navigate.cpp
-export function pointToBigInt(point: ExecutionPoint): BigInt {
+export function pointToBigInt(point: ExecutionPointInfo): BigInt {
   let rv = BigInt(0);
   let shift = 0;
 
@@ -139,7 +139,7 @@ export function pointToBigInt(point: ExecutionPoint): BigInt {
 
 // Convert a point BigInt back to the original point, except for the function
 // (which is an arbitrary string and can't be embedded in the point).
-export function BigIntToPoint(n: bigint): any {
+export function BigIntToPoint(n: bigint): ExecutionPointInfo {
   const offset = readValue(32);
   const kindValue = readValue(3);
   const indexValue = readValue(24);
@@ -177,7 +177,7 @@ export function BigIntToPoint(n: bigint): any {
     checkpoint,
     progress,
     position: { kind, offset, frameIndex },
-  };
+  } as any as ExecutionPointInfo;
 
   function readValue(nbits: number) {
     const mask = (BigInt(1) << BigInt(nbits)) - BigInt(1);
