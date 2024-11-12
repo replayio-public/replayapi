@@ -1,13 +1,9 @@
-const pluginImportSort = require("prettier-plugin-import-sort");
-
-const config = {
+module.exports = {
   semi: true,
   singleQuote: false,
   tabWidth: 2,
   trailingComma: "es5",
   arrowParens: "avoid",
   printWidth: 100,
-  plugins: [pluginImportSort],
+  plugins: ["prettier-plugin-import-sort"],
 };
-
-module.exports = config;

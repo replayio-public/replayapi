@@ -48,7 +48,7 @@
       "replay-next/*": [".yalc/replay-next/*"],
       "shared/*": [".yalc/shared/*"],
 
-			// stub out some "evil" dependencies
+			// stub out some unfortunate/unavoidable dependencies
 			"@sentry/react": ["third-party/mocks/@sentry/react/index.js"],
 			"react": ["third-party/mocks/react/index.js"]
     } /* A series of entries which re-map imports to lookup locations relative to the 'baseUrl'. */,
@@ -77,5 +77,5 @@
   "exclude": [
     "node_modules",
   ],
-  "include": ["**/*.ts"]
+  "include": ["**/*.ts", "tsconfig.json", "*.config.mjs", "prettier.config.js"],
 }
