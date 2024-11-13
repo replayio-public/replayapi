@@ -133,22 +133,3 @@ export default class SourceParser {
     return `${before}${pointAnnotation}${after}`;
   }
 }
-
-if (require.main === module) {
-  // Run a quick test.
-  const code = `function foo() {
-    return f(x, g("hello123qweSdfjnlsdfksjdnlsdgndf", 123));
-  }`;
-  const parser = new SourceParser("test.ts", code);
-  parser.parse();
-  console.log(
-    `Outermost expression.\n  Expected: f(...))\n    Actual:`,
-    parser.getOutermostExpression({ line: 2, column: 31 })!.text
-  );
-  console.log(
-    `Innermost statement.\n  Expected: return f(...))\n    Actual:`,
-    parser.getInnermostStatement({ line: 2, column: 5 })!.text
-  );
-  console.log(parser.getAnnotatedNodeTextAt({ line: 2, column: 5 }, "/*BREAK*/"));
-  console.log(parser.getAnnotatedNodeTextAt({ line: 2, column: 31 }, "/*BREAK*/"));
-}

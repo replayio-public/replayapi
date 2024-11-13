@@ -1,6 +1,6 @@
 /* Copyright 2020-2024 Record Replay Inc. */
 
-import "../bootstrap.js";
+import "../bootstrap";
 
 import { ExecutionPoint, RecordingId, SessionId } from "@replayio/protocol";
 import { pauseIdCache } from "replay-next/src/suspense/PauseCache";
@@ -10,7 +10,7 @@ import { ReplayClient } from "shared/client/ReplayClient";
 import { STATUS_PENDING } from "suspense";
 
 import ReplaySources from "./ReplaySources";
-import PointQueries from "./PointQueries.js";
+import PointQueries from "./PointQueries";
 
 /**
  * The devtools require a `time` value for managing pauses, but it is not necessary.

@@ -4048,6 +4048,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"jsonc-parser@npm:^3.3.1":
+  version: 3.3.1
+  resolution: "jsonc-parser@npm:3.3.1"
+  checksum: 10c0/269c3ae0a0e4f907a914bf334306c384aabb9929bd8c99f909275ebd5c2d3bc70b9bcd119ad794f339dec9f24b6a4ee9cd5a8ab2e6435e730ad4075388fc2ab6
+  languageName: node
+  linkType: hard
+
 "keyv@npm:^4.5.4":
   version: 4.5.4
   resolution: "keyv@npm:4.5.4"
@@ -4828,9 +4835,11 @@ __metadata:
     graphql: "npm:^16.9.0"
     import-sort-style-module: "npm:^6.0.0"
     jest: "npm:^29.7.0"
+    jsonc-parser: "npm:^3.3.1"
     lodash: "npm:^4.17.21"
     prettier: "npm:^3.3.3"
     prettier-plugin-import-sort: "npm:^0.0.7"
+    tsconfig-paths-jest: "npm:^0.0.1"
     tsx: "npm:^4.19.1"
     typescript: "npm:^5.6.3"
     typescript-eslint: "npm:^8.11.0"
@@ -5437,6 +5446,13 @@ __metadata:
   bin:
     ts-jest: cli.js
   checksum: 10c0/acb62d168faec073e64b20873b583974ba8acecdb94681164eb346cef82ade8fb481c5b979363e01a97ce4dd1e793baf64d9efd90720bc941ad7fc1c3d6f3f68
+  languageName: node
+  linkType: hard
+
+"tsconfig-paths-jest@npm:^0.0.1":
+  version: 0.0.1
+  resolution: "tsconfig-paths-jest@npm:0.0.1"
+  checksum: 10c0/c245974c1a5754fea83596801ac5194b1dac692e653f13a283cd5694b8055ebe2e7067250eeb5797030f0bdf1604e3ae62afa9f0f01d70aedb2fcfcbeee61666
   languageName: node
   linkType: hard
 

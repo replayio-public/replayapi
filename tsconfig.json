@@ -1,6 +1,5 @@
 {
   "extends": "@tsconfig/node22/tsconfig.json",
-
   "compilerOptions": {
     /* Visit https://aka.ms/tsconfig.json to read more about this file */
     /* Basic Options */
@@ -78,7 +77,7 @@
     "resolveJsonModule": true
   },
   "exclude": [
-    "node_modules",
+    "node_modules"
   ],
-  "include": ["**/*.ts", "tsconfig.json", "**/*.config.*js", "prettier.config.js"],
+  "include": ["**/*.ts", "tsconfig.json", "**/*.config.*js", "prettier.config.js"]
 }
