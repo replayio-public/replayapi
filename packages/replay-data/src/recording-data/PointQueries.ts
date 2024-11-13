@@ -6,6 +6,8 @@ import { framesCache } from "replay-next/src/suspense/FrameCache";
 import { BigIntToPoint, ExecutionPointInfo } from "../util/points";
 import ReplaySession from "./ReplaySession";
 
+const POINT_ANNOTATION = "/*BREAK*/";
+
 export class PointStatement {
   constructor(
     public line: number,
@@ -66,7 +68,7 @@ export default class PointQueries {
     const url = sources.getUrl(thisLocation.sourceId) || "";
 
     const parser = await sources.parseContents(thisLocation.sourceId);
-    const statementCode = parser.getRelevantContainingNodeAt(thisLocation)?.text || "";
+    const statementCode = parser.getAnnotatedNodeTextAt(thisLocation, POINT_ANNOTATION) || "";
 
     if (!url) {
       console.warn(`[PointQueries] No source url found at point ${this.point}`);
@@ -74,6 +76,8 @@ export default class PointQueries {
     if (!statementCode) {
       console.warn(`[PointQueries] No statement code found at point ${this.point}`);
     }
+
+    // TODO: Also provide hit index + hit count when necessary.
     
     return new PointStatement(thisLocation.line, url, statementCode);
   }
@@ -86,20 +90,20 @@ export default class PointQueries {
   // }
 
   // async queryInputDependencies() {
-
+  //   // TODO
   // }
 
   // /**
   //  * Dynamic control dependencies from `point` to `thisFrame.startPoint` that are not already in `scopes`.
   //  */
   // async queryIndirectControlDependencies() {
-
+  //   // TODO
   // }
 
   // /**
   //  * The "rich stack" is composed of the synchronous call stack and the async stack, possibly including high-level asynchronous and framework events.
   //  */
   // async queryRichStack() {
-
+  //   // TODO
   // }
 }
