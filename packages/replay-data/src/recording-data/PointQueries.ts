@@ -63,8 +63,19 @@ export default class PointQueries {
     const [thisFrame, sources] = await Promise.all([this.thisFrame(), this.session.getSources()]);
 
     const thisLocation = sources.getBestLocation(thisFrame.location);
-    const parser = sources.parseContents(thisLocation.sourceId);
-    // TODO: get the statement at this point from the parser
+    const url = sources.getUrl(thisLocation.sourceId) || "";
+
+    const parser = await sources.parseContents(thisLocation.sourceId);
+    const statementCode = parser.getRelevantContainingNodeAt(thisLocation)?.text || "";
+
+    if (!url) {
+      console.warn(`[PointQueries] No source url found at point ${this.point}`);
+    }
+    if (!statementCode) {
+      console.warn(`[PointQueries] No statement code found at point ${this.point}`);
+    }
+    
+    return new PointStatement(thisLocation.line, url, statementCode);
   }
 
   // /**

@@ -1062,6 +1062,7 @@ __metadata:
   resolution: "@replay/source-parser@workspace:packages/source-parser"
   dependencies:
     tree-sitter: "npm:^0.22.1"
+    tree-sitter-cli: "npm:^0.24.4"
     tree-sitter-html: "npm:^0.23.2"
     tree-sitter-javascript: "npm:^0.23.1"
     tree-sitter-typescript: "npm:^0.23.2"
@@ -5230,6 +5231,15 @@ __metadata:
   dependencies:
     is-number: "npm:^7.0.0"
   checksum: 10c0/487988b0a19c654ff3e1961b87f471702e708fa8a8dd02a298ef16da7206692e8552a0250e8b3e8759270f62e9d8314616f6da274734d3b558b1fc7b7724e892
+  languageName: node
+  linkType: hard
+
+"tree-sitter-cli@npm:^0.24.4":
+  version: 0.24.4
+  resolution: "tree-sitter-cli@npm:0.24.4"
+  bin:
+    tree-sitter: cli.js
+  checksum: 10c0/83cbda62e3e3aba8a3085725dc5022b167d631aeabfd56ad8bc96a679d0cfd37c4a9217bf6f45abc96b32af0a8b505a5993fd33d4e353ba127129d34ce6388f9
   languageName: node
   linkType: hard
 

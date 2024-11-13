@@ -20,6 +20,10 @@ export default class ReplaySources {
     return this.sourcesById.get(sourceId);
   }
 
+  getUrl(sourceId: SourceId): string | undefined {
+    return this.getSource(sourceId)?.url;
+  }
+
   /**
    * @returns The mapped source location, if available. Else the best unmapped.
    */
@@ -33,6 +37,10 @@ export default class ReplaySources {
     return preferredLocation;
   }
 
+  /** ###########################################################################
+   * Source Parsing.
+   * ##########################################################################*/
+
   async parseContents(sourceId: SourceId): Promise<SourceParser> {
     const source = this.getSource(sourceId);
     const result = await streamingSourceContentsCache.readAsync(this.session, sourceId);
@@ -43,8 +51,8 @@ export default class ReplaySources {
     const url = source?.url;
     assert(url, "[readContents] source has no url: " + sourceId);
 
-    const parser = new SourceParser(url, contentType);
-    parser.parse(contents);
+    const parser = new SourceParser(url, contents, contentType);
+    parser.parse();
     return parser;
   }
 }
