@@ -2,9 +2,11 @@
 * Install with `yarn` and initialize `yalc` linkage.
 
 ```sh
+# Setup + install external dependencies.
 yarn
-yarn publish-devtools
-yarn link-devtools
+
+# Install internal dependencies.
+yarn yalc-all
 ```
 
 **Test it:**

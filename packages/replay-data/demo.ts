@@ -17,6 +17,9 @@ const SymptomPoint: ExecutionPoint = "78858008544042601258383216576823298";
   const point = await session.queryPoint(SymptomPoint);
 
   const statement = await point.queryStatement();
+  const stack = await point.queryRichStack();
   
+  console.log("Statement at point:", statement);
+  console.log("Stack at point:", stack);
   
 })();

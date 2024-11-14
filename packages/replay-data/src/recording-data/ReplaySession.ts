@@ -27,18 +27,24 @@ function getDispatchUrl() {
 }
 
 export default class ReplaySession extends ReplayClient {
+  public static readonly dispatchUrl = getDispatchUrl();
+
   private _sources: ReplaySources | null = null;
   private _busy = 0;
 
   constructor() {
-    super(getDispatchUrl());
+    super(ReplaySession.dispatchUrl);
   }
 
-  async initialize(recordingId: RecordingId): Promise<SessionId> {
+  get ApiKey(): string {
     if (!process.env["REPLAY_API_KEY"]) {
       throw new Error(`REPLAY_API_KEY not provided`);
     }
-    return await super.initialize(recordingId, process.env["REPLAY_API_KEY"]!);
+    return process.env["REPLAY_API_KEY"]!;
+  }
+
+  async initialize(recordingId: RecordingId): Promise<SessionId> {
+    return await super.initialize(recordingId, this.ApiKey);
   }
 
   /** ###########################################################################

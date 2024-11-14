@@ -8,6 +8,7 @@ import Parser, { SyntaxNode } from "tree-sitter";
 import SourceContents from "./SourceContents";
 import { sourceLocationToPoint } from "./tree-sitter-locations";
 import { createTreeSitterParser } from "./tree-sitter-setup";
+import { PointFunctionInfo } from "@replay/data/src/recording-data/types";
 
 export default class SourceParser {
   private parser: Parser;
@@ -28,7 +29,7 @@ export default class SourceParser {
   }
 
   /** ###########################################################################
-   * Basic parsing methods.
+   * Expressions and statements.
    * ##########################################################################*/
 
   getDescendantAtPosition(loc: SourceLocation): SyntaxNode {
@@ -131,5 +132,14 @@ export default class SourceParser {
     const after = text.slice(annotationIndex - start);
 
     return `${before}${pointAnnotation}${after}`;
+  }
+
+  /** ###########################################################################
+   * Parse functions.
+   * ##########################################################################*/
+
+  getFunctionInfoAt(loc: SourceLocation): PointFunctionInfo {
+    let node = this.getDescendantAtPosition(loc);
+    // TODO: find the right tree-sitter queries to find and extract data from the function AST node.
   }
 }

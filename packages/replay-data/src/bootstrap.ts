@@ -20,7 +20,7 @@ import os from "os";
   };
 
   /* @ts-ignore */
-  globalThis.navigator = {
+  globalThis.navigator ||= {
     userAgent: os.type(),
   };
 
