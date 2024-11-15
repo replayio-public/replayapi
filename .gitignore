@@ -1,8 +1,6 @@
-.envrc
-.yalc
-yalc.lock
+# App ignores
 tmp
-
+backend-data
 
 # Yarn artifacts
 .yarn/*
@@ -13,6 +11,9 @@ tmp
 !.yarn/versions
 
 # Other
+.envrc
+.yalc
+yalc.lock
 .pnp.*
 *.tgz
 test/.yarn/

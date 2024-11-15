@@ -18,12 +18,19 @@ import PointQueries from "./PointQueries";
  */
 const DEFAULT_TIME = 0;
 
-function getDispatchUrl() {
+export function getDispatchUrl(): string {
   return (
     process.env.DISPATCH_ADDRESS ||
     process.env.NEXT_PUBLIC_DISPATCH_URL ||
     "wss://dispatch.replay.io"
   );
+}
+
+export function getApiKey(): string {
+  if (!process.env["REPLAY_API_KEY"]) {
+    throw new Error(`REPLAY_API_KEY not provided`);
+  }
+  return process.env["REPLAY_API_KEY"]!;
 }
 
 export default class ReplaySession extends ReplayClient {
@@ -37,14 +44,11 @@ export default class ReplaySession extends ReplayClient {
   }
 
   get ApiKey(): string {
-    if (!process.env["REPLAY_API_KEY"]) {
-      throw new Error(`REPLAY_API_KEY not provided`);
-    }
-    return process.env["REPLAY_API_KEY"]!;
+    return getApiKey();
   }
 
   async initialize(recordingId: RecordingId): Promise<SessionId> {
-    return await super.initialize(recordingId, this.ApiKey);
+    return await super.initialize(recordingId, getApiKey());
   }
 
   /** ###########################################################################

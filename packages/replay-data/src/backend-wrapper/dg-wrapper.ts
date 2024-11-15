@@ -1,11 +1,8 @@
-import { execSync } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 
-import {
-  AnalyzeDependenciesResult,
-  AnalyzeDependenciesSpec,
-} from "./backend-types";
+import { spawnAsync } from "../util/spawnAsync";
+import { AnalyzeDependenciesResult, AnalyzeDependenciesSpec } from "./backend-types";
 
 export async function DGAnalyzeDependencies({
   apiKey,
@@ -19,7 +16,7 @@ export async function DGAnalyzeDependencies({
     process.exit(1);
   }
 
-  const experimentFolder = "./experiments/dg-experiments";
+  const experimentFolder = path.resolve(__dirname, "../../../..", "backend-data/dg");
   const experimentId = "01";
 
   const replayDir = process.env.REPLAY_DIR;
@@ -39,28 +36,33 @@ export async function DGAnalyzeDependencies({
   // Write spec file
   fs.writeFileSync(specFile, JSON.stringify(spec, null, 2));
   console.log(`Using specfile ${specFile} ...`);
+  console.time("DG");
 
   // Run analysis
-  const cmd = `AWS_PROFILE=ReplayProdDev ts-node scripts/analysis/dependency-graph.ts -k ${apiKey} -d "${cacheDir}" -s "${specFile}"`;
-  const stdout = execSync(cmd, { cwd: backendDir, encoding: "utf8" });
+  const { stdout } = await spawnAsync(
+    "ts-node",
+    ["scripts/analysis/dependency-graph.ts", "-k", apiKey, "-d", cacheDir, "-s", specFile],
+    { cwd: backendDir }
+  );
+  console.timeEnd("DG");
   const dependencies = parseDependencyOutput(stdout.toString());
   return dependencies;
 }
 
 function parseDependencyOutput(stdout: string) {
+  const start = stdout.indexOf("Dependencies result:  {");
+  const end = stdout.lastIndexOf("}");
+
+  if (start === -1 || end === -1) {
+    throw new Error("Could not find dependency data markers in stdout");
+  }
+
+  const outputDataString = stdout.slice(start + "Dependencies result:  ".length, end + 1);
   try {
-    const start = stdout.indexOf("Dependencies result:  {");
-    const end = stdout.lastIndexOf("}");
-
-    if (start === -1 || end === -1) {
-      throw new Error("Could not find dependency data markers in stdout");
-    }
-
-    // Extract everything between the markers and parse as JSON
-    const jsonString = stdout.slice(start + "Dependencies result:  ".length, end + 1);
-    return JSON.parse(jsonString);
-  } catch (error) {
-    console.error("Failed to parse stdout:", error);
-    return null;
+    // return JSON.parse(outputDataString);
+    // NOTE: The script currently does not output valid JSON.
+    return eval(`(${outputDataString})`);
+  } catch (error: any) {
+    throw new Error(`Failed to parse DG stdout "${error.message}". Input: ${outputDataString}`);
   }
 }

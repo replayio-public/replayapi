@@ -24,10 +24,10 @@ try {
   throw e;
 }
 
-
-
 // Convert paths to root (tsconfig files usually convert all paths relative to their own location, so we have to do it manually):
-tsconfig.compilerOptions.paths = transformObjectPaths(tsconfig.compilerOptions.paths, (p) => relativeToRoot(p));
+tsconfig.compilerOptions.paths = transformObjectPaths(tsconfig.compilerOptions.paths, p =>
+  relativeToRoot(p)
+);
 
 const moduleNameMapper = require("tsconfig-paths-jest")(tsconfig);
 // const moduleNameMapper = tsconfig.compilerOptions.paths;
@@ -54,11 +54,7 @@ module.exports = {
   },
   setupFilesAfterEnv: ["jest-extended/all"],
   moduleNameMapper,
-  silent: false,
-  verbose: true,
-  transformIgnorePatterns: [
-    "node_modules"
-  ],
+  transformIgnorePatterns: ["node_modules"],
   // 100s for long-running API fetching tests
   testTimeout: 100 * 1000,
 };
