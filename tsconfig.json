@@ -44,7 +44,7 @@
       "session-server": ["packages/session-server/client.ts"],
       "session-server/*": ["packages/session-server/*"],
       "@replay/data/*": ["packages/replay-data/*"],
-      "@replay/tools/*": ["packages/replay-tools/*"],
+      "@replay/tools/*": ["packages/replay-ai-tools/*"],
       "@replay/source-parser/*": ["packages/source-parser/*"],
       "protocol/*": [".yalc/protocol/*"],
       "replay-next/*": [".yalc/replay-next/*"],
