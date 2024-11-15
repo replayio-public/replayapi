@@ -2,14 +2,27 @@
 
 import assert from "assert";
 
-import { ContentType, SourceLocation } from "@replayio/protocol";
-import Parser, { SyntaxNode } from "tree-sitter";
-
-import SourceContents from "./SourceContents";
-import { sourceLocationToPoint } from "./tree-sitter-locations";
-import { createTreeSitterParser } from "./tree-sitter-setup";
 import { PointFunctionInfo } from "@replay/data/src/recording-data/types";
+import { ContentType, SourceLocation } from "@replayio/protocol";
+import Parser, { QueryMatch, SyntaxNode } from "tree-sitter";
 
+import { guessFunctionName } from "./display-names";
+import SourceContents from "./SourceContents";
+import { pointToSourceLocation, sourceLocationToPoint } from "./tree-sitter-locations";
+import { createTreeSitterParser } from "./tree-sitter-setup";
+
+// https://tree-sitter.github.io/tree-sitter/playground
+// https://tree-sitter.github.io/tree-sitter/using-parsers#pattern-matching-with-queries
+// Grammar definitions:
+//    * https://github.com/tree-sitter/tree-sitter-javascript/blob/master/src/grammar.json
+//    * https://github.com/tree-sitter/tree-sitter-typescript/blob/master/common/define-grammar.js#L3
+//    * Node Types (includes supertypes): https://github.com/tree-sitter/tree-sitter-javascript/blob/master/src/node-types.json
+//    * https://github.com/tree-sitter/tree-sitter-python/blob/master/grammar.js#L354
+// # Concepts
+// * [Supertype Nodes](https://tree-sitter.github.io/tree-sitter/using-parsers#supertype-nodes)
+//   * https://github.com/tree-sitter/tree-sitter-javascript/blob/master/src/grammar.json#L6924
+//   * https://github.com/tree-sitter/tree-sitter-typescript/blob/master/common/define-grammar.js#L12
+//   * https://github.com/tree-sitter/tree-sitter-python/blob/master/grammar.js#L60
 export default class SourceParser {
   private parser: Parser;
   private _tree: Parser.Tree | null = null;
@@ -29,18 +42,20 @@ export default class SourceParser {
   }
 
   /** ###########################################################################
-   * Expressions and statements.
+   * Finding nearby nodes at location.
    * ##########################################################################*/
 
   getDescendantAtPosition(loc: SourceLocation): SyntaxNode {
     return this.tree.rootNode.descendantForPosition(sourceLocationToPoint(loc));
   }
 
-  getInnermostStatement(loc: SourceLocation): SyntaxNode | null {
+  /**
+   * Start at `loc` and find the first AST node containing it, whose type matches the regex.
+   */
+  getInnermostNodeAt(loc: SourceLocation, typeRegex: RegExp): SyntaxNode | null {
     let node = this.getDescendantAtPosition(loc);
-
     while (node) {
-      if (node.type.includes("statement") || node.type.includes("decl")) {
+      if (node.type.match(typeRegex)) {
         return node;
       }
       node = node.parent!;
@@ -48,8 +63,17 @@ export default class SourceParser {
     return null;
   }
 
+  getInnermostFunction(loc: SourceLocation): SyntaxNode | null {
+    return this.getInnermostNodeAt(loc, /function|method/);
+  }
+
+  getInnermostStatement(loc: SourceLocation): SyntaxNode | null {
+    // NOTE: There is a `statement` supertype we can use for this instead.
+    return this.getInnermostNodeAt(loc, /statement|decl/);
+  }
+
   getOutermostExpression(position: SourceLocation): SyntaxNode | null {
-    return this.getOuterMostCoverNode(position, "expression");
+    return this.getOuterMostTypeNode(position, "expression");
   }
 
   getRelevantContainingNodeAt(loc: SourceLocation): SyntaxNode | null {
@@ -59,11 +83,7 @@ export default class SourceParser {
     return statement || expression;
   }
 
-  /** ###########################################################################
-   * Cover nodes.
-   * ##########################################################################*/
-
-  getOuterMostCoverNode(loc: SourceLocation, cover: string): SyntaxNode | null {
+  getOuterMostTypeNode(loc: SourceLocation, cover: string): SyntaxNode | null {
     const root = this.tree.rootNode;
     const positionNode = this.getDescendantAtPosition(loc);
     const query = `(${cover}) @result`;
@@ -102,6 +122,37 @@ export default class SourceParser {
   }
 
   /** ###########################################################################
+   * Query all matching nodes.
+   * ##########################################################################*/
+
+  /**
+   * Run an arbitrary query and return all matches.
+   */
+  queryAll(query: string): QueryMatch[] {
+    const root = this.tree.rootNode;
+    const q = new Parser.Query(this.parser.getLanguage(), query);
+    return q.matches(root);
+  }
+
+  /**
+   * Run an arbitrary query and return all nodes of all matches.
+   */
+  queryAllNodes(query: string): SyntaxNode[] {
+    const root = this.tree.rootNode;
+    const q = new Parser.Query(this.parser.getLanguage(), query);
+    return q.matches(root)?.flatMap(m => m?.captures.map(c => c.node) || []) || [];
+  }
+
+  /**
+   * Find the first matching node of every match in `query`.
+   */
+  captureAllOnce(query: string): SyntaxNode[] {
+    return this.queryAll(query)
+      .map(match => match.captures?.[0]?.node || null)
+      .filter(Boolean);
+  }
+
+  /** ###########################################################################
    * Annotations.
    * ##########################################################################*/
 
@@ -123,11 +174,22 @@ export default class SourceParser {
   }
 
   /** ###########################################################################
-   * Parse functions.
+   * FunctionInfo.
    * ##########################################################################*/
 
-  getFunctionInfoAt(loc: SourceLocation): PointFunctionInfo {
-    let node = this.getDescendantAtPosition(loc);
-    // TODO: find the right tree-sitter queries to find and extract data from the function AST node.
+  getFunctionInfoAt(loc: SourceLocation): PointFunctionInfo | null {
+    const functionNode = this.getInnermostFunction(loc);
+    if (!functionNode) {
+      return null;
+    }
+    const name = guessFunctionName(functionNode);
+    return {
+      name: name || "",
+      lines: {
+        start: pointToSourceLocation(functionNode.startPosition).line,
+        end: pointToSourceLocation(functionNode.endPosition).line,
+      },
+      params: functionNode.childForFieldName("parameters")?.text || "",
+    };
   }
 }

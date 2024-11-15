@@ -99,6 +99,8 @@ export default class DependencyGraph {
       rawFrames.map(async f => {
         const p = await this.session.queryPoint(f.point);
         const code = await p.queryStatement();
+        const functionInfo = await p.queryFunctionInfo();
+        // TODO: add functionInfo
         return {
           ...f,
           ...code,
