@@ -1,3 +1,5 @@
+/* Copyright 2020-2024 Record Replay Inc. */
+
 import { extname } from "path";
 
 import Parser from "tree-sitter";
@@ -6,39 +8,14 @@ import JavaScript from "tree-sitter-javascript";
 import TypeScript from "tree-sitter-typescript";
 import { ContentType } from "@replayio/protocol";
 import assert from "assert";
-
-type BaseNode = {
-  type: string;
-  named: boolean;
-};
-
-type ChildNode = {
-  multiple: boolean;
-  required: boolean;
-  types: BaseNode[];
-};
-
-type NodeInfo =
-  | (BaseNode & {
-      subtypes: BaseNode[];
-    })
-  | (BaseNode & {
-      fields: { [name: string]: ChildNode };
-      children: ChildNode[];
-    });
-
-type Language = {
-  name: string;
-  language: unknown;
-  nodeTypeInfo: NodeInfo[];
-};
+import { Language } from "./tree-sitter-types";
 
 const LANGUAGE_EXTENSIONS = {
   javascript: ["js", "jsx", "mjs", "cjs"],
   html: ["html", "htm"],
 } as const;
 
-const EXTENSION_MAP = new Map<string, Language>([
+const LanguagesByFileExtension = new Map<string, Language>([
   ...LANGUAGE_EXTENSIONS.javascript.map(ext => [ext, JavaScript] as [string, Language]),
   ...["ts"].map(ext => [ext, TypeScript.typescript] as [string, Language]),
   ...["tsx"].map(ext => [ext, TypeScript.tsx] as [string, Language]),
@@ -67,7 +44,7 @@ function getTreeSitterLanguage(url: string, contentType?: ContentType): Language
   }
 
   const extension = getFileExtension(url);
-  const languageModule = EXTENSION_MAP.get(extension);
+  const languageModule = LanguagesByFileExtension.get(extension);
   if (!languageModule) {
     return null;
   }

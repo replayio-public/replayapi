@@ -1,6 +1,6 @@
 import { expect } from "@jest/globals";
 
-import { guessFunctionName } from "./display-names";
+import { guessFunctionName } from "./function-names";
 import SourceParser from "./SourceParser";
 import { pointToSourceLocation } from "./tree-sitter-locations";
 
@@ -123,4 +123,41 @@ describe("extract function and their names", () => {
       expect(guessFunctionName(func!)).toBe(testCase.expected);
     });
   });
+});
+
+describe("input dependencies", () => {
+  const code = `return /**BREAK*/ {
+  declarations: rule.declarations.map((declaration) =>
+    getDeclarationState(declaration, rule.domRule.objectId())
+  ),
+  id: rule.domRule.objectId(),
+  inheritance: rule.inheritance,
+  isUnmatched: rule.isUnmatched,
+  isUserAgentStyle: rule.domRule.isSystem,
+  pseudoElement: rule.pseudoElement,
+  selector: rule.selector,
+  sourceLink: rule.sourceLink,
+  type: rule.domRule.type,
+};
+`;
+  const parser = new SourceParser("test.ts", code);
+  parser.parse();
+
+  const node = parser.tree.rootNode;
+  const dependencies = parser.getInputDependencies(node);
+  expect(dependencies).toEqual([
+    "rule",
+    "rule.declarations",
+    "rule.declarations.map",
+    "getDeclarationState",
+    "rule.domRule.objectId",
+    "rule.domRule.objectId",
+    "rule.inheritance",
+    "rule.isUnmatched",
+    "rule.domRule.isSystem",
+    "rule.pseudoElement",
+    "rule.selector",
+    "rule.sourceLink",
+    "rule.domRule.type",
+  ]);
 });

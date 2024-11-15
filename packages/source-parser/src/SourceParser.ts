@@ -6,10 +6,11 @@ import { PointFunctionInfo } from "@replay/data/src/recording-data/types";
 import { ContentType, SourceLocation } from "@replayio/protocol";
 import Parser, { QueryMatch, SyntaxNode } from "tree-sitter";
 
-import { guessFunctionName } from "./display-names";
+import { guessFunctionName } from "./function-names";
 import SourceContents from "./SourceContents";
 import { pointToSourceLocation, sourceLocationToPoint } from "./tree-sitter-locations";
 import { createTreeSitterParser } from "./tree-sitter-setup";
+import { LanguageTypeCovers, makeNodeTypeCovers } from "./tree-sitter-languages";
 
 // https://tree-sitter.github.io/tree-sitter/playground
 // https://tree-sitter.github.io/tree-sitter/using-parsers#pattern-matching-with-queries
@@ -24,12 +25,15 @@ import { createTreeSitterParser } from "./tree-sitter-setup";
 //   * https://github.com/tree-sitter/tree-sitter-typescript/blob/master/common/define-grammar.js#L12
 //   * https://github.com/tree-sitter/tree-sitter-python/blob/master/grammar.js#L60
 export default class SourceParser {
-  private parser: Parser;
+  private readonly parser: Parser;
+  readonly code: SourceContents;
+  private readonly nodeTypes: LanguageTypeCovers;
   private _tree: Parser.Tree | null = null;
-  public readonly code: SourceContents;
+
   constructor(url: string, code: string, contentType?: ContentType) {
     this.code = new SourceContents(code);
     this.parser = createTreeSitterParser(url, contentType);
+    this.nodeTypes = makeNodeTypeCovers(this.parser);
   }
 
   get tree(): Parser.Tree {
@@ -52,10 +56,10 @@ export default class SourceParser {
   /**
    * Start at `loc` and find the first AST node containing it, whose type matches the regex.
    */
-  getInnermostNodeAt(loc: SourceLocation, typeRegex: RegExp): SyntaxNode | null {
+  getInnermostNodeAt(loc: SourceLocation, concreteTypeRegex: RegExp): SyntaxNode | null {
     let node = this.getDescendantAtPosition(loc);
     while (node) {
-      if (node.type.match(typeRegex)) {
+      if (node.type.match(concreteTypeRegex)) {
         return node;
       }
       node = node.parent!;
@@ -64,12 +68,12 @@ export default class SourceParser {
   }
 
   getInnermostFunction(loc: SourceLocation): SyntaxNode | null {
-    return this.getInnermostNodeAt(loc, /function|method/);
+    return this.getInnermostNodeAt(loc, this.nodeTypes.function);
   }
 
   getInnermostStatement(loc: SourceLocation): SyntaxNode | null {
     // NOTE: There is a `statement` supertype we can use for this instead.
-    return this.getInnermostNodeAt(loc, /statement|decl/);
+    return this.getInnermostNodeAt(loc, this.nodeTypes.statement);
   }
 
   getOutermostExpression(position: SourceLocation): SyntaxNode | null {
@@ -83,10 +87,10 @@ export default class SourceParser {
     return statement || expression;
   }
 
-  getOuterMostTypeNode(loc: SourceLocation, cover: string): SyntaxNode | null {
+  getOuterMostTypeNode(loc: SourceLocation, queryType: string): SyntaxNode | null {
     const root = this.tree.rootNode;
     const positionNode = this.getDescendantAtPosition(loc);
-    const query = `(${cover}) @result`;
+    const query = `(${queryType}) @result`;
     const q = new Parser.Query(this.parser.getLanguage(), query);
 
     // Get the range of the node at position
@@ -128,8 +132,7 @@ export default class SourceParser {
   /**
    * Run an arbitrary query and return all matches.
    */
-  queryAll(query: string): QueryMatch[] {
-    const root = this.tree.rootNode;
+  queryAll(query: string, root = this.tree.rootNode): QueryMatch[] {
     const q = new Parser.Query(this.parser.getLanguage(), query);
     return q.matches(root);
   }
@@ -137,17 +140,15 @@ export default class SourceParser {
   /**
    * Run an arbitrary query and return all nodes of all matches.
    */
-  queryAllNodes(query: string): SyntaxNode[] {
-    const root = this.tree.rootNode;
-    const q = new Parser.Query(this.parser.getLanguage(), query);
-    return q.matches(root)?.flatMap(m => m?.captures.map(c => c.node) || []) || [];
+  queryAllNodes(query: string, root = this.tree.rootNode): SyntaxNode[] {
+    return this.queryAll(query, root)?.flatMap(m => m?.captures.map(c => c.node) || []) || [];
   }
 
   /**
    * Find the first matching node of every match in `query`.
    */
-  captureAllOnce(query: string): SyntaxNode[] {
-    return this.queryAll(query)
+  captureAllOnce(query: string, root = this.tree.rootNode): SyntaxNode[] {
+    return this.queryAll(query, root)
       .map(match => match.captures?.[0]?.node || null)
       .filter(Boolean);
   }
@@ -174,7 +175,7 @@ export default class SourceParser {
   }
 
   /** ###########################################################################
-   * FunctionInfo.
+   * Function info.
    * ##########################################################################*/
 
   getFunctionInfoAt(loc: SourceLocation): PointFunctionInfo | null {
@@ -191,5 +192,19 @@ export default class SourceParser {
       },
       params: functionNode.childForFieldName("parameters")?.text || "",
     };
+  }
+
+  /** ###########################################################################
+   * Input dependencies.
+   * ##########################################################################*/
+
+  getInputDependencies(node: SyntaxNode): SyntaxNode[] {
+    const expressions = this.queryAllNodes("(expression) @expression", node);
+
+    return expressions.filter(e => {
+      // Ignore function/lambda expressions.
+      // TODO: Also ignore anything that is not named, like ObjectExpression etc.
+      return !this.nodeTypes.function.includes(e.type);
+    });
   }
 }
