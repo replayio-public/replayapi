@@ -62,6 +62,13 @@ export default class PointQueries {
     );
   }
 
+  async getAsyncStackFramesWithPoint(): Promise<FrameWithPoint[]> {
+    // TODO: also get async frames where available.
+    // NOTE: We have some rudimentary async stack support in devtools here:
+    //        https://github.com/replayio/devtools/blob/main/src/devtools/client/debugger/src/components/SecondaryPanes/Frames/NewFrames.tsx#L62
+    return [];
+  }
+
   async thisFrame(): Promise<Frame> {
     const [thisFrame] = await this.getStackFrames();
     return thisFrame;

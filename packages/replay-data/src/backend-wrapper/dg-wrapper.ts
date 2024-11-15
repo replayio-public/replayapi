@@ -12,8 +12,7 @@ export async function DGAnalyzeDependencies({
   spec: AnalyzeDependenciesSpec;
 }): Promise<AnalyzeDependenciesResult> {
   if (!process.env.DATABASE_URL) {
-    console.error("DATABASE_URL env var must be set");
-    process.exit(1);
+    throw new Error("DATABASE_URL env var must be set");
   }
 
   const experimentFolder = path.resolve(__dirname, "../../../..", "backend-data/dg");
@@ -21,8 +20,7 @@ export async function DGAnalyzeDependencies({
 
   const replayDir = process.env.REPLAY_DIR;
   if (!replayDir) {
-    console.error("REPLAY_DIR env var must be set");
-    process.exit(1);
+    throw new Error("REPLAY_DIR env var must be set");
   }
   const backendDir = path.join(replayDir, "backend");
 
@@ -35,8 +33,6 @@ export async function DGAnalyzeDependencies({
 
   // Write spec file
   fs.writeFileSync(specFile, JSON.stringify(spec, null, 2));
-  console.log(`Using specfile ${specFile} ...`);
-  console.time("DG");
 
   // Run analysis
   const { stdout } = await spawnAsync(
@@ -44,7 +40,6 @@ export async function DGAnalyzeDependencies({
     ["scripts/analysis/dependency-graph.ts", "-k", apiKey, "-d", cacheDir, "-s", specFile],
     { cwd: backendDir }
   );
-  console.timeEnd("DG");
   const dependencies = parseDependencyOutput(stdout.toString());
   return dependencies;
 }

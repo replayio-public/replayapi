@@ -1,8 +1,8 @@
-import { ExecutionPoint, Frame, Location, PointStackFrame } from "@replayio/protocol";
+import { Frame, Location, PointDescription, PointStackFrame } from "@replayio/protocol";
 
 export type IndexedPointStackFrame = PointStackFrame & { index: number };
 
-export type FrameWithPoint = Frame & { point?: ExecutionPoint };
+export type FrameWithPoint = Frame & { point?: PointDescription };
 
 /**
  * Line, source url and a string representing the code statement/expression surrounding some point.

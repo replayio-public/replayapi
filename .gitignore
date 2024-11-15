@@ -1,5 +1,5 @@
 # App ignores
-tmp
+tmp*
 backend-data
 
 # Yarn artifacts

@@ -18,6 +18,6 @@ describe("dg-wrapper", () => {
       spec
     };
     const result = await DGAnalyzeDependencies(options);
-    console.log(`DDBG result: ${JSON.stringify(result, null, 2)}`);
+    // TODO: expect
   });
 });
