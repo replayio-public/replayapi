@@ -1,3 +1,4 @@
+import isString from "lodash/isString";
 import { SyntaxNode } from "tree-sitter";
 
 const DefaultFunctionName = "<anonymous>";
@@ -6,17 +7,22 @@ export function guessFunctionName(functionNode: SyntaxNode): string | null {
   const names: (string | undefined)[] = [];
 
   const nameNode = functionNode.childForFieldName("name");
-  if (nameNode) {
-    names.push(nameNode.text || "");
+  let newName = nameNode?.text;
+  if (isString(newName)) {
+    names.push(newName);
+    newName = undefined;
   }
+  let parent: SyntaxNode | null = functionNode.parent;
 
-  let parent = functionNode.parent;
-
-  let foundIntrinsicName = !!names.length;
-  if (foundIntrinsicName && parent) {
-    // If the function itself has a name, then skip its parent's name.
-    // E.g.: `var xyz = function f() {}` should yield `f`, not `xyz.f`.
-    parent = parent.parent;
+  function registerName() {
+    if (isString(newName)) {
+      // Found a new name: add it to the list.
+      // NOTE: We generally add the result of the previous iteration here.
+      // This works because the AST of a program is assured to always have a `Program`, which assures one more iteration after
+      // any named node was found.
+      names.push(newName);
+      newName = undefined;
+    }
   }
 
   while (parent) {
@@ -24,13 +30,13 @@ export function guessFunctionName(functionNode: SyntaxNode): string | null {
       case "variable_declarator":
       case "public_field_definition": {
         const idNode = parent.childForFieldName("name");
-        names.push(idNode?.text);
+        newName = idNode?.text;
         break;
       }
 
       case "pair": {
         const keyNode = parent.childForFieldName("key");
-        names.push(keyNode?.text);
+        newName = keyNode?.text;
         break;
       }
 
@@ -44,25 +50,39 @@ export function guessFunctionName(functionNode: SyntaxNode): string | null {
             leftNode = propNode;
           }
         }
-        names.push(leftNode?.text);
+        newName = leftNode?.text;
         break;
       }
+
       case "class":
       case "class_declaration": {
         const idNode = parent.childForFieldName("name");
-        names.push(idNode?.text);
+        newName = idNode?.text;
         break;
       }
+
+      default:
+        // Register name only if not a new name was found.
+        // In case of conflict (e.g. `x = class A { y = function f() { } }`),
+        // we generally want to register the inner-most name,
+        // which is the name from the previous iteration.
+        registerName();
+        if (!parent) {
+          break;
+        }
     }
-    if (!foundIntrinsicName) {
-      if (!names.length) {
-        // If we have not found a name in the direct parent, give it default name.
-        names.push(DefaultFunctionName);
-      }
-      foundIntrinsicName = true;
+    if (!names.length && !isString(newName)) {
+      // First iteration: Make sure the function is given the default name, if no direct name was found.
+      newName = DefaultFunctionName;
     }
-    parent = parent.parent!;
+
+    parent = parent?.parent || null;
   }
 
-  return names.reverse().join(".") || DefaultFunctionName;
+  return (
+    names
+      .filter(n => isString(n))
+      .reverse()
+      .join(".") || DefaultFunctionName
+  );
 }

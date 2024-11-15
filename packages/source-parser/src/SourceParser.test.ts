@@ -48,52 +48,79 @@ describe("SourceParser", () => {
     );
     expect(annotatedTextAtExpression).toEqual("return /*BREAK*/wiredRules;");
   });
+});
 
-  test("extract function and their names", () => {
-    const code = `
-      function f1() { MARKER; }
-      var f2 = () => { MARKER; }
-      var f3 = function() { MARKER; }
-      f3b = function() { MARKER; }
-      var o = { f4() { MARKER; } }
-      var o2 = { f4b: () => { MARKER; } }
-      o3.p.q = transform({ f4c: () => { MARKER; } })
-      class A { f5() { MARKER; } }
-      class A { f5b = () => { MARKER; } }
-      class B { #f5b() { MARKER; } }
-      class C { constructor() { this.f5c = () => { MARKER; }; } }
-      function *f7() { MARKER; yield x; }
-      async function *f8() { MARKER; yield await x; }
-    `;
-    const nLines = code.trim().split("\n").length;
-    const parser = new SourceParser("test.ts", code);
-    parser.parse();
+describe("extract function and their names", () => {
+  const testCases = [
+    {
+      input: "function f1() { MARKER; }",
+      expected: "f1",
+    },
+    {
+      input: "var f2 = () => { MARKER; }",
+      expected: "f2",
+    },
+    {
+      input: "var f3 = function() { MARKER; }",
+      expected: "f3",
+    },
+    {
+      input: "f3b = function() { MARKER; }",
+      expected: "f3b",
+    },
+    {
+      input: "var o = { f4() { MARKER; } }",
+      expected: "o.f4",
+    },
+    {
+      input: "var o2 = { f4b: () => { MARKER; } }",
+      expected: "o2.f4b",
+    },
+    {
+      input: "o3.p.q = transform({ f4c: () => { MARKER; } })",
+      expected: "o3.p.q.f4c",
+    },
+    {
+      input: "class A { f5() { MARKER; } }",
+      expected: "A.f5",
+    },
+    {
+      input: "class A { f5b = () => { MARKER; } }",
+      expected: "A.f5b",
+    },
+    {
+      input: "class B { #f5b() { MARKER; } }",
+      expected: "B.#f5b",
+    },
+    {
+      input: "class C { constructor() { this.f5c = () => { MARKER; }; } }",
+      expected: "C.f5c",
+    },
+    {
+      input: "const D = class xyz { xzw = function f5d() { MARKER; }; }",
+      expected: "D.xzw.f5d",
+    },
+    {
+      input: "function *f7() { MARKER; yield x; }",
+      expected: "f7",
+    },
+    {
+      input: "async function *f8() { MARKER; yield await x; }",
+      expected: "f8",
+    },
+  ];
 
-    const markers = parser.queryAllNodes(
-      `((identifier) @constant (#match? @constant "MARKER"))`
-    );
-    expect(markers).toHaveLength(nLines);
+  testCases.forEach(testCase => {
+    test(`parses "${testCase.expected}"`, () => {
+      const parser = new SourceParser("test.ts", testCase.input);
+      parser.parse();
 
-    const allFunctions = markers.map(marker =>
-      parser.getInnermostFunction(pointToSourceLocation(marker.startPosition))
-    );
-    expect(allFunctions).toHaveLength(nLines);
+      const marker = parser.queryAllNodes(
+        `((identifier) @constant (#match? @constant "MARKER"))`
+      )[0];
 
-    const functionNames = allFunctions.map(f => (f ? guessFunctionName(f) : "(null)"));
-    expect(functionNames).toEqual([
-      "f1",
-      "f2",
-      "f3",
-      "f3b",
-      "o.f4",
-      "o2.f4b",
-      "o3.p.q.f4c",
-      "A.f5",
-      "A.f5b",
-      "B.#f5b",
-      "C.f5c",
-      "f7",
-      "f8",
-    ]);
+      const func = parser.getInnermostFunction(pointToSourceLocation(marker.startPosition));
+      expect(guessFunctionName(func!)).toBe(testCase.expected);
+    });
   });
 });
