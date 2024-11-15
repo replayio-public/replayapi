@@ -56,19 +56,7 @@ export default class SourceParser {
     const statement = this.getInnermostStatement(loc);
     const expression = this.getOutermostExpression(loc);
 
-    let result = statement || expression;
-    if (!result) {
-      return null;
-    }
-
-    if (statement && expression) {
-      const statementSize = statement.endIndex - statement.startIndex;
-      const expressionSize = expression.endIndex - expression.startIndex;
-
-      result = expressionSize > statementSize ? expression : statement;
-    }
-
-    return result;
+    return statement || expression;
   }
 
   /** ###########################################################################
