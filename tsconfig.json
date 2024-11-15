@@ -79,5 +79,5 @@
   "exclude": [
     "node_modules"
   ],
-  "include": ["**/*.ts", "tsconfig.json", "**/*.config.*js", "prettier.config.js"]
+  "include": ["**/*.ts", "tsconfig.json", "**/*.config.*js", "prettier.config.js", "testing/globalTeardown.js"]
 }

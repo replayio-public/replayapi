@@ -4,14 +4,14 @@ const { parse } = require("jsonc-parser");
 
 Error.stackTraceLimit = Infinity;
 
-const Root = __dirname;
+const RootDir = __dirname;
 const RelativeRoot = "../..";
 
 function relativeToRoot(p) {
   return path.join(RelativeRoot, p);
 }
 
-const rawJsonc = fs.readFileSync(path.resolve(Root, "tsconfig.json")).toString("utf-8");
+const rawJsonc = fs.readFileSync(path.resolve(RootDir, "tsconfig.json")).toString("utf-8");
 
 let tsconfig;
 try {
@@ -53,6 +53,7 @@ module.exports = {
     // ],
   },
   setupFilesAfterEnv: ["jest-extended/all"],
+  globalTeardown: RootDir + "/testing/globalTeardown.js",
   moduleNameMapper,
   transformIgnorePatterns: ["node_modules"],
   // 100s for long-running API fetching tests
