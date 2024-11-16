@@ -62,10 +62,11 @@ export function guessFunctionName(functionNode: SyntaxNode): string | null {
       }
 
       default:
-        // Register name only if not a new name was found.
+        // Register last name if not a new name was found.
         // In case of conflict (e.g. `x = class A { y = function f() { } }`),
         // we generally want to register the inner-most name,
         // which is the name from the previous iteration.
+        // NOTE: We iterate inner-to-outer. This can be simplified if we reverse it.
         registerName();
         if (!parent) {
           break;

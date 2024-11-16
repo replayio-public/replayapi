@@ -1,8 +1,8 @@
-import { expect } from "@jest/globals";
-
 import { guessFunctionName } from "./function-names";
 import SourceParser from "./SourceParser";
 import { pointToSourceLocation } from "./tree-sitter-locations";
+
+/// <reference types="jest-extended" />
 
 describe("SourceParser", () => {
   test("basic statement extraction", () => {
@@ -144,14 +144,17 @@ describe("input dependencies", () => {
   parser.parse();
 
   const node = parser.tree.rootNode;
-  const dependencies = parser.getInputDependencies(node);
-  expect(dependencies).toEqual([
+  const dependencies = parser.getInterestingInputDependencies(node).map(n => n.text);
+  expect(dependencies.toSorted()).toEqual([
     "rule",
     "rule.declarations",
     "rule.declarations.map",
-    "getDeclarationState",
+    `rule.declarations.map((declaration) =>
+    getDeclarationState(declaration, rule.domRule.objectId())
+  )`,
+    "rule.domRule.objectId()",
     "rule.domRule.objectId",
-    "rule.domRule.objectId",
+    "rule.domRule",
     "rule.inheritance",
     "rule.isUnmatched",
     "rule.domRule.isSystem",
@@ -159,5 +162,5 @@ describe("input dependencies", () => {
     "rule.selector",
     "rule.sourceLink",
     "rule.domRule.type",
-  ]);
+  ].toSorted());
 });

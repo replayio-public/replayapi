@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const { parse } = require("jsonc-parser");
+// const { pathsToModuleNameMapper } = require('ts-jest');
 
 Error.stackTraceLimit = Infinity;
 
@@ -29,6 +30,7 @@ tsconfig.compilerOptions.paths = transformObjectPaths(tsconfig.compilerOptions.p
   relativeToRoot(p)
 );
 
+// TODO: Use `pathsToModuleNameMapper` instead.
 const moduleNameMapper = require("tsconfig-paths-jest")(tsconfig);
 // const moduleNameMapper = tsconfig.compilerOptions.paths;
 
@@ -42,7 +44,7 @@ module.exports = {
       "ts-jest",
       {
         // diagnostics: true,
-        diagnostics: false,
+        diagnostics: false
       },
     ],
     // ".*\\.yalc.*": [
