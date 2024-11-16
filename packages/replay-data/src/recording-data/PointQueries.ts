@@ -11,9 +11,9 @@ import ReplaySession from "./ReplaySession";
 import {
   CodeAtPoint,
   FrameWithPoint,
-  PointFunctionInfo,
   IndexedPointStackFrame,
   LocationWithUrl,
+  PointFunctionInfo,
 } from "./types";
 
 const POINT_ANNOTATION = "/*BREAK*/";
@@ -57,9 +57,7 @@ export default class PointQueries {
   async getStackFramesWithPoint(): Promise<FrameWithPoint[]> {
     const frames = await this.getStackFrames();
     const points = await this.getPointStack(frames.length - 1);
-    return frames.map(
-      (frame: Frame, i) => ({ ...frame, point: points[i]!.point }) as FrameWithPoint
-    );
+    return frames.map((frame: Frame, i) => ({ ...frame, point: points[i]!.point }));
   }
 
   async getAsyncStackFramesWithPoint(): Promise<FrameWithPoint[]> {

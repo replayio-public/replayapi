@@ -53,10 +53,10 @@ export default class SourceParser {
    * ##########################################################################*/
 
   getNodeAt(locOrNode: SyntaxNode | SourceLocation): SyntaxNode {
-    if ((locOrNode as any).tree) {
-      return locOrNode as SyntaxNode;
+    if ("tree" in locOrNode) {
+      return locOrNode;
     }
-    return this.tree.rootNode.descendantForPosition(sourceLocationToPoint(locOrNode as SourceLocation));
+    return this.tree.rootNode.descendantForPosition(sourceLocationToPoint(locOrNode));
   }
 
   /**
@@ -220,7 +220,11 @@ export default class SourceParser {
     // 1. Find all expressions.
     let expressions = this.queryAllNodes("(expression) @expr", node);
     // 2. Only pick the top-level expressions.
-    expressions = Array.from(new Set(expressions.map(e => this.getOutermostExpression(pointToSourceLocation(e.startPosition))!)));
+    expressions = Array.from(
+      new Set(
+        expressions.map(e => this.getOutermostExpression(pointToSourceLocation(e.startPosition))!)
+      )
+    );
     // 3. Find all nested expressions and cull unwanted sub-trees.
     const nodes: SyntaxNode[] = [];
     for (const expr of expressions) {

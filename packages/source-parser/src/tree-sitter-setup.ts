@@ -1,13 +1,14 @@
 /* Copyright 2020-2024 Record Replay Inc. */
 
+import assert from "assert";
 import { extname } from "path";
 
+import { ContentType } from "@replayio/protocol";
 import Parser from "tree-sitter";
 import HTML from "tree-sitter-html";
 import JavaScript from "tree-sitter-javascript";
 import TypeScript from "tree-sitter-typescript";
-import { ContentType } from "@replayio/protocol";
-import assert from "assert";
+
 import { Language } from "./tree-sitter-types";
 
 const LANGUAGE_EXTENSIONS = {
@@ -16,10 +17,10 @@ const LANGUAGE_EXTENSIONS = {
 } as const;
 
 const LanguagesByFileExtension = new Map<string, Language>([
-  ...LANGUAGE_EXTENSIONS.javascript.map(ext => [ext, JavaScript] as [string, Language]),
-  ...["ts"].map(ext => [ext, TypeScript.typescript] as [string, Language]),
-  ...["tsx"].map(ext => [ext, TypeScript.tsx] as [string, Language]),
-  ...LANGUAGE_EXTENSIONS.html.map(ext => [ext, HTML] as [string, Language]),
+  ...LANGUAGE_EXTENSIONS.javascript.map(ext => [ext, JavaScript] as const),
+  ...["ts"].map(ext => [ext, TypeScript.typescript] as const),
+  ...["tsx"].map(ext => [ext, TypeScript.tsx] as const),
+  ...LANGUAGE_EXTENSIONS.html.map(ext => [ext, HTML] as const),
 ]);
 
 function getFileExtension(uri: string): string {
@@ -27,14 +28,10 @@ function getFileExtension(uri: string): string {
     // Parse url file extension.
     const url = new URL(uri);
     const pathname = url.pathname;
-    return extname(pathname)
-      .toLowerCase()
-      .replace(/^\./, '');
+    return extname(pathname).toLowerCase().replace(/^\./, "");
   } catch {
     // Fallback for non-URL strings (local paths).
-    return extname(uri)
-      .toLowerCase()
-      .replace(/^\./, '');
+    return extname(uri).toLowerCase().replace(/^\./, "");
   }
 }
 

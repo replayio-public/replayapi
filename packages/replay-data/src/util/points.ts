@@ -177,7 +177,7 @@ export function BigIntToPoint(n: bigint): ExecutionPointInfo {
     checkpoint,
     progress,
     position: { kind, offset, frameIndex },
-  } as any as ExecutionPointInfo;
+  } as ExecutionPointInfo;
 
   function readValue(nbits: number) {
     const mask = (BigInt(1) << BigInt(nbits)) - BigInt(1);

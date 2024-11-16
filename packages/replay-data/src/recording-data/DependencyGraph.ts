@@ -5,7 +5,6 @@ import orderBy from "lodash/orderBy";
 
 import {
   AnalyzeDependenciesResult,
-  AnalyzeDependenciesSpec,
   DependencyChainStep,
   DependencyGraphMode,
 } from "../backend-wrapper/backend-types";
@@ -37,7 +36,7 @@ export default class DependencyGraph {
       point,
       mode: DependencyGraphMode.ReactOwnerRenders,
       showPromises: true,
-    } as AnalyzeDependenciesSpec;
+    };
     const options = {
       apiKey: this.session.ApiKey,
       spec,
@@ -66,7 +65,7 @@ export default class DependencyGraph {
       kind: event.code as (typeof TargetDGEventCodes)[number],
       point: event.point,
       // NOTE: Only some events provide the `functionName`.
-      functionName: (event as any).functionName,
+      functionName: "functionName" in event ? event.functionName : undefined,
     };
   }
 
@@ -82,10 +81,10 @@ export default class DependencyGraph {
 
     const normalizedFrames = frames
       .map<RawRichStackFrame | null>(frame => this.normalizeFrameForRichStack(frame))
-      .filter(Boolean);
+      .filter(v => !!v);
     const normalizedDGEvents = dgChain.dependencies
       .map<RawRichStackFrame | null>(event => this.normalizeDGEventForRichStack(event))
-      .filter(Boolean);
+      .filter(v => !!v);
 
     // Interweave the two, sorted by point.
     const rawFrames = orderBy(
@@ -120,10 +119,8 @@ export default class DependencyGraph {
  * Cull before getting extra data.
  */
 function shouldIncludeRawRichStackFrame(frame: RawRichStackFrame) {
-  if (!TargetDGEventCodes.includes(frame.kind as any)) {
-    return false;
-  }
-  return true;
+  const includedEventCodes: readonly RichStackFrameKind[] = TargetDGEventCodes;
+  return includedEventCodes.includes(frame.kind);
 }
 /**
  * Cull after getting extra data.

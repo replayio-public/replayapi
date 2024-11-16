@@ -1,5 +1,5 @@
 import { getApiKey } from "../recording-data/ReplaySession";
-import { AnalyzeDependenciesSpec, DependencyGraphMode } from "./backend-types";
+import { DependencyGraphMode } from "./backend-types";
 import { DGAnalyzeDependencies } from "./dg-wrapper";
 
 const RecordingId = "011f1663-6205-4484-b468-5ec471dc5a31";
@@ -12,10 +12,10 @@ describe("dg-wrapper", () => {
       point: Point,
       mode: DependencyGraphMode.ReactOwnerRenders,
       showPromises: true,
-    } as AnalyzeDependenciesSpec;
+    };
     const options = {
       apiKey: getApiKey(),
-      spec
+      spec,
     };
     const result = await DGAnalyzeDependencies(options);
     // TODO: expect

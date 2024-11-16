@@ -50,9 +50,7 @@ export class TypeCover implements Iterable<LanguageTypeName> {
  * ##########################################################################*/
 
 function getLanguage(languageOrParser: Language | Parser): Language {
-  return (languageOrParser as any).nodeTypeInfo
-    ? (languageOrParser as Language)
-    : ((languageOrParser as Parser).getLanguage() as Language);
+  return "nodeTypeInfo" in languageOrParser ? languageOrParser : languageOrParser.getLanguage();
 }
 
 export class LanguageInfo {
@@ -99,7 +97,7 @@ export class LanguageInfo {
     return this.typesByNames.get(name);
   }
 
-  getMatchingNodeTypes(re: RegExp): any {
+  getMatchingNodeTypes(re: RegExp): string[] {
     const t = this.language.nodeTypeInfo;
     return t.filter(n => re.test(n.type)).map(n => n.type);
   }
