@@ -52,15 +52,18 @@ export default class SourceParser {
    * Finding nearby nodes at location.
    * ##########################################################################*/
 
-  getDescendantAtPosition(loc: SourceLocation): SyntaxNode {
-    return this.tree.rootNode.descendantForPosition(sourceLocationToPoint(loc));
+  getNodeAt(locOrNode: SyntaxNode | SourceLocation): SyntaxNode {
+    if ((locOrNode as any).tree) {
+      return locOrNode as SyntaxNode;
+    }
+    return this.tree.rootNode.descendantForPosition(sourceLocationToPoint(locOrNode as SourceLocation));
   }
 
   /**
    * Start at `loc` and find the first AST node containing it, whose type matches the regex.
    */
   getInnermostNodeAt(loc: SourceLocation, type: TypeCover): SyntaxNode | null {
-    let node = this.getDescendantAtPosition(loc);
+    let node = this.getNodeAt(loc);
     while (node) {
       if (type.has(node.type)) {
         return node;
@@ -92,7 +95,7 @@ export default class SourceParser {
 
   getOuterMostTypeNode(loc: SourceLocation, queryType: string): SyntaxNode | null {
     const root = this.tree.rootNode;
-    const positionNode = this.getDescendantAtPosition(loc);
+    const positionNode = this.getNodeAt(loc);
     const query = `(${queryType}) @result`;
     const q = new Parser.Query(this.parser.getLanguage(), query);
 
@@ -205,7 +208,9 @@ export default class SourceParser {
    * Heuristic subset of all "interesting" expression nodes within `node`.
    * @returns A list of nodes, but unique by text.
    */
-  getInterestingInputDependencies(node: SyntaxNode): SyntaxNode[] {
+  getInterestingInputDependencies(nodeOrLocation: SyntaxNode | SourceLocation): SyntaxNode[] {
+    const node = this.getNodeAt(nodeOrLocation);
+
     // Don't traverse inline functions as they create new scopes.
     const excludeSubtree = this.language.function;
 

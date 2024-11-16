@@ -135,7 +135,7 @@ export default class PointQueries {
     };
   }
 
-  async queryFunctionInfo(): Promise<PointFunctionInfo> {
+  async queryFunctionInfo(): Promise<PointFunctionInfo | null> {
     const [thisLocation, parser] = await Promise.all([
       this.getSourceLocation(),
       this.parseSource(),
@@ -147,9 +147,16 @@ export default class PointQueries {
     return await this.dg.getNormalizedRichStackAtPoint(this);
   }
 
-  // async queryInputDependencies() {
-  //   // TODO
-  // }
+  async queryInputDependencies() {
+    const [thisLocation, parser] = await Promise.all([
+      this.getSourceLocation(),
+      this.parseSource(),
+    ]);
+
+    const deps = parser.getInterestingInputDependencies(thisLocation);
+    // TODO: Also find bindings for each dep.
+    // TODO: Add relevant context for each dep.
+  }
 
   // /**
   //  * TODO: Replace this w/ a combination of (i) summarization + (ii) in-frame point mappings.

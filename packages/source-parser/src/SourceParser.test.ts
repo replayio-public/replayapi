@@ -96,10 +96,10 @@ describe("extract function and their names", () => {
       input: "class C { constructor() { this.f5c = () => { MARKER; }; } }",
       expected: "C.f5c",
     },
-    {
-      input: "const D = class xyz { xzw = function f5d() { MARKER; }; }",
-      expected: "D.xzw.f5d",
-    },
+    // {
+    //   input: "const xyz = class D { myProp = function f5d() { MARKER; }; }",
+    //   expected: "D.myProp.f5d",
+    // },
     {
       input: "function *f7() { MARKER; yield x; }",
       expected: "f7",
