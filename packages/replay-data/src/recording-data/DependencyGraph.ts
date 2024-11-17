@@ -32,7 +32,7 @@ export default class DependencyGraph {
 
   async getDependencyChain(point: ExecutionPoint): Promise<AnalyzeDependenciesResult> {
     const spec = {
-      recordingId: this.session.getRecordingId(),
+      recordingId: this.session.getRecordingId()!,
       point,
       mode: DependencyGraphMode.ReactOwnerRenders,
       showPromises: true,

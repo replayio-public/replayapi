@@ -100,31 +100,17 @@ export default class SourceParser {
     const q = new Parser.Query(this.parser.getLanguage(), query);
 
     // Get the range of the node at position
-    const targetStartPosition = positionNode.startPosition;
-    const targetEndPosition = positionNode.endPosition;
+    const targetStartIndex = positionNode.startIndex;
+    const targetEndIndex = positionNode.endIndex;
 
     let largestContainer: SyntaxNode | null = null;
 
     for (const match of q.matches(root)) {
       const node = match.captures[0].node;
-      // Check if this node's range fully contains our target node's range
-      if (
-        node.startPosition.row <= targetStartPosition.row &&
-        node.endPosition.row >= targetEndPosition.row &&
-        (node.startPosition.row < targetStartPosition.row ||
-          node.startPosition.column <= targetStartPosition.column) &&
-        (node.endPosition.row > targetEndPosition.row ||
-          node.endPosition.column >= targetEndPosition.column)
-      ) {
-        // Update if this is the first match or if it has a larger range than current best
-        if (
-          !largestContainer ||
-          node.startPosition.row < largestContainer.startPosition.row ||
-          (node.startPosition.row === largestContainer.startPosition.row &&
-            node.startPosition.column < largestContainer.startPosition.column)
-        ) {
-          largestContainer = node;
-        }
+      const containsTarget = node.startIndex <= targetStartIndex && node.endIndex >= targetEndIndex;
+
+      if (containsTarget && (!largestContainer || node.startIndex < largestContainer.startIndex)) {
+        largestContainer = node;
       }
     }
 
@@ -219,13 +205,13 @@ export default class SourceParser {
 
     // 1. Find all expressions.
     let expressions = this.queryAllNodes("(expression) @expr", node);
-    // 2. Only pick the top-level expressions.
+    // 2. Only pick the top-level expressions, including unwanted sub-trees.
     expressions = Array.from(
       new Set(
         expressions.map(e => this.getOutermostExpression(pointToSourceLocation(e.startPosition))!)
       )
     );
-    // 3. Find all nested expressions and cull unwanted sub-trees.
+    // 3. Find all nested expressions but cull unwanted sub-trees.
     const nodes: SyntaxNode[] = [];
     for (const expr of expressions) {
       const traverse = (node: SyntaxNode) => {

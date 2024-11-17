@@ -8,18 +8,21 @@ import Parser, { SyntaxNode } from "tree-sitter";
 
 import { BaseNode, Language } from "./tree-sitter-types";
 
-export type LanguageTypeName = string;
+/**
+ * Node types, including concrete types and covers/abstract types.
+ */
+export type NodeTypeName = string;
 
 /** ###########################################################################
  * {@link TypeCover}
  * ##########################################################################*/
 
-export class TypeCover implements Iterable<LanguageTypeName> {
-  private types: Set<LanguageTypeName>;
+export class TypeCover implements Iterable<NodeTypeName> {
+  private types: Set<NodeTypeName>;
 
   constructor(
     public readonly language: LanguageInfo,
-    types: Iterable<LanguageTypeName | TypeCover>
+    types: Iterable<NodeTypeName | TypeCover>
   ) {
     const allTypes = new Set(
       Array.from(types).flatMap(t => (t instanceof TypeCover ? Array.from(t.types) : t))
@@ -30,13 +33,13 @@ export class TypeCover implements Iterable<LanguageTypeName> {
     this.types = new Set(concreteTypes);
   }
 
-  has(nodeOrType: LanguageTypeName): boolean;
+  has(nodeOrType: NodeTypeName): boolean;
   has(nodeOrType: SyntaxNode): boolean;
-  has(nodeOrType: LanguageTypeName | SyntaxNode): boolean {
+  has(nodeOrType: NodeTypeName | SyntaxNode): boolean {
     return this.types.has(isString(nodeOrType) ? nodeOrType : nodeOrType.type);
   }
 
-  [Symbol.iterator](): Iterator<LanguageTypeName> {
+  [Symbol.iterator](): Iterator<NodeTypeName> {
     return this.types.values();
   }
 
@@ -55,7 +58,7 @@ function getLanguage(languageOrParser: Language | Parser): Language {
 
 export class LanguageInfo {
   readonly language: Language;
-  readonly typesByNames: Map<LanguageTypeName, BaseNode>;
+  readonly typesByNames: Map<NodeTypeName, BaseNode>;
 
   expression: TypeCover;
   statement: TypeCover;
@@ -81,11 +84,11 @@ export class LanguageInfo {
     this.clazz = this.typeCover(this.getMatchingNodeTypes(/class/));
   }
 
-  typeCover(types: Iterable<LanguageTypeName | TypeCover>): TypeCover {
+  typeCover(types: Iterable<NodeTypeName | TypeCover>): TypeCover {
     return new TypeCover(this, types);
   }
 
-  getConcreteTypeNames(...types: LanguageTypeName[]): LanguageTypeName[] {
+  getConcreteTypeNames(...types: NodeTypeName[]): NodeTypeName[] {
     return types.flatMap(t => {
       const info = this.getNodeTypeInfo(t);
       if (!info.subtypes) return [t];
@@ -97,7 +100,7 @@ export class LanguageInfo {
     return this.typesByNames.get(name);
   }
 
-  getMatchingNodeTypes(re: RegExp): string[] {
+  getMatchingNodeTypes(re: RegExp): NodeTypeName[] {
     const t = this.language.nodeTypeInfo;
     return t.filter(n => re.test(n.type)).map(n => n.type);
   }
