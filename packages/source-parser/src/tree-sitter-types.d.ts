@@ -29,3 +29,5 @@ export type Language = {
   language: unknown;
   nodeTypeInfo: NodeInfo[];
 };
+
+export { SyntaxNode } from "tree-sitter";

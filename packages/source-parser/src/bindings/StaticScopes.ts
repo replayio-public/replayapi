@@ -5,10 +5,11 @@ import { SyntaxNode } from "tree-sitter";
 import SourceParser from "../SourceParser";
 import StaticScope from "./StaticScope";
 import type { Declaration } from "./StaticScope";
+import { SourceLocation } from "graphql";
 
 export class ScopeMap extends Map<SyntaxNode, StaticScope> {}
 
-export default class StaticBindings {
+export default class StaticScopes {
   public readonly scopes: ScopeMap;
   private _rootScope: StaticScope | null = null;
   constructor(public readonly parser: SourceParser) {
@@ -20,17 +21,24 @@ export default class StaticBindings {
     return this._rootScope!;
   }
 
-  private getOrCreateScope(node: SyntaxNode) {
+  getScopeAt(locOrNode: SyntaxNode | SourceLocation): StaticScope {
+    // TODO: Don't add statement_block and its parent both.
+    const scopeNode = this.parser.getInnermostNodeAt(locOrNode, this.parser.language.scopeOwner);
+    return scopeNode && this.scopes.get(scopeNode) || this.rootScope;
+  }
+
+  private getOrCreateScope(parent: StaticScope | null, node: SyntaxNode) {
     let scope = this.scopes.get(node);
     if (!scope) {
       const declarations = new Map<string, Declaration>();
-      scope = new StaticScope(this, node, declarations, []);
+      scope = new StaticScope(this, parent, node, declarations, []);
       this.scopes.set(node, scope);
     }
     return scope;
   }
 
   private hasOwnScope(node: SyntaxNode) {
+    // TODO: Don't add statement_block and its parent both.
     return this.parser.language.scopeOwner.has(node.type);
   }
 
@@ -124,8 +132,8 @@ export default class StaticBindings {
           break;
       }
 
-      // Initialize new scope.
-      scope = this.hasOwnScope(node) ? this.getOrCreateScope(node) : scope;
+      // Might need to create new scope.
+      scope = this.hasOwnScope(node) ? this.getOrCreateScope(scope, node) : scope;
 
       // Recursively visit children
       node.children.forEach(n => visit(n, scope));
@@ -134,7 +142,7 @@ export default class StaticBindings {
 
     this._rootScope = visit(
       this.parser.tree.rootNode,
-      this.getOrCreateScope(this.parser.tree.rootNode)
+      this.getOrCreateScope(null, this.parser.tree.rootNode)
     );
   }
 }

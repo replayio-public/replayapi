@@ -7,8 +7,9 @@ const RecordingId = "011f1663-6205-4484-b468-5ec471dc5a31";
 
 type PointExpectations = {
   statement: CodeAtPoint;
+  scopes: any[];
   richStack: any[];
-}
+};
 
 const PointExpectations: Record<ExecutionPoint, PointExpectations> = {
   "78858008544042601258383216576823298": {
@@ -21,10 +22,11 @@ const PointExpectations: Record<ExecutionPoint, PointExpectations> = {
     </div>
   );`,
     },
+    scopes: [],
     richStack: [
+      // TODO: Add rich stack
       // 78858008544010399007838635439423488
-    ]
-    // TODO: Add rich stack
+    ],
     // TODO: Add `FunctionInfo`
   },
 
@@ -87,8 +89,19 @@ describe("PointQueries", () => {
       const statement = await result.queryStatement();
       expect({ ...statement }).toStrictEqual(expected.statement);
 
-      const richStack = await result.queryRichStack();
-      console.log("DDBG Rich stack:", richStack.slice(0, 15));
+      // const richStack = await result.queryRichStack();
+      // console.log("DDBG Rich stack:", richStack.slice(0, 15));
+
+      const scopes = await result.queryDynamicScopes();
+      const allStaticScopes = [];
+      const allDynamicScopes = [];
+      for (const scope of scopes) {
+        const staticDeclarations = Array.from(scope.staticScope.declarations.values());
+        allStaticScopes.push(staticDeclarations.map(s => s.name).toSorted());
+        allDynamicScopes.push(scope.dynamicBindings.map(b => b.name).toSorted());
+      }
+
+      expect(allDynamicScopes).toEqual(allStaticScopes);
 
       // const functionInfo = await result.queryFunctionInfo();
       // console.log("functionInfo:", functionInfo);

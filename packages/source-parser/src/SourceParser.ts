@@ -12,7 +12,7 @@ import SourceContents from "./SourceContents";
 import { LanguageInfo, TypeCover } from "./tree-sitter-nodes";
 import { pointToSourceLocation, sourceLocationToPoint } from "./tree-sitter-locations";
 import { createTreeSitterParser } from "./tree-sitter-setup";
-import StaticBindings from "./bindings/StaticBindings";
+import StaticScopes from "./bindings/StaticScopes";
 
 // Query API:
 //   * https://tree-sitter.github.io/tree-sitter/playground
@@ -22,7 +22,7 @@ export default class SourceParser {
   private readonly parser: Parser;
   public readonly language: LanguageInfo;
 
-  private _bindings: StaticBindings | null = null;
+  private _bindings: StaticScopes | null = null;
   private _tree: Tree | null = null;
 
   constructor(url: string, code: string, contentType?: ContentType) {
@@ -36,14 +36,14 @@ export default class SourceParser {
     return this._tree;
   }
 
-  get bindings(): StaticBindings {
+  get bindings(): StaticScopes {
     assert(this._bindings, "Bindings are not initialized. Call parse first.");
     return this._bindings;
   }
 
   parse(): void {
     this._tree = this.parser.parse(this.code.contents);
-    this._bindings = new StaticBindings(this);
+    this._bindings = new StaticScopes(this);
     this._bindings._parse();
   }
 
@@ -61,8 +61,8 @@ export default class SourceParser {
   /**
    * Start at `loc` and find the first AST node containing it, whose type matches the regex.
    */
-  getInnermostNodeAt(loc: SourceLocation, type: TypeCover): SyntaxNode | null {
-    let node = this.getNodeAt(loc);
+  getInnermostNodeAt(locOrNode: SyntaxNode | SourceLocation, type: TypeCover): SyntaxNode | null {
+    let node = this.getNodeAt(locOrNode);
     while (node) {
       if (type.has(node.type)) {
         return node;

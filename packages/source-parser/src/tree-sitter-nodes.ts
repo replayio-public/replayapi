@@ -95,7 +95,7 @@ export class LanguageInfo {
     // These don't have a predefined supertype.
     this.function = this.typeCover(this.getMatchingNodeTypes(/function|method/));
     this.clazz = this.typeCover(this.getMatchingNodeTypes(/class/));
-    this.scopeOwner = this.typeCover(this.getAllScopedNodeTypes());
+    this.scopeOwner = this.typeCover(this.getAllScopeOwnerTypes());
   }
 
   typeCover(types: Iterable<NodeTypeName | TypeCover>): TypeCover {
@@ -122,7 +122,7 @@ export class LanguageInfo {
   /**
    * @see https://babeljs.io/docs/babel-types#blockparent
    */
-  private getAllScopedNodeTypes(): string[] {
+  getAllScopeOwnerTypes(): string[] {
     return difference(
       union(
         this.getAllBodyNodeTypes(),
@@ -155,9 +155,9 @@ export class LanguageInfo {
 }
 
 async function printAllBodyNodeTypes() {
-  const l = await import("tree-sitter-javascript");
+  const l = (await import("tree-sitter-javascript"));
   const lang = new LanguageInfo(l);
-  console.log(lang.getAllBodyNodeTypes());
+  console.log(lang.getAllScopeOwnerTypes());
 }
 
 if (require.main === module) {

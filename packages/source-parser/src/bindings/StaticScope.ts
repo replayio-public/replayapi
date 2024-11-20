@@ -1,6 +1,6 @@
 import { SyntaxNode } from "tree-sitter";
 
-import StaticBindings from "./StaticBindings";
+import StaticScopes from "./StaticScopes";
 
 export interface Declaration {
   name: string;
@@ -12,7 +12,8 @@ export type DeclarationMap = Map<string, Declaration>;
 
 export default class StaticScope {
   constructor(
-    public readonly bindings: StaticBindings,
+    public readonly bindings: StaticScopes,
+    public readonly parent: StaticScope | null,
     public readonly node: SyntaxNode,
     public readonly declarations: DeclarationMap,
     public readonly children: StaticScope[]

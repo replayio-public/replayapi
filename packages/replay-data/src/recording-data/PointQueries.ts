@@ -1,11 +1,14 @@
 /* Copyright 2020-2024 Record Replay Inc. */
 
+import StaticScope from "@replay/source-parser/src/bindings/StaticScope";
 import SourceParser from "@replay/source-parser/src/SourceParser";
 import { ExecutionPoint, Frame, PauseId } from "@replayio/protocol";
 import { framesCache } from "replay-next/src/suspense/FrameCache";
 import { pointStackCache } from "replay-next/src/suspense/PointStackCache";
+import { FrameScopes, frameScopesCache } from "replay-next/src/suspense/ScopeCache";
 
 import { BigIntToPoint, ExecutionPointInfo } from "../util/points";
+import DynamicScope from "./bindings/DynamicScope";
 import DependencyGraph, { RichStackFrame } from "./DependencyGraph";
 import ReplaySession from "./ReplaySession";
 import {
@@ -70,6 +73,11 @@ export default class PointQueries {
   async thisFrame(): Promise<Frame> {
     const [thisFrame] = await this.getStackFrames();
     return thisFrame;
+  }
+
+  async thisFrameScopes(): Promise<FrameScopes> {
+    const thisFrame = await this.thisFrame();
+    return frameScopesCache.readAsync(this.session, this.pauseId, thisFrame.frameId);
   }
 
   /** ###########################################################################
@@ -145,16 +153,52 @@ export default class PointQueries {
     return await this.dg.getNormalizedRichStackAtPoint(this);
   }
 
-  async queryInputDependencies() {
-    const [thisLocation, parser] = await Promise.all([
+  // async queryInputDependencies() {
+  //   const [thisLocation, parser] = await Promise.all([
+  //     this.getSourceLocation(),
+  //     this.parseSource(),
+  //   ]);
+
+  //   const deps = parser.getInterestingInputDependencies(thisLocation);
+
+  //   // TODO: Also find bindings for each dep.
+  //   // TODO: Add relevant context for each dep.
+  // }
+
+  async queryDynamicScopes(): Promise<DynamicScope[]> {
+    const [thisLocation, frameScopes, parser] = await Promise.all([
       this.getSourceLocation(),
+      this.thisFrameScopes(),
       this.parseSource(),
     ]);
 
-    const deps = parser.getInterestingInputDependencies(thisLocation);
-    
-    // TODO: Also find bindings for each dep.
-    // TODO: Add relevant context for each dep.
+    const staticScope = parser.bindings.getScopeAt(thisLocation);
+    const recordedScopes = frameScopes.originalScopes || frameScopes.generatedScopes;
+
+    // Store static scopes by parent in array.
+    const staticScopes = [];
+    let currentStaticScope: StaticScope | null = staticScope;
+    while (currentStaticScope) {
+      staticScopes.push(currentStaticScope);
+      currentStaticScope = currentStaticScope.parent;
+    }
+
+    // Iterate scopes outer to inner.
+    const scopes: DynamicScope[] = [];
+    let lastScope: DynamicScope | null = null;
+    for (let i = Math.max(staticScopes.length, recordedScopes.length) - 1; i >= 0; i--) {
+      const currentStaticScope = staticScopes[i];
+      const currentRecordedScope = recordedScopes[i];
+      const newScope = (lastScope = new DynamicScope(
+        this,
+        lastScope,
+        currentStaticScope,
+        currentRecordedScope?.bindings || []
+      ));
+      scopes.push(newScope);
+    }
+
+    return scopes;
   }
 
   // /**
@@ -166,7 +210,7 @@ export default class PointQueries {
   // }
 
   // /**
-  //  * 
+  //  *
   //  */
   // async valuePreview(expression: string) {
   //   // TODO
