@@ -5,7 +5,7 @@ import assert from "assert";
 import { PointFunctionInfo } from "@replay/data/src/recording-data/types";
 import { ContentType, SourceLocation } from "@replayio/protocol";
 import uniqBy from "lodash/uniqBy";
-import Parser, { QueryMatch, SyntaxNode } from "tree-sitter";
+import Parser, { QueryMatch, SyntaxNode, Tree } from "tree-sitter";
 
 import { guessFunctionName } from "./function-names";
 import SourceContents from "./SourceContents";
@@ -17,39 +17,34 @@ import StaticBindings from "./bindings/StaticBindings";
 // Query API:
 //   * https://tree-sitter.github.io/tree-sitter/playground
 //   * https://tree-sitter.github.io/tree-sitter/using-parsers#pattern-matching-with-queries
-// Grammar definitions:
-//    * https://github.com/tree-sitter/tree-sitter-javascript/blob/master/src/grammar.json
-//    * https://github.com/tree-sitter/tree-sitter-typescript/blob/master/common/define-grammar.js#L3
-//    * Node Types (this is available as Language.nodeTypeInfo)
-//      * https://github.com/tree-sitter/tree-sitter-javascript/blob/master/src/node-types.json
-//    * https://github.com/tree-sitter/tree-sitter-python/blob/master/grammar.js#L354
-// # Concepts
-// * [Supertype Nodes](https://tree-sitter.github.io/tree-sitter/using-parsers#supertype-nodes)
-//   * https://github.com/tree-sitter/tree-sitter-javascript/blob/master/src/grammar.json#L6924
-//   * https://github.com/tree-sitter/tree-sitter-typescript/blob/master/common/define-grammar.js#L12
-//   * https://github.com/tree-sitter/tree-sitter-python/blob/master/grammar.js#L60
 export default class SourceParser {
   readonly code: SourceContents;
   private readonly parser: Parser;
-  private readonly language: LanguageInfo;
+  public readonly language: LanguageInfo;
 
-  readonly bindings: StaticBindings;
-  private _tree: Parser.Tree | null = null;
+  private _bindings: StaticBindings | null = null;
+  private _tree: Tree | null = null;
 
   constructor(url: string, code: string, contentType?: ContentType) {
     this.code = new SourceContents(code);
     this.parser = createTreeSitterParser(url, contentType);
     this.language = new LanguageInfo(this.parser);
-    this.bindings = new StaticBindings(this);
   }
 
-  get tree(): Parser.Tree {
+  get tree(): Tree {
     assert(this._tree, "Tree is not initialized. Call parse first.");
     return this._tree;
   }
 
+  get bindings(): StaticBindings {
+    assert(this._bindings, "Bindings are not initialized. Call parse first.");
+    return this._bindings;
+  }
+
   parse(): void {
     this._tree = this.parser.parse(this.code.contents);
+    this._bindings = new StaticBindings(this);
+    this._bindings._parse();
   }
 
   /** ###########################################################################

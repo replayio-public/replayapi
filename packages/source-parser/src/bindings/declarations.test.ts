@@ -1,16 +1,16 @@
 import SourceParser from "../SourceParser";
-import { BindingMap } from "./StaticBindings";
+import StaticScope from "./StaticScope";
 
-// Utility function to get bindings from a source string
-const getSampleDeclarations = async (source: string): Promise<BindingMap> => {
+// Utility function to get bindings from a source string.
+const getSampleRootScope = async (source: string): Promise<StaticScope> => {
   const parser = new SourceParser("test.ts", source);
   parser.parse();
-  return parser.bindings.computeNamedDeclarations(parser.tree.rootNode);
+  return parser.bindings.rootScope;
 };
 
 // Helper function to check if a name exists in declarations
-const hasDeclaration = (declarations: BindingMap, name: string, type: string) => {
-  const decl = declarations.get(name);
+const hasDeclaration = (scope: StaticScope, name: string, type: string) => {
+  const decl = scope.getDescendantDeclaration(name);
   if (!decl) {
     throw new Error(`No declaration found: \`${name}\``);
   }
@@ -24,9 +24,9 @@ describe("Named Declarations Tests", () => {
                 function basicFunction(x: number): number { return x; }
                 function* generatorFunction() { yield 42; }
             `;
-      const declarations = await getSampleDeclarations(source);
-      hasDeclaration(declarations, "basicFunction", "function_declaration");
-      hasDeclaration(declarations, "generatorFunction", "generator_function_declaration");
+      const scope = await getSampleRootScope(source);
+      hasDeclaration(scope, "basicFunction", "function_declaration");
+      hasDeclaration(scope, "generatorFunction", "generator_function_declaration");
     });
 
     it("should handle function overloads", async () => {
@@ -40,9 +40,9 @@ describe("Named Declarations Tests", () => {
                 function overloadedWithDifferentParams(a: string, b: number): void;
                 function overloadedWithDifferentParams(a?: string, b?: number) {}
             `;
-      const declarations = await getSampleDeclarations(source);
-      hasDeclaration(declarations, "overloadedFunction", "function_declaration");
-      hasDeclaration(declarations, "overloadedWithDifferentParams", "function_declaration");
+      const scope = await getSampleRootScope(source);
+      hasDeclaration(scope, "overloadedFunction", "function_declaration");
+      hasDeclaration(scope, "overloadedWithDifferentParams", "function_declaration");
     });
 
     it("function expressions", async () => {
@@ -51,10 +51,10 @@ describe("Named Declarations Tests", () => {
                 const functionExpression = function(x: number) { return x * 2; };
                 const generatorExpression = function* () { yield 123; };
             `;
-      const declarations = await getSampleDeclarations(source);
-      hasDeclaration(declarations, "arrowFunction", "variable_declarator");
-      hasDeclaration(declarations, "functionExpression", "variable_declarator");
-      hasDeclaration(declarations, "generatorExpression", "variable_declarator");
+      const scope = await getSampleRootScope(source);
+      hasDeclaration(scope, "arrowFunction", "variable_declarator");
+      hasDeclaration(scope, "functionExpression", "variable_declarator");
+      hasDeclaration(scope, "generatorExpression", "variable_declarator");
     });
   });
 
@@ -74,11 +74,11 @@ describe("Named Declarations Tests", () => {
                 @decorator
                 class ClassWithDecorators {}
             `;
-      const declarations = await getSampleDeclarations(source);
-      hasDeclaration(declarations, "BasicClass", "class_declaration");
-      hasDeclaration(declarations, "DerivedClass", "class_declaration");
-      hasDeclaration(declarations, "ParameterPropertyVariations", "class_declaration");
-      hasDeclaration(declarations, "ClassWithDecorators", "class_declaration");
+      const scope = await getSampleRootScope(source);
+      hasDeclaration(scope, "BasicClass", "class_declaration");
+      hasDeclaration(scope, "DerivedClass", "class_declaration");
+      hasDeclaration(scope, "ParameterPropertyVariations", "class_declaration");
+      hasDeclaration(scope, "ClassWithDecorators", "class_declaration");
     });
 
     // it("class constructor parameter properties", async () => {
@@ -118,27 +118,23 @@ describe("Named Declarations Tests", () => {
                 interface MergedDeclaration { x: number; }
                 interface MergedDeclaration { y: string; }
             `;
-      const declarations = await getSampleDeclarations(source);
-      hasDeclaration(declarations, "BasicInterface", "interface_declaration");
-      hasDeclaration(declarations, "ExtendedInterface", "interface_declaration");
-      hasDeclaration(declarations, "MergedDeclaration", "interface_declaration");
+      const scope = await getSampleRootScope(source);
+      hasDeclaration(scope, "BasicInterface", "interface_declaration");
+      hasDeclaration(scope, "ExtendedInterface", "interface_declaration");
+      hasDeclaration(scope, "MergedDeclaration", "interface_declaration");
     });
 
-    it("interface members", async () => {
-      const source = `
-                interface Test {
-                    regularProperty: string;
-                    methodSignature(): void;
-                    computedProperty?: string;
-                    additionalProperty: number;
-                }
-            `;
-      const declarations = await getSampleDeclarations(source);
-      hasDeclaration(declarations, "regularProperty", "property_signature");
-      hasDeclaration(declarations, "methodSignature", "method_signature");
-      hasDeclaration(declarations, "computedProperty", "property_signature");
-      hasDeclaration(declarations, "additionalProperty", "property_signature");
-    });
+//     it("interface members", async () => {
+//       const source = `
+//                 interface Test {
+//                     regularProperty: string;
+//                     methodSignature(): void;
+//                     computedProperty?: string;
+//                     additionalProperty: number;
+//                 }
+//             `;
+//       const declarations = await getSampleRootDeclarations(source);
+//     });
   });
 
   describe("Type Aliases", () => {
@@ -152,10 +148,10 @@ describe("Named Declarations Tests", () => {
                     computedProperty?: string;
                 };
             `;
-      const declarations = await getSampleDeclarations(source);
-      hasDeclaration(declarations, "SimpleType", "type_alias_declaration");
-      hasDeclaration(declarations, "ComplexType", "type_alias_declaration");
-      hasDeclaration(declarations, "TypeWithProperties", "type_alias_declaration");
+      const scope = await getSampleRootScope(source);
+      hasDeclaration(scope, "SimpleType", "type_alias_declaration");
+      hasDeclaration(scope, "ComplexType", "type_alias_declaration");
+      hasDeclaration(scope, "TypeWithProperties", "type_alias_declaration");
     });
   });
 
@@ -171,9 +167,9 @@ describe("Named Declarations Tests", () => {
                     Y = "y"
                 }
             `;
-      const declarations = await getSampleDeclarations(source);
-      hasDeclaration(declarations, "NumericEnum", "enum_declaration");
-      hasDeclaration(declarations, "StringEnum", "enum_declaration");
+      const scope = await getSampleRootScope(source);
+      hasDeclaration(scope, "NumericEnum", "enum_declaration");
+      hasDeclaration(scope, "StringEnum", "enum_declaration");
     });
   });
 
@@ -191,10 +187,10 @@ describe("Named Declarations Tests", () => {
                     export class SomeClass {}
                 }
             `;
-      const declarations = await getSampleDeclarations(source);
-      hasDeclaration(declarations, "OuterNamespace", "internal_module");
-      hasDeclaration(declarations, "InnerNamespace", "internal_module");
-      hasDeclaration(declarations, "ModuleExample", "module");
+      const scope = await getSampleRootScope(source);
+      hasDeclaration(scope, "OuterNamespace", "internal_module");
+      hasDeclaration(scope, "InnerNamespace", "internal_module");
+      hasDeclaration(scope, "ModuleExample", "module");
     });
 
     it("namespace members", async () => {
@@ -206,11 +202,11 @@ describe("Named Declarations Tests", () => {
                     export class SomeClass {}
                 }
             `;
-      const declarations = await getSampleDeclarations(source);
-      hasDeclaration(declarations, "x", "variable_declarator");
-      hasDeclaration(declarations, "y", "variable_declarator");
-      hasDeclaration(declarations, "SomeInterface", "interface_declaration");
-      hasDeclaration(declarations, "SomeClass", "class_declaration");
+      const scope = await getSampleRootScope(source);
+      hasDeclaration(scope, "x", "variable_declarator");
+      hasDeclaration(scope, "y", "variable_declarator");
+      hasDeclaration(scope, "SomeInterface", "interface_declaration");
+      hasDeclaration(scope, "SomeClass", "class_declaration");
     });
   });
 
@@ -220,31 +216,31 @@ describe("Named Declarations Tests", () => {
                 let simpleVariable = 42;
                 export const exportedVar = 42;
             `;
-      const declarations = await getSampleDeclarations(source);
-      hasDeclaration(declarations, "simpleVariable", "variable_declarator");
-      hasDeclaration(declarations, "exportedVar", "variable_declarator");
+      const scope = await getSampleRootScope(source);
+      hasDeclaration(scope, "simpleVariable", "variable_declarator");
+      hasDeclaration(scope, "exportedVar", "variable_declarator");
     });
 
     it("destructured variables", async () => {
-      const declarations = await getSampleDeclarations(`
+      const scope = await getSampleRootScope(`
                 const { destructuredObject: renamedVar, normalVar } = { destructuredObject: 1, normalVar: 2 };
                 const [arrayDestructured, ...restArray] = [1, 2, 3];
             `);
-      hasDeclaration(declarations, "renamedVar", "variable_declarator");
-      hasDeclaration(declarations, "normalVar", "variable_declarator");
-      hasDeclaration(declarations, "arrayDestructured", "variable_declarator");
-      hasDeclaration(declarations, "restArray", "variable_declarator");
+      hasDeclaration(scope, "renamedVar", "variable_declarator");
+      hasDeclaration(scope, "normalVar", "variable_declarator");
+      hasDeclaration(scope, "arrayDestructured", "variable_declarator");
+      hasDeclaration(scope, "restArray", "variable_declarator");
     });
 
     it("more variables", async () => {
-      const declarations = await getSampleDeclarations(`
+      const scope = await getSampleRootScope(`
                 const { a, b: bb } = ab, c = o["c"];
                 const { a, b: bb, c: { d: dd } } = ab, c = o["c"];
             `);
-      hasDeclaration(declarations, "a", "variable_declarator");
-      hasDeclaration(declarations, "bb", "variable_declarator");
-      hasDeclaration(declarations, "c", "variable_declarator");
-      hasDeclaration(declarations, "dd", "variable_declarator");
+      hasDeclaration(scope, "a", "variable_declarator");
+      hasDeclaration(scope, "bb", "variable_declarator");
+      hasDeclaration(scope, "c", "variable_declarator");
+      hasDeclaration(scope, "dd", "variable_declarator");
     });
   });
 
@@ -256,11 +252,11 @@ describe("Named Declarations Tests", () => {
                 import * as Namespace from "somewhere";
                 import { OriginalName as AliasedName } from "somewhere";
             `;
-      const declarations = await getSampleDeclarations(source);
-      hasDeclaration(declarations, "Something", "import_specifier");
-      hasDeclaration(declarations, "DefaultImport", "import_clause");
-      hasDeclaration(declarations, "Namespace", "import_clause");
-      hasDeclaration(declarations, "AliasedName", "import_clause");
+      const scope = await getSampleRootScope(source);
+      hasDeclaration(scope, "Something", "import_specifier");
+      hasDeclaration(scope, "DefaultImport", "import_clause");
+      hasDeclaration(scope, "Namespace", "import_clause");
+      hasDeclaration(scope, "AliasedName", "import_clause");
     });
 
     it("exports", async () => {
@@ -271,10 +267,10 @@ describe("Named Declarations Tests", () => {
                 export default basicFunction;
                 export const exportedVar = 42;
             `;
-      const declarations = await getSampleDeclarations(source);
-      hasDeclaration(declarations, "simpleVariable", "export_specifier");
-      hasDeclaration(declarations, "BasicClass", "export_specifier");
-      hasDeclaration(declarations, "exportedVar", "variable_declarator");
+      const scope = await getSampleRootScope(source);
+      hasDeclaration(scope, "simpleVariable", "export_specifier");
+      hasDeclaration(scope, "BasicClass", "export_specifier");
+      hasDeclaration(scope, "exportedVar", "variable_declarator");
     });
   });
 

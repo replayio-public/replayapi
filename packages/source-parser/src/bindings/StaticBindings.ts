@@ -1,28 +1,47 @@
-import isString from "lodash/isString";
+import assert from "assert";
+
 import { SyntaxNode } from "tree-sitter";
 
 import SourceParser from "../SourceParser";
+import StaticScope from "./StaticScope";
+import type { Declaration } from "./StaticScope";
 
-export interface Declaration {
-  name: string;
-  declarationNode: SyntaxNode;
-  nameNode: SyntaxNode;
-}
-
-export type BindingMap = Map<string, Declaration>;
+export class ScopeMap extends Map<SyntaxNode, StaticScope> {}
 
 export default class StaticBindings {
-  constructor(public readonly parser: SourceParser) {}
+  public readonly scopes: ScopeMap;
+  private _rootScope: StaticScope | null = null;
+  constructor(public readonly parser: SourceParser) {
+    this.scopes = new ScopeMap();
+  }
 
-  computeNamedDeclarations(node: SyntaxNode): BindingMap {
-    const result = new Map<string, Declaration>();
+  get rootScope(): StaticScope {
+    assert(this._rootScope, "rootScope is not initialized. Call parse first.");
+    return this._rootScope!;
+  }
 
+  private getOrCreateScope(node: SyntaxNode) {
+    let scope = this.scopes.get(node);
+    if (!scope) {
+      const declarations = new Map<string, Declaration>();
+      scope = new StaticScope(this, node, declarations, []);
+      this.scopes.set(node, scope);
+    }
+    return scope;
+  }
+
+  private hasOwnScope(node: SyntaxNode) {
+    return this.parser.language.scopeOwner.has(node.type);
+  }
+
+  _parse(): void {
     function addNamedDeclaration(
+      scope: StaticScope,
       declarationNode: SyntaxNode,
       nameNode: SyntaxNode
     ) {
       const name = nameNode.text;
-      result.set(name, { name, declarationNode, nameNode });
+      scope.declarations.set(name, { name, declarationNode, nameNode });
     }
 
     /**
@@ -30,13 +49,13 @@ export default class StaticBindings {
      * Some of them might or might not have bodies.
      * If name has multiple definitions, prefer an overload with body.
      */
-    function maybeAddNamedMaybeWithBody(declarationNode: SyntaxNode) {
+    function maybeAddNamedMaybeWithBody(scope: StaticScope, declarationNode: SyntaxNode) {
       const nameNode = declarationNode.childForFieldName("name");
       const name = nameNode?.text;
       if (!name) {
         return;
       }
-      const lastDeclaration = result.get(name);
+      const lastDeclaration = scope.declarations.get(name);
       // Check for overload groups: Pick implementation, or first forward declaration otherwise.
       if (
         lastDeclaration &&
@@ -51,7 +70,7 @@ export default class StaticBindings {
         }
       }
 
-      addNamedDeclaration(declarationNode, nameNode);
+      addNamedDeclaration(scope, declarationNode, nameNode);
     }
 
     /**
@@ -62,7 +81,7 @@ export default class StaticBindings {
      * import a, { b, c as cc } from "module";
      * ...and more...
      */
-    function addIdentifierDescendants(node: SyntaxNode): void {
+    function addIdentifierDescendants(scope: StaticScope, node: SyntaxNode): void {
       // All pattern node names are `identifier` or `shorthand_property_identifier_pattern`.
       const nameNodes = node.descendantsOfType([
         "identifier",
@@ -71,16 +90,17 @@ export default class StaticBindings {
       for (const nameNode of nameNodes) {
         const aliasNode = nameNode.parent!.childForFieldName("alias");
         // `alias` is only used in the `as` node of import and export statements.
-        addNamedDeclaration(node, aliasNode || nameNode);
+        addNamedDeclaration(scope, node, aliasNode || nameNode);
       }
     }
 
-    function visit(node: SyntaxNode): void {
+    const visit = (node: SyntaxNode, scope: StaticScope): StaticScope => {
+      // Parse nodes.
       switch (node.type) {
         case "formal_parameters":
         case "variable_declarator":
         case "import_clause":
-          addIdentifierDescendants(node);
+          addIdentifierDescendants(scope, node);
           break;
 
         // TODO: Handle declarations not directly owned by scopes.
@@ -100,15 +120,21 @@ export default class StaticBindings {
 
         default:
           // Handle most named nodes.
-          maybeAddNamedMaybeWithBody(node);
+          maybeAddNamedMaybeWithBody(scope, node);
           break;
       }
 
-      // Recursively visit children
-      node.children.forEach(visit);
-    }
+      // Initialize new scope.
+      scope = this.hasOwnScope(node) ? this.getOrCreateScope(node) : scope;
 
-    visit(node);
-    return result;
+      // Recursively visit children
+      node.children.forEach(n => visit(n, scope));
+      return scope;
+    };
+
+    this._rootScope = visit(
+      this.parser.tree.rootNode,
+      this.getOrCreateScope(this.parser.tree.rootNode)
+    );
   }
 }

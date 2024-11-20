@@ -3,7 +3,9 @@
  * @file Mostly generalized node type utilities.
  */
 
+import difference from "lodash/difference";
 import isString from "lodash/isString";
+import union from "lodash/union";
 import Parser, { SyntaxNode } from "tree-sitter";
 
 import { BaseNode, Language } from "./tree-sitter-types";
@@ -17,6 +19,16 @@ export type NodeTypeName = string;
  * {@link TypeCover}
  * ##########################################################################*/
 
+// * Grammar definitions:
+//    * https://github.com/tree-sitter/tree-sitter-javascript/blob/master/src/grammar.json
+//    * https://github.com/tree-sitter/tree-sitter-typescript/blob/master/common/define-grammar.js#L3
+//    * Node Types (this is available as Language.nodeTypeInfo)
+//      * https://github.com/tree-sitter/tree-sitter-javascript/blob/master/src/node-types.json
+//    * https://github.com/tree-sitter/tree-sitter-python/blob/master/grammar.js#L354
+// * [Supertype Nodes](https://tree-sitter.github.io/tree-sitter/using-parsers#supertype-nodes)
+//   * https://github.com/tree-sitter/tree-sitter-javascript/blob/master/src/grammar.json#L6924
+//   * https://github.com/tree-sitter/tree-sitter-typescript/blob/master/common/define-grammar.js#L12
+//   * https://github.com/tree-sitter/tree-sitter-python/blob/master/grammar.js#L60
 export class TypeCover implements Iterable<NodeTypeName> {
   private types: Set<NodeTypeName>;
 
@@ -64,6 +76,7 @@ export class LanguageInfo {
   statement: TypeCover;
   function: TypeCover;
   clazz: TypeCover;
+  scopeOwner: TypeCover;
 
   constructor(languageOrParser: Language | Parser) {
     this.language = getLanguage(languageOrParser);
@@ -82,6 +95,7 @@ export class LanguageInfo {
     // These don't have a predefined supertype.
     this.function = this.typeCover(this.getMatchingNodeTypes(/function|method/));
     this.clazz = this.typeCover(this.getMatchingNodeTypes(/class/));
+    this.scopeOwner = this.typeCover(this.getAllScopedNodeTypes());
   }
 
   typeCover(types: Iterable<NodeTypeName | TypeCover>): TypeCover {
@@ -104,4 +118,48 @@ export class LanguageInfo {
     const t = this.language.nodeTypeInfo;
     return t.filter(n => re.test(n.type)).map(n => n.type);
   }
+
+  /**
+   * @see https://babeljs.io/docs/babel-types#blockparent
+   */
+  private getAllScopedNodeTypes(): string[] {
+    return difference(
+      union(
+        this.getAllBodyNodeTypes(),
+        // Add these:
+        [
+          // Root node
+          "program",
+          // {}
+          "statement_block",
+        ]
+      ),
+      // Remove these:
+      ["class", "labeled_statement", "switch_case", "switch_default"]
+    );
+  }
+
+  getAllBodyNodeTypes(): string[] {
+    return Array.from(
+      new Set(
+        this.language.nodeTypeInfo
+          .flatMap((n: any) =>
+            Object.entries(n.fields || {}).map(([name]: [string, any]) =>
+              name == "body" ? n.type : null
+            )
+          )
+          .filter(x => !!x)
+      )
+    );
+  }
+}
+
+async function printAllBodyNodeTypes() {
+  const l = await import("tree-sitter-javascript");
+  const lang = new LanguageInfo(l);
+  console.log(lang.getAllBodyNodeTypes());
+}
+
+if (require.main === module) {
+  printAllBodyNodeTypes();
 }
