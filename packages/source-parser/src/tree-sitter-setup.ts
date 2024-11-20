@@ -19,7 +19,7 @@ const LANGUAGE_EXTENSIONS = {
 const LanguagesByFileExtension = new Map<string, Language>([
   ...LANGUAGE_EXTENSIONS.javascript.map(ext => [ext, JavaScript] as const),
   ...["ts"].map(ext => [ext, TypeScript.typescript] as const),
-  ...["tsx"].map(ext => [ext, TypeScript.tsx] as const),
+  ...["tsx", "mts", "cts"].map(ext => [ext, TypeScript.tsx] as const),
   ...LANGUAGE_EXTENSIONS.html.map(ext => [ext, HTML] as const),
 ]);
 

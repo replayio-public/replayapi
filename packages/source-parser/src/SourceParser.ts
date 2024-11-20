@@ -9,9 +9,10 @@ import Parser, { QueryMatch, SyntaxNode } from "tree-sitter";
 
 import { guessFunctionName } from "./function-names";
 import SourceContents from "./SourceContents";
-import { LanguageInfo, TypeCover } from "./tree-sitter-languages";
+import { LanguageInfo, TypeCover } from "./tree-sitter-nodes";
 import { pointToSourceLocation, sourceLocationToPoint } from "./tree-sitter-locations";
 import { createTreeSitterParser } from "./tree-sitter-setup";
+import StaticBindings from "./bindings/StaticBindings";
 
 // Query API:
 //   * https://tree-sitter.github.io/tree-sitter/playground
@@ -28,15 +29,18 @@ import { createTreeSitterParser } from "./tree-sitter-setup";
 //   * https://github.com/tree-sitter/tree-sitter-typescript/blob/master/common/define-grammar.js#L12
 //   * https://github.com/tree-sitter/tree-sitter-python/blob/master/grammar.js#L60
 export default class SourceParser {
-  private readonly parser: Parser;
   readonly code: SourceContents;
+  private readonly parser: Parser;
   private readonly language: LanguageInfo;
+
+  readonly bindings: StaticBindings;
   private _tree: Parser.Tree | null = null;
 
   constructor(url: string, code: string, contentType?: ContentType) {
     this.code = new SourceContents(code);
     this.parser = createTreeSitterParser(url, contentType);
     this.language = new LanguageInfo(this.parser);
+    this.bindings = new StaticBindings(this);
   }
 
   get tree(): Parser.Tree {
@@ -184,7 +188,7 @@ export default class SourceParser {
       },
       params: functionNode.childForFieldName("parameters")?.text || "",
     };
-  }
+  }  
 
   /** ###########################################################################
    * Input dependencies.

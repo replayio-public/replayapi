@@ -152,6 +152,7 @@ export default class PointQueries {
     ]);
 
     const deps = parser.getInterestingInputDependencies(thisLocation);
+    
     // TODO: Also find bindings for each dep.
     // TODO: Add relevant context for each dep.
   }
@@ -165,10 +166,9 @@ export default class PointQueries {
   // }
 
   // /**
-  //  * Static and dynamic data of all scopes containing `point`, including nesting branches, the current function call, classes etc.
+  //  * 
   //  */
-  // async queryScopes() {
-  //   // NOTE: This is not a top priority, but I can see it important in certain debugging scenarios.
-  //   // TODO: See if and where we need it.
+  // async valuePreview(expression: string) {
+  //   // TODO
   // }
 }
