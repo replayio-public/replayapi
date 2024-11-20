@@ -19,9 +19,8 @@ export default class StaticBindings {
 
     function addNamedDeclaration(
       declarationNode: SyntaxNode,
-      nameNodeOrNameNodeName: SyntaxNode | string
+      nameNode: SyntaxNode
     ) {
-      const nameNode = isString(nameNodeOrNameNodeName) ? declarationNode : nameNodeOrNameNodeName;
       const name = nameNode.text;
       result.set(name, { name, declarationNode, nameNode });
     }
@@ -52,7 +51,7 @@ export default class StaticBindings {
         }
       }
 
-      addNamedDeclaration(declarationNode, "name");
+      addNamedDeclaration(declarationNode, nameNode);
     }
 
     /**
@@ -70,7 +69,9 @@ export default class StaticBindings {
         "shorthand_property_identifier_pattern",
       ]);
       for (const nameNode of nameNodes) {
-        addNamedDeclaration(node, nameNode);
+        const aliasNode = nameNode.parent!.childForFieldName("alias");
+        // `alias` is only used in the `as` node of import and export statements.
+        addNamedDeclaration(node, aliasNode || nameNode);
       }
     }
 

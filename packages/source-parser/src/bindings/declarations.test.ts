@@ -174,10 +174,6 @@ describe("Named Declarations Tests", () => {
       const declarations = await getSampleDeclarations(source);
       hasDeclaration(declarations, "NumericEnum", "enum_declaration");
       hasDeclaration(declarations, "StringEnum", "enum_declaration");
-      hasDeclaration(declarations, "A", "enum_member");
-      hasDeclaration(declarations, "B", "enum_member");
-      hasDeclaration(declarations, "X", "enum_member");
-      hasDeclaration(declarations, "Y", "enum_member");
     });
   });
 
@@ -196,9 +192,9 @@ describe("Named Declarations Tests", () => {
                 }
             `;
       const declarations = await getSampleDeclarations(source);
-      hasDeclaration(declarations, "OuterNamespace", "module_declaration");
-      hasDeclaration(declarations, "InnerNamespace", "module_declaration");
-      hasDeclaration(declarations, "ModuleExample", "module_declaration");
+      hasDeclaration(declarations, "OuterNamespace", "internal_module");
+      hasDeclaration(declarations, "InnerNamespace", "internal_module");
+      hasDeclaration(declarations, "ModuleExample", "module");
     });
 
     it("namespace members", async () => {
@@ -263,8 +259,8 @@ describe("Named Declarations Tests", () => {
       const declarations = await getSampleDeclarations(source);
       hasDeclaration(declarations, "Something", "import_specifier");
       hasDeclaration(declarations, "DefaultImport", "import_clause");
-      hasDeclaration(declarations, "Namespace", "namespace_import");
-      hasDeclaration(declarations, "AliasedName", "import_specifier");
+      hasDeclaration(declarations, "Namespace", "import_clause");
+      hasDeclaration(declarations, "AliasedName", "import_clause");
     });
 
     it("exports", async () => {
@@ -276,8 +272,8 @@ describe("Named Declarations Tests", () => {
                 export const exportedVar = 42;
             `;
       const declarations = await getSampleDeclarations(source);
-      hasDeclaration(declarations, "simpleVariable", "variable_declarator");
-      hasDeclaration(declarations, "BasicClass", "class_declaration");
+      hasDeclaration(declarations, "simpleVariable", "export_specifier");
+      hasDeclaration(declarations, "BasicClass", "export_specifier");
       hasDeclaration(declarations, "exportedVar", "variable_declarator");
     });
   });

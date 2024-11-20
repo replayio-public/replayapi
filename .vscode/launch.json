@@ -11,9 +11,7 @@
         "--config",
         "${workspaceRoot}/packages/source-parser/jest.config.js",
         "--runInBand",
-        "${file}",
-        "-t",
-        "variables"
+        "${file}"
       ],
       "cwd": "${workspaceFolder}/packages/source-parser",
       "console": "integratedTerminal",
