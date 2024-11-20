@@ -2,6 +2,8 @@ import { ExecutionPoint } from "@replayio/protocol";
 
 import ReplaySession from "./ReplaySession";
 import { CodeAtPoint } from "./types";
+import difference from "lodash/difference";
+import uniq from "lodash/uniq";
 
 const RecordingId = "011f1663-6205-4484-b468-5ec471dc5a31";
 
@@ -93,15 +95,17 @@ describe("PointQueries", () => {
       // console.log("DDBG Rich stack:", richStack.slice(0, 15));
 
       const scopes = await result.queryDynamicScopes();
-      const allStaticScopes = [];
-      const allDynamicScopes = [];
+      const allStaticBindings = [];
+      const allMatchingDynamicBindings = [];
       for (const scope of scopes) {
-        const staticDeclarations = Array.from(scope.staticScope.declarations.values());
-        allStaticScopes.push(staticDeclarations.map(s => s.name).toSorted());
-        allDynamicScopes.push(scope.dynamicBindings.map(b => b.name).toSorted());
+        const staticNames = Array.from(scope.staticScope.declarations.values()).map(s => s.name);
+        const dynamicNames = scope.dynamicBindings.map(b => b.name);
+        const prefix = [scope.staticScope.node.type];
+        allStaticBindings.push(prefix.concat(staticNames.toSorted()));
+        allMatchingDynamicBindings.push(prefix.concat(dynamicNames.toSorted()));
       }
 
-      expect(allDynamicScopes).toEqual(allStaticScopes);
+      expect(allMatchingDynamicBindings).toEqual(allStaticBindings);
 
       // const functionInfo = await result.queryFunctionInfo();
       // console.log("functionInfo:", functionInfo);

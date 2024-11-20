@@ -22,8 +22,7 @@ export default class StaticScopes {
   }
 
   getScopeAt(locOrNode: SyntaxNode | SourceLocation): StaticScope {
-    // TODO: Don't add statement_block and its parent both.
-    const scopeNode = this.parser.getInnermostNodeAt(locOrNode, this.parser.language.scopeOwner);
+    const scopeNode = this.parser.getNodeAt(locOrNode, this.hasOwnScope.bind(this));
     return scopeNode && this.scopes.get(scopeNode) || this.rootScope;
   }
 
@@ -37,9 +36,9 @@ export default class StaticScopes {
     return scope;
   }
 
-  private hasOwnScope(node: SyntaxNode) {
-    // TODO: Don't add statement_block and its parent both.
-    return this.parser.language.scopeOwner.has(node.type);
+  private hasOwnScope(node: SyntaxNode): boolean {
+    return this.parser.language.scopeOwner.has(node.type) &&
+      (node.type !== "statement_block" || !this.hasOwnScope(node.parent!));
   }
 
   _parse(): void {

@@ -7,12 +7,12 @@ import { ContentType, SourceLocation } from "@replayio/protocol";
 import uniqBy from "lodash/uniqBy";
 import Parser, { QueryMatch, SyntaxNode, Tree } from "tree-sitter";
 
+import StaticScopes from "./bindings/StaticScopes";
 import { guessFunctionName } from "./function-names";
 import SourceContents from "./SourceContents";
-import { LanguageInfo, TypeCover } from "./tree-sitter-nodes";
 import { pointToSourceLocation, sourceLocationToPoint } from "./tree-sitter-locations";
+import { LanguageInfo, TypeCover } from "./tree-sitter-nodes";
 import { createTreeSitterParser } from "./tree-sitter-setup";
-import StaticScopes from "./bindings/StaticScopes";
 
 // Query API:
 //   * https://tree-sitter.github.io/tree-sitter/playground
@@ -51,25 +51,35 @@ export default class SourceParser {
    * Finding nearby nodes at location.
    * ##########################################################################*/
 
-  getNodeAt(locOrNode: SyntaxNode | SourceLocation): SyntaxNode {
+  getNodeAt(locOrNode: SyntaxNode | SourceLocation): SyntaxNode;
+  getNodeAt(
+    locOrNode: SyntaxNode | SourceLocation,
+    filter?: (n: SyntaxNode) => boolean
+  ): SyntaxNode | null;
+
+  getNodeAt(
+    locOrNode: SyntaxNode | SourceLocation,
+    filter?: (n: SyntaxNode) => boolean
+  ): SyntaxNode | null {
     if ("tree" in locOrNode) {
       return locOrNode;
     }
-    return this.tree.rootNode.descendantForPosition(sourceLocationToPoint(locOrNode));
+
+    let node = this.tree.rootNode.descendantForPosition(sourceLocationToPoint(locOrNode));
+    while (node) {
+      if (!filter || filter(node)) {
+        return node;
+      }
+      node = node.parent!;
+    }
+    return null;
   }
 
   /**
    * Start at `loc` and find the first AST node containing it, whose type matches the regex.
    */
   getInnermostNodeAt(locOrNode: SyntaxNode | SourceLocation, type: TypeCover): SyntaxNode | null {
-    let node = this.getNodeAt(locOrNode);
-    while (node) {
-      if (type.has(node.type)) {
-        return node;
-      }
-      node = node.parent!;
-    }
-    return null;
+    return this.getNodeAt(locOrNode, n => type.has(n.type));
   }
 
   getInnermostFunction(loc: SourceLocation): SyntaxNode | null {
@@ -183,7 +193,7 @@ export default class SourceParser {
       },
       params: functionNode.childForFieldName("parameters")?.text || "",
     };
-  }  
+  }
 
   /** ###########################################################################
    * Input dependencies.
