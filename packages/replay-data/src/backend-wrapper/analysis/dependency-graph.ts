@@ -1,8 +1,8 @@
 import * as fs from "fs";
 import * as path from "path";
 
-import { spawnAsync } from "../util/spawnAsync";
-import { AnalyzeDependenciesResult, AnalyzeDependenciesSpec } from "./backend-types";
+import { spawnAsync } from "../../util/spawnAsync";
+import { AnalyzeDependenciesResult, AnalyzeDependenciesSpec } from "./dg-types";
 
 export async function DGAnalyzeDependencies({
   apiKey,

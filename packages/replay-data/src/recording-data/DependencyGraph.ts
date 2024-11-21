@@ -7,8 +7,8 @@ import {
   AnalyzeDependenciesResult,
   DependencyChainStep,
   DependencyGraphMode,
-} from "../backend-wrapper/backend-types";
-import { DGAnalyzeDependencies } from "../backend-wrapper/dg-wrapper";
+} from "../backend-wrapper/analysis/dg-types";
+import { DGAnalyzeDependencies } from "../backend-wrapper/analysis/dependency-graph";
 import PointQueries from "./PointQueries";
 import ReplaySession from "./ReplaySession";
 import { CodeAtPoint, FrameWithPoint } from "./types";
