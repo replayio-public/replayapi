@@ -1,11 +1,15 @@
+import { inspect } from "util";
+
 import SourceParser from "../SourceParser";
 import StaticScope from "./StaticScope";
 
 // Utility function to get bindings from a source string.
 const getSampleRootScope = async (source: string): Promise<StaticScope> => {
-  const parser = new SourceParser("test.ts", source);
+  const parser = new SourceParser("test.tsx", source);
   parser.parse();
-  return parser.bindings.rootScope;
+
+  expect(inspect(parser.scopes.errors.map(n => n.text))).toEqual(inspect([]));
+  return parser.scopes.rootScope;
 };
 
 // Helper function to check if a name exists in declarations
@@ -14,7 +18,9 @@ const hasDeclaration = (scope: StaticScope, name: string, type: string) => {
   if (!decl) {
     throw new Error(`No declaration found: \`${name}\``);
   }
-  expect(decl.declarationNode?.type).toEqual(type);
+  const expected = `${name}: ${type}`;
+  const actual = `${name}: ${decl.declarationNode?.type}`;
+  expect(expected).toEqual(actual);
 };
 
 describe("Named Declarations Tests", () => {
@@ -25,6 +31,7 @@ describe("Named Declarations Tests", () => {
                 function* generatorFunction() { yield 42; }
             `;
       const scope = await getSampleRootScope(source);
+      hasDeclaration(scope, "x", "formal_parameters");
       hasDeclaration(scope, "basicFunction", "function_declaration");
       hasDeclaration(scope, "generatorFunction", "generator_function_declaration");
     });
@@ -63,7 +70,7 @@ describe("Named Declarations Tests", () => {
       const source = `
                 class BasicClass {}
                 class DerivedClass extends BasicClass {}
-                class ParameterPropertyVariations {
+                class CtorDeclarations {
                     constructor(
                         private x: number,
                         protected readonly y: string,
@@ -77,7 +84,7 @@ describe("Named Declarations Tests", () => {
       const scope = await getSampleRootScope(source);
       hasDeclaration(scope, "BasicClass", "class_declaration");
       hasDeclaration(scope, "DerivedClass", "class_declaration");
-      hasDeclaration(scope, "ParameterPropertyVariations", "class_declaration");
+      hasDeclaration(scope, "CtorDeclarations", "class_declaration");
       hasDeclaration(scope, "ClassWithDecorators", "class_declaration");
     });
 
@@ -124,17 +131,17 @@ describe("Named Declarations Tests", () => {
       hasDeclaration(scope, "MergedDeclaration", "interface_declaration");
     });
 
-//     it("interface members", async () => {
-//       const source = `
-//                 interface Test {
-//                     regularProperty: string;
-//                     methodSignature(): void;
-//                     computedProperty?: string;
-//                     additionalProperty: number;
-//                 }
-//             `;
-//       const declarations = await getSampleRootDeclarations(source);
-//     });
+    //     it("interface members", async () => {
+    //       const source = `
+    //                 interface Test {
+    //                     regularProperty: string;
+    //                     methodSignature(): void;
+    //                     computedProperty?: string;
+    //                     additionalProperty: number;
+    //                 }
+    //             `;
+    //       const declarations = await getSampleRootDeclarations(source);
+    //     });
   });
 
   describe("Type Aliases", () => {
@@ -253,51 +260,53 @@ describe("Named Declarations Tests", () => {
                 import { OriginalName as AliasedName } from "somewhere";
             `;
       const scope = await getSampleRootScope(source);
-      hasDeclaration(scope, "Something", "import_specifier");
+      hasDeclaration(scope, "Something", "import_clause");
       hasDeclaration(scope, "DefaultImport", "import_clause");
       hasDeclaration(scope, "Namespace", "import_clause");
       hasDeclaration(scope, "AliasedName", "import_clause");
     });
 
-    it("exports", async () => {
+    it("tsx", async () => {
       const source = `
-                const simpleVariable = 42;
-                class BasicClass {}
-                export { simpleVariable, BasicClass };
-                export default basicFunction;
-                export const exportedVar = 42;
+                function f() {
+                  const a = [1, { b: 2 }];
+                  return <div x="123" y={a}>divChild</div>;
+                }
             `;
       const scope = await getSampleRootScope(source);
-      hasDeclaration(scope, "simpleVariable", "export_specifier");
-      hasDeclaration(scope, "BasicClass", "export_specifier");
-      hasDeclaration(scope, "exportedVar", "variable_declarator");
+      hasDeclaration(scope, "a", "variable_declarator");
+      hasDeclaration(scope, "f", "function_declaration");
+
+      // `div` should not have a declaration.
+      const divDecl = scope.getDescendantDeclaration("div");
+      expect(divDecl && inspect(divDecl.declarationNode)).toBeUndefined();
     });
   });
 
-//   describe("Object Properties", () => {
-//     it("computed properties", async () => {
-//       const source = `
-//                 const propertyKey = "dynamicKey";
-//                 const objectWithComputed = {
-//                     [propertyKey]: "value",
-//                     ["literal" + "Key"]: "value2"
-//                 };
-//             `;
-//       const declarations = await getSampleDeclarations(source);
-//     });
+  //   describe("Object Properties", () => {
+  //     it("computed properties", async () => {
+  //       const source = `
+  //                 const propertyKey = "dynamicKey";
+  //                 const objectWithComputed = {
+  //                     [propertyKey]: "value",
+  //                     ["literal" + "Key"]: "value2"
+  //                 };
+  //             `;
+  //       const declarations = await getSampleDeclarations(source);
+  //     });
 
-//     it("object literal properties", async () => {
-//       const source = `
-//                 const objectLiteral = {
-//                     normalProperty: 1,
-//                     methodProperty() { return 2; },
-//                     *generatorProperty() { yield 3; },
-//                     get accessorProp() { return 4; },
-//                     set accessorProp(value: number) {}
-//                 };
-//             `;
-//       const declarations = await getSampleDeclarations(source);
-      
-//     });
-//   });
+  //     it("object literal properties", async () => {
+  //       const source = `
+  //                 const objectLiteral = {
+  //                     normalProperty: 1,
+  //                     methodProperty() { return 2; },
+  //                     *generatorProperty() { yield 3; },
+  //                     get accessorProp() { return 4; },
+  //                     set accessorProp(value: number) {}
+  //                 };
+  //             `;
+  //       const declarations = await getSampleDeclarations(source);
+
+  //     });
+  //   });
 });

@@ -17,7 +17,9 @@ export default class StaticScope {
     public readonly node: SyntaxNode,
     public readonly declarations: DeclarationMap,
     public readonly children: StaticScope[]
-  ) {}
+  ) {
+    parent?.children.push(this);
+  }
 
   getOwnDeclaration(name: string): Declaration | undefined {
     return this.declarations.get(name);

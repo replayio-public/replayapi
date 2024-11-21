@@ -11,10 +11,10 @@ describe("Scopes", () => {
   });
 
   test("should find scopes", () => {
-    const scope = parser.bindings.getScopeAt({ line: 150, column: 10 }).parent!;
+    const scope = parser.scopes.getScopeAt({ line: 150, column: 10 });
     expect(scope).toBeInstanceOf(StaticScope);
-    expect(scope.node.startPosition).toEqual({ row: 140, column: 1 });
-    expect(scope.node.endPosition).toEqual({ line: 154, column: 1 });
+    expect(scope.node.startPosition).toEqual({ row: 140, column: 0 });
+    expect(scope.node.endPosition).toEqual({ row: 154, column: 1 });
     const declared = Array.from(scope.declarations.values())
       .map(d => d.name)
       .toSorted();

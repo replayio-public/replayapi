@@ -172,7 +172,7 @@ export default class PointQueries {
       this.parseSource(),
     ]);
 
-    const staticScope = parser.bindings.getScopeAt(thisLocation);
+    const staticScope = parser.scopes.getScopeAt(thisLocation);
     const recordedScopes = frameScopes.originalScopes || frameScopes.generatedScopes;
 
     // Store static scopes by parent in array.

@@ -1,16 +1,17 @@
 import assert from "assert";
 
+import { SourceLocation } from "graphql";
 import { SyntaxNode } from "tree-sitter";
 
 import SourceParser from "../SourceParser";
 import StaticScope from "./StaticScope";
 import type { Declaration } from "./StaticScope";
-import { SourceLocation } from "graphql";
 
 export class ScopeMap extends Map<SyntaxNode, StaticScope> {}
 
 export default class StaticScopes {
   public readonly scopes: ScopeMap;
+  public readonly errors: SyntaxNode[] = [];
   private _rootScope: StaticScope | null = null;
   constructor(public readonly parser: SourceParser) {
     this.scopes = new ScopeMap();
@@ -23,7 +24,7 @@ export default class StaticScopes {
 
   getScopeAt(locOrNode: SyntaxNode | SourceLocation): StaticScope {
     const scopeNode = this.parser.getNodeAt(locOrNode, this.hasOwnScope.bind(this));
-    return scopeNode && this.scopes.get(scopeNode) || this.rootScope;
+    return (scopeNode && this.scopes.get(scopeNode)) || this.rootScope;
   }
 
   private getOrCreateScope(parent: StaticScope | null, node: SyntaxNode) {
@@ -37,8 +38,10 @@ export default class StaticScopes {
   }
 
   private hasOwnScope(node: SyntaxNode): boolean {
-    return this.parser.language.scopeOwner.has(node.type) &&
-      (node.type !== "statement_block" || !this.hasOwnScope(node.parent!));
+    return (
+      this.parser.language.scopeOwner.has(node.type) &&
+      (node.type !== "statement_block" || !node.parent || !this.hasOwnScope(node.parent))
+    );
   }
 
   _parse(): void {
@@ -101,13 +104,23 @@ export default class StaticScopes {
       }
     }
 
+    let nError = 0;
     const visit = (node: SyntaxNode, scope: StaticScope): StaticScope => {
       // Parse nodes.
       switch (node.type) {
+        case "ERROR":
+          // Error.
+          this.errors.push(node);
+          ++nError;
+          break;
+
         case "formal_parameters":
         case "variable_declarator":
         case "import_clause":
-          addIdentifierDescendants(scope, node);
+          // Basic variable declarations.
+          if (!nError) {
+            addIdentifierDescendants(scope, node);
+          }
           break;
 
         // TODO: Handle declarations not directly owned by scopes.
@@ -126,8 +139,10 @@ export default class StaticScopes {
         //   break;
 
         default:
-          // Handle most named nodes.
-          maybeAddNamedMaybeWithBody(scope, node);
+          if (this.parser.language.declaration.has(node.type)) {
+            // Handle declaration nodes with `name` field.
+            maybeAddNamedMaybeWithBody(scope, node);
+          }
           break;
       }
 

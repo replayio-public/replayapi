@@ -22,7 +22,7 @@ export default class SourceParser {
   private readonly parser: Parser;
   public readonly language: LanguageInfo;
 
-  private _bindings: StaticScopes | null = null;
+  private _scopes: StaticScopes | null = null;
   private _tree: Tree | null = null;
 
   constructor(url: string, code: string, contentType?: ContentType) {
@@ -36,15 +36,15 @@ export default class SourceParser {
     return this._tree;
   }
 
-  get bindings(): StaticScopes {
-    assert(this._bindings, "Bindings are not initialized. Call parse first.");
-    return this._bindings;
+  get scopes(): StaticScopes {
+    assert(this._scopes, "Bindings are not initialized. Call parse first.");
+    return this._scopes;
   }
 
   parse(): void {
     this._tree = this.parser.parse(this.code.contents);
-    this._bindings = new StaticScopes(this);
-    this._bindings._parse();
+    this._scopes = new StaticScopes(this);
+    this._scopes._parse();
   }
 
   /** ###########################################################################

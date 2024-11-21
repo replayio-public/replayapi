@@ -74,6 +74,7 @@ export class LanguageInfo {
 
   expression: TypeCover;
   statement: TypeCover;
+  declaration: TypeCover;
   function: TypeCover;
   clazz: TypeCover;
   scopeOwner: TypeCover;
@@ -84,12 +85,9 @@ export class LanguageInfo {
 
     // Supertypes.
     // These are a very small set of abstract type covers that tree-sitter already has predefined.
-    this.expression = this.typeCover(
-      this.getNodeTypeInfo("expression").subtypes!.map((s: BaseNode) => s.type)
-    );
-    this.statement = this.typeCover(
-      this.getNodeTypeInfo("statement").subtypes!.map((s: BaseNode) => s.type)
-    );
+    this.expression = this.typeCover(["expression"]);
+    this.statement = this.typeCover(["statement"]);
+    this.declaration = this.typeCover(["declaration"]);
 
     // Self-made supertypes.
     // These don't have a predefined supertype.
@@ -98,19 +96,22 @@ export class LanguageInfo {
     this.scopeOwner = this.typeCover(this.getAllScopeOwnerTypes());
   }
 
-  typeCover(types: Iterable<NodeTypeName | TypeCover>): TypeCover {
+  typeCover(types: Array<NodeTypeName | TypeCover>): TypeCover {
     return new TypeCover(this, types);
   }
 
   getConcreteTypeNames(...types: NodeTypeName[]): NodeTypeName[] {
     return types.flatMap(t => {
       const info = this.getNodeTypeInfo(t);
+      if (!info) {
+        throw new Error(`Unknown type for language ${this.language.name}: ${t}`);
+      }
       if (!info.subtypes) return [t];
       return info.subtypes.map((s: BaseNode) => s.type);
     });
   }
 
-  getNodeTypeInfo(name: string): any {
+  getNodeTypeInfo(name: string): BaseNode | any {
     return this.typesByNames.get(name);
   }
 
@@ -154,12 +155,23 @@ export class LanguageInfo {
   }
 }
 
-async function printAllBodyNodeTypes() {
-  const l = (await import("tree-sitter-javascript"));
-  const lang = new LanguageInfo(l);
-  console.log(lang.getAllScopeOwnerTypes());
-}
-
 if (require.main === module) {
-  printAllBodyNodeTypes();
+  async function debugPrint() {
+    const module = await import("tree-sitter-typescript");
+    const l = module.default.tsx;
+    const lang = new LanguageInfo(l);
+
+    console.group(lang.getAllScopeOwnerTypes.name);
+    console.log(lang.getAllScopeOwnerTypes());
+    console.groupEnd();
+
+    console.group("Declarations:");
+    console.log([...lang.declaration]);
+    console.groupEnd();
+
+    // console.group("Debug all types:");
+    // console.log(JSON.stringify(l.nodeTypeInfo, null, 2));
+    // console.groupEnd();
+  }
+  debugPrint();
 }

@@ -1,33 +1,32 @@
 {
   "configurations": [
     {
-      
-      "name": "Jest source-parser CURRENT FILE",
+      "name": "Jest $file",
       "type": "node",
       "request": "launch",
       "runtimeArgs": [
         "--inspect-brk",
         "${workspaceRoot}/node_modules/jest/bin/jest.js",
-        "--config",
-        "${workspaceRoot}/packages/source-parser/jest.config.js",
+        "--testTimeout",
+        "100000",
         "--runInBand",
         "${file}"
       ],
-      "cwd": "${workspaceFolder}/packages/source-parser",
-      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal"
     },
     {
-      "name": "replay-data demo",
+      "name": "Run $file",
       "type": "node",
       "request": "launch",
-      "runtimeExecutable": "${workspaceRoot}/node_modules/.bin/ts-node",
-      // "runtimeExecutable": "${workspaceRoot}/node_modules/.bin/tsx",
+      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/tsx",
+      // "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/ts-node",
       "runtimeArgs": [
         "-r",
-        "tsconfig-paths/register"
+        "tsconfig-paths/register",
+        "${file}"
       ],
-      "cwd": "${workspaceFolder}/packages/replay-data",
-      "program": "demo.ts"
+      "cwd": "${workspaceFolder}"
     }
   ]
 }
