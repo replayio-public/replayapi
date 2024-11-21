@@ -10,6 +10,9 @@ backend-data
 !.yarn/sdks
 !.yarn/versions
 
+# VSCode Stuff
+.vscode/settings.json
+
 # Other
 .envrc
 .yalc
