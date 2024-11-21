@@ -3,7 +3,7 @@ tmp
 tmp.*
 backend-data
 
-# Yarn artifacts
+# Yarn
 .yarn/*
 !.yarn/patches
 !.yarn/releases
@@ -11,13 +11,15 @@ backend-data
 !.yarn/sdks
 !.yarn/versions
 
-# VSCode Stuff
+# IDEs and other system tools
+.envrc
 .vscode/settings.json
 
-# Other
-.envrc
+# Yalc
 .yalc
 yalc.lock
+
+# Unsorted
 .pnp.*
 *.tgz
 test/.yarn/
