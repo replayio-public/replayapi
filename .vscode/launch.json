@@ -26,7 +26,8 @@
         "tsconfig-paths/register",
         "${file}"
       ],
-      "cwd": "${workspaceFolder}"
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal"
     }
   ]
 }
