@@ -12,17 +12,17 @@ function relativeToRoot(p) {
   return path.join(RelativeRoot, p);
 }
 
-const rawJsonc = fs.readFileSync(path.resolve(RootDir, "tsconfig.json")).toString("utf-8");
-
+// Read and parse tsconfig.
+const rawTsconfig = fs.readFileSync(path.resolve(RootDir, "tsconfig.json")).toString("utf-8");
 let tsconfig;
 try {
-  // Read jsonc file.
-  tsconfig = parse(rawJsonc, "utf-8");
+  // NOTE: tsconfig.json is actually NOT json! It seems to allow a lot of JS syntax, including comments and trailing commas.
+  const s = `(${rawTsconfig})`;
+  tsconfig = eval(s);
 } catch (e) {
-  console.error(
-    "\n\n\n\nERROR PARSING tsconfig.json: We are using a rudimentary JSONC parser. No trailing commas or other fancy syntax allowed.\n\n\n\n"
+  throw new Error(
+    `\n\n\n\nERROR PARSING tsconfig.json:\n${e.stack}\n\n\n`
   );
-  throw e;
 }
 
 // Convert paths to root (tsconfig files usually convert all paths relative to their own location, so we have to do it manually):
