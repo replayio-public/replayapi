@@ -9,7 +9,7 @@ yarn
 yarn yalc-all
 ```
 
-**Test it:**
+**Test your installation:**
 ```sh
 tsx main.ts version # 0.0.1
 tsx main.ts --help
