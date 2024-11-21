@@ -58,9 +58,10 @@ module.exports = {
   globalTeardown: RootDir + "/testing/globalTeardown.js",
   moduleNameMapper,
   transformIgnorePatterns: ["node_modules"],
-  // // NOTE: This is bugged but will be fixed in jest@30. Must provide it to CLI.
-  // // 100s for long-running API fetching tests
-  // testTimeout: 100 * 1000,
+
+  // 100s timeout for long-running API fetching tests.
+  // NOTE: This shows a false warning (will be fixed in jest@30).
+  testTimeout: 100 * 1000,
 };
 
 function transformObjectPaths(paths, cb) {
