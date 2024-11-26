@@ -2,12 +2,14 @@
 * Install with `yarn` and initialize `yalc` linkage.
 
 ```sh
+# Setup + install external dependencies.
 yarn
-yarn publish-devtools
-yarn link-devtools
+
+# Install internal dependencies.
+yarn yalc-all
 ```
 
-**Test it:**
+**Test your installation:**
 ```sh
 tsx main.ts version # 0.0.1
 tsx main.ts --help

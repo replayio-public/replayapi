@@ -16,5 +16,12 @@ module.exports = {
    */
   createContext() {
     return {};
-  }
+  },
+
+  /**
+   * This is used by Jest when formatting certain errors.
+   */
+  isElement() {
+    return false;
+  },
 };

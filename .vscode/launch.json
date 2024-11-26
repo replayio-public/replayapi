@@ -1,0 +1,33 @@
+{
+  "configurations": [
+    {
+      "name": "Jest $file",
+      "type": "node",
+      "request": "launch",
+      "runtimeArgs": [
+        "--inspect-brk",
+        "${workspaceRoot}/node_modules/jest/bin/jest.js",
+        "--testTimeout",
+        "100000",
+        "--runInBand",
+        "${file}"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Run $file",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/tsx",
+      // "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/ts-node",
+      "runtimeArgs": [
+        "-r",
+        "tsconfig-paths/register",
+        "${file}"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal"
+    }
+  ]
+}
