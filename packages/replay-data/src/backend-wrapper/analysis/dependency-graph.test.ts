@@ -1,6 +1,6 @@
 import { getApiKey } from "../../recording-data/ReplaySession";
-import { DependencyGraphMode } from "./dg-types";
 import { DGAnalyzeDependencies } from "./dependency-graph";
+import { DependencyGraphMode } from "./dg-types";
 
 const RecordingId = "011f1663-6205-4484-b468-5ec471dc5a31";
 const Point = "78858008544042601258383216576823298";

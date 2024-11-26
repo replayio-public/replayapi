@@ -3,14 +3,14 @@
 import "../bootstrap";
 
 import { ExecutionPoint, RecordingId, SessionId } from "@replayio/protocol";
+import { assert } from "protocol/utils";
 import { pauseIdCache } from "replay-next/src/suspense/PauseCache";
 import { sourcesCache } from "replay-next/src/suspense/SourcesCache";
-import { assert } from "protocol/utils";
 import { ReplayClient } from "shared/client/ReplayClient";
 import { STATUS_PENDING } from "suspense";
 
-import ReplaySources from "./ReplaySources";
 import PointQueries from "./PointQueries";
+import ReplaySources from "./ReplaySources";
 
 /**
  * The devtools require a `time` value for managing pauses, but it is not necessary.
@@ -71,7 +71,6 @@ export default class ReplaySession extends ReplayClient {
   /** ###########################################################################
    * Sources.
    * ##########################################################################*/
-  
 
   async getSources(): Promise<ReplaySources> {
     this.incBusy();
@@ -92,7 +91,6 @@ export default class ReplaySession extends ReplayClient {
   get sourcesLoading(): boolean {
     return sourcesCache.getStatus(this) === STATUS_PENDING;
   }
-
 
   /** ###########################################################################
    * Points.

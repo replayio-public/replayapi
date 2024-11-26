@@ -1,6 +1,4 @@
 /**
- * 
+ *
  */
-export default class DynamicScopes {
-
-}
+export default class DynamicScopes {}

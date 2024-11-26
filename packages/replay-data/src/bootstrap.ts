@@ -1,7 +1,8 @@
 /* Copyright 2020-2024 Record Replay Inc. */
 
-import WebSocket from "ws";
 import os from "os";
+
+import WebSocket from "ws";
 
 /**
  * Hackfixes for some of our dependencies.
@@ -30,4 +31,3 @@ import os from "os";
   /* @ts-ignore */
   globalThis.WebSocket = WebSocket;
 })();
-

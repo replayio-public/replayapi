@@ -145,22 +145,24 @@ describe("input dependencies", () => {
 
   const node = parser.tree.rootNode;
   const dependencies = parser.getInterestingInputDependencies(node).map(n => n.text);
-  expect(dependencies.toSorted()).toEqual([
-    "rule",
-    "rule.declarations",
-    "rule.declarations.map",
-    `rule.declarations.map((declaration) =>
+  expect(dependencies.toSorted()).toEqual(
+    [
+      "rule",
+      "rule.declarations",
+      "rule.declarations.map",
+      `rule.declarations.map((declaration) =>
     getDeclarationState(declaration, rule.domRule.objectId())
   )`,
-    "rule.domRule.objectId()",
-    "rule.domRule.objectId",
-    "rule.domRule",
-    "rule.inheritance",
-    "rule.isUnmatched",
-    "rule.domRule.isSystem",
-    "rule.pseudoElement",
-    "rule.selector",
-    "rule.sourceLink",
-    "rule.domRule.type",
-  ].toSorted());
+      "rule.domRule.objectId()",
+      "rule.domRule.objectId",
+      "rule.domRule",
+      "rule.inheritance",
+      "rule.isUnmatched",
+      "rule.domRule.isSystem",
+      "rule.pseudoElement",
+      "rule.selector",
+      "rule.sourceLink",
+      "rule.domRule.type",
+    ].toSorted()
+  );
 });
