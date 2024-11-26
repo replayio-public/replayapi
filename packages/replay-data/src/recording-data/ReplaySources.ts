@@ -15,7 +15,7 @@ export default class ReplaySources {
   ) {
     this.sourcesById = new Map(sources.map(s => [s.id, s]));
   }
-  
+
   getSource(sourceId: SourceId): Source | undefined {
     return this.sourcesById.get(sourceId);
   }

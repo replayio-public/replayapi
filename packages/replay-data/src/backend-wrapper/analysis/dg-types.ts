@@ -2,7 +2,6 @@
 
 import { ExecutionPoint } from "@replayio/protocol";
 
-
 export interface URLLocation {
   sourceId: string;
   line: number;
@@ -209,7 +208,6 @@ export type DependencyGraphEntry =
   | DependencyGraphEntryExecution
   | DependencyGraphEntryEndExecution
   | DependencyGraphEntryTime;
-
 
 // Nodes can either be specified by the application or be fabricated
 // for specific execution points.
