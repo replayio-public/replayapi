@@ -18,7 +18,7 @@
     "packages/*"
   ],
   "importSort": {
-    ".js, .jsx, .ts, .tsx": {
+    ".mjs, .js, .jsx, .ts, .tsx": {
       "style": "module",
       "parser": "typescript"
     }
