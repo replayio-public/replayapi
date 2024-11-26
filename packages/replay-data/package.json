@@ -3,6 +3,7 @@
   "name": "@replay/data",
   "version": "0.0.0",
   "dependencies": {
-    "suspense": "^0.0.53"
+    "suspense": "^0.0.53",
+    "zod": "^3.23.8"
   }
 }

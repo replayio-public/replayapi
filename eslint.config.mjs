@@ -72,6 +72,8 @@ export default tseslint.config(
       "packages/shared/**/*",
       "packages/protocol/**/*",
       "packages/replay-next/**/*",
+      "**/*.config.js",
+      "**/testing/samples/**/*",
     ],
   }
   // eslintConfigPrettier,

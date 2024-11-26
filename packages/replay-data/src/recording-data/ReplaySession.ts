@@ -3,14 +3,15 @@
 import "../bootstrap";
 
 import { ExecutionPoint, RecordingId, SessionId } from "@replayio/protocol";
+import { sendMessage } from "protocol/socket";
+import { assert } from "protocol/utils";
 import { pauseIdCache } from "replay-next/src/suspense/PauseCache";
 import { sourcesCache } from "replay-next/src/suspense/SourcesCache";
-import { assert } from "protocol/utils";
 import { ReplayClient } from "shared/client/ReplayClient";
 import { STATUS_PENDING } from "suspense";
 
-import ReplaySources from "./ReplaySources";
 import PointQueries from "./PointQueries";
+import ReplaySources from "./ReplaySources";
 
 /**
  * The devtools require a `time` value for managing pauses, but it is not necessary.
@@ -69,9 +70,18 @@ export default class ReplaySession extends ReplayClient {
   }
 
   /** ###########################################################################
+   * experimentalCommand
+   * ##########################################################################*/
+
+  async experimentalCommand(name: string, params: Record<string, any>): Promise<any> {
+    const sessionId = await this.waitForSession();
+    const result = await sendMessage("Session.experimentalCommand", { name, params }, sessionId);
+    return result.rval;
+  }
+
+  /** ###########################################################################
    * Sources.
    * ##########################################################################*/
-  
 
   async getSources(): Promise<ReplaySources> {
     this.incBusy();
@@ -93,7 +103,6 @@ export default class ReplaySession extends ReplayClient {
     return sourcesCache.getStatus(this) === STATUS_PENDING;
   }
 
-
   /** ###########################################################################
    * Points.
    * ##########################################################################*/
@@ -105,13 +114,6 @@ export default class ReplaySession extends ReplayClient {
 }
 
 let replaySession: ReplaySession | null = null;
-
-export function getReplaySession(): ReplaySession {
-  if (!replaySession) {
-    throw new Error(`No Replay session exists. Call ${createReplaySession.name} first.`);
-  }
-  return replaySession;
-}
 
 export async function createReplaySession(recordingId: RecordingId): Promise<ReplaySession> {
   if (replaySession) {

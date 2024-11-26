@@ -986,6 +986,22 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@kwsites/file-exists@npm:^1.1.1":
+  version: 1.1.1
+  resolution: "@kwsites/file-exists@npm:1.1.1"
+  dependencies:
+    debug: "npm:^4.1.1"
+  checksum: 10c0/39e693239a72ccd8408bb618a0200e4a8d61682057ca7ae2c87668d7e69196e8d7e2c9cde73db6b23b3b0230169a15e5f1bfe086539f4be43e767b2db68e8ee4
+  languageName: node
+  linkType: hard
+
+"@kwsites/promise-deferred@npm:^1.1.1":
+  version: 1.1.1
+  resolution: "@kwsites/promise-deferred@npm:1.1.1"
+  checksum: 10c0/ef1ad3f1f50991e3bed352b175986d8b4bc684521698514a2ed63c1d1fc9848843da4f2bc2df961c9b148c94e1c34bf33f0da8a90ba2234e452481f2cc9937b1
+  languageName: node
+  linkType: hard
+
 "@nodelib/fs.scandir@npm:2.1.5":
   version: 2.1.5
   resolution: "@nodelib/fs.scandir@npm:2.1.5"
@@ -1054,6 +1070,7 @@ __metadata:
   resolution: "@replay/data@workspace:packages/replay-data"
   dependencies:
     suspense: "npm:^0.0.53"
+    zod: "npm:^3.23.8"
   languageName: unknown
   linkType: soft
 
@@ -1885,6 +1902,8 @@ __metadata:
 "cli@workspace:*, cli@workspace:packages/cli":
   version: 0.0.0-use.local
   resolution: "cli@workspace:packages/cli"
+  dependencies:
+    simple-git: "npm:^3.27.0"
   languageName: unknown
   linkType: soft
 
@@ -2006,7 +2025,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"debug@npm:4, debug@npm:^4.1.0, debug@npm:^4.1.1, debug@npm:^4.3.1, debug@npm:^4.3.2, debug@npm:^4.3.4":
+"debug@npm:4, debug@npm:^4.1.0, debug@npm:^4.1.1, debug@npm:^4.3.1, debug@npm:^4.3.2, debug@npm:^4.3.4, debug@npm:^4.3.5":
   version: 4.3.7
   resolution: "debug@npm:4.3.7"
   dependencies:
@@ -5061,6 +5080,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"simple-git@npm:^3.27.0":
+  version: 3.27.0
+  resolution: "simple-git@npm:3.27.0"
+  dependencies:
+    "@kwsites/file-exists": "npm:^1.1.1"
+    "@kwsites/promise-deferred": "npm:^1.1.1"
+    debug: "npm:^4.3.5"
+  checksum: 10c0/ef56cabea585377d3e0ca30e4e93447f465d91f23eaf751693cc31f366b5f7636facf52ad5bcd598bfdf295fa60732e7a394303d378995b52e2d221d92e5f9f4
+  languageName: node
+  linkType: hard
+
 "sisteransi@npm:^1.0.5":
   version: 1.0.5
   resolution: "sisteransi@npm:1.0.5"
@@ -5826,5 +5856,12 @@ __metadata:
   version: 0.1.0
   resolution: "yocto-queue@npm:0.1.0"
   checksum: 10c0/dceb44c28578b31641e13695d200d34ec4ab3966a5729814d5445b194933c096b7ced71494ce53a0e8820685d1d010df8b2422e5bf2cdea7e469d97ffbea306f
+  languageName: node
+  linkType: hard
+
+"zod@npm:^3.23.8":
+  version: 3.23.8
+  resolution: "zod@npm:3.23.8"
+  checksum: 10c0/8f14c87d6b1b53c944c25ce7a28616896319d95bc46a9660fe441adc0ed0a81253b02b5abdaeffedbeb23bdd25a0bf1c29d2c12dd919aef6447652dd295e3e69
   languageName: node
   linkType: hard

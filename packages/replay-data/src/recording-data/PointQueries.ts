@@ -9,7 +9,7 @@ import { FrameScopes, frameScopesCache } from "replay-next/src/suspense/ScopeCac
 
 import { BigIntToPoint, ExecutionPointInfo } from "../util/points";
 import DynamicScope from "./bindings/DynamicScope";
-import DependencyGraph, { RichStackFrame } from "./DependencyGraph";
+import DependencyChain, { RichStackFrame } from "./DependencyChain";
 import ReplaySession from "./ReplaySession";
 import {
   CodeAtPoint,
@@ -26,7 +26,7 @@ export default class PointQueries {
   readonly point: ExecutionPoint;
   readonly pointData: ExecutionPointInfo;
   readonly pauseId: PauseId;
-  readonly dg: DependencyGraph;
+  readonly dg: DependencyChain;
 
   private parser: Promise<SourceParser> | null = null;
 
@@ -35,7 +35,7 @@ export default class PointQueries {
     this.pauseId = pauseId;
     this.point = point;
     this.pointData = BigIntToPoint(BigInt(point));
-    this.dg = new DependencyGraph(session);
+    this.dg = new DependencyChain(session);
   }
 
   /** ###########################################################################

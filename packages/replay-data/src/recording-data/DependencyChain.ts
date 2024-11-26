@@ -4,11 +4,13 @@ import merge from "lodash/merge";
 import orderBy from "lodash/orderBy";
 
 import {
-  AnalyzeDependenciesResult,
+  AnalysisType,
   DependencyChainStep,
   DependencyGraphMode,
-} from "../backend-wrapper/analysis/dg-types";
-import { DGAnalyzeDependencies } from "../backend-wrapper/analysis/dependency-graph";
+} from "../backend-wrapper/analysis/dependency-graph-shared";
+import { AnalysisInput } from "../backend-wrapper/analysis/dg-specs";
+import { runAnalysisExperimentalCommand } from "../backend-wrapper/analysis/run-analysis";
+import { AnalyzeDependenciesResult } from "../backend-wrapper/analysis/specs/analyze-dependencies";
 import PointQueries from "./PointQueries";
 import ReplaySession from "./ReplaySession";
 import { CodeAtPoint, FrameWithPoint } from "./types";
@@ -27,7 +29,7 @@ export type RichStackFrame = CodeAtPoint & RawRichStackFrame;
 /**
  * This wraps our DG analysis code (which for now primarily resides in the backend).
  */
-export default class DependencyGraph {
+export default class DependencyChain {
   constructor(public readonly session: ReplaySession) {}
 
   async getDependencyChain(point: ExecutionPoint): Promise<AnalyzeDependenciesResult> {
@@ -35,13 +37,12 @@ export default class DependencyGraph {
       recordingId: this.session.getRecordingId()!,
       point,
       mode: DependencyGraphMode.ReactOwnerRenders,
-      showPromises: true,
     };
-    const options = {
-      apiKey: this.session.ApiKey,
+    const input: AnalysisInput = {
+      analysisType: AnalysisType.Dependency,
       spec,
     };
-    return await DGAnalyzeDependencies(options);
+    return await runAnalysisExperimentalCommand(this.session, input);
   }
 
   private normalizeFrameForRichStack(frame: FrameWithPoint): RawRichStackFrame | null {

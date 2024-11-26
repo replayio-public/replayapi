@@ -7,13 +7,22 @@ import { Readable } from "stream";
 
 import NestedError from "./NestedError";
 
+export interface SpawnAsyncOptions extends SpawnOptions {
+  verbose?: boolean;
+}
+
 export async function spawnAsync(
   command: string,
   args: string[],
-  options: SpawnOptions = {}
+  options: SpawnAsyncOptions = {}
 ): Promise<{ stdout: string; stderr: string }> {
+  const verbose = !!options?.verbose;
+
   let p: ChildProcess;
   try {
+    if (verbose) {
+      console.log(`$ ${command} ${args.join(" ")}`);
+    }
     p = spawn(command, args, options);
   } catch (err: any) {
     throw new NestedError("Unable to spawn command: Make sure both, command and cwd, exist!", err);
@@ -25,8 +34,8 @@ export async function spawnAsync(
     stdout: string;
     stderr: string;
   }>((resolve, reject) => {
-    const stdout = p.stdout ? streamStdioToBuffer(p.stdout) : "";
-    const stderr = p.stderr ? streamStdioToBuffer(p.stderr) : "";
+    const stdout = p.stdout ? streamStdioToBuffer(p.stdout, verbose) : "";
+    const stderr = p.stderr ? streamStdioToBuffer(p.stderr, verbose) : "";
     p.on("error", reject);
     p.on("exit", async (code, signal) =>
       resolve({ code, signal, stdout: await stdout, stderr: await stderr })
@@ -47,9 +56,12 @@ export async function spawnAsync(
 // We don't use our usual streamToBuffer helper here because using that for stdio
 // streams will trigger a "ERR_STREAM_PREMATURE_CLOSE" error because they don't
 // emit 'close' events like a normal stream does.
-async function streamStdioToBuffer(stdio: Readable): Promise<string> {
+async function streamStdioToBuffer(stdio: Readable, verbose: boolean): Promise<string> {
   const chunks = [];
   for await (const chunk of stdio) {
+    if (verbose) {
+      process.stdout.write(chunk);
+    }
     chunks.push(chunk);
   }
   return Buffer.concat(chunks).toString();
