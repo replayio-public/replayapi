@@ -1,11 +1,10 @@
-import { CSSProperties, Dispatch, Fragment, ReactNode, SetStateAction } from "react";
-
 import {
   Item,
   isInheritanceItem,
   isPseudoElementItem,
   isRuleStateItem,
 } from "devtools/client/inspector/markup/components/rules/types";
+import { CSSProperties, Dispatch, Fragment, ReactNode, SetStateAction } from "react";
 import Expandable from "replay-next/components/Expandable";
 import { GenericListItemData } from "replay-next/components/windowing/GenericList";
 import { DeclarationState, RuleState } from "ui/suspense/styleCaches";

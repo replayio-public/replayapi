@@ -2,7 +2,7 @@ import { program } from "commander";
 import { getComments } from "shared/graphql/Comments";
 import { graphQLClient } from "shared/graphql/GraphQLClient";
 
-import { APIKeyOption, requiresAPIKey, RecordingOption, requiresRecording } from "./options";
+import { APIKeyOption, RecordingOption, requiresAPIKey, requiresRecording } from "./options";
 
 const fetchCommand = program
   .command("fetch-comments")
