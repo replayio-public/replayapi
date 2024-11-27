@@ -1,5 +1,9 @@
 /* Copyright 2020-2024 Record Replay Inc. */
 
+/**
+ * @file This is mostly a copy-and-paste from `src/analysis/execution-data/annotateExecutionData.ts`.
+ */
+
 // Entry point for annotating a repository with execution data.
 
 import assert from "assert";
