@@ -3,6 +3,7 @@ import path from "path";
 
 import type { Config } from "@jest/types";
 // TODO: Use `pathsToModuleNameMapper` instead.
+// @ts-ignore
 import tsconfigPaths from "tsconfig-paths-jest";
 
 Error.stackTraceLimit = Infinity;
@@ -71,6 +72,8 @@ const config: Config.InitialOptions = {
   // 100s timeout for long-running API fetching tests.
   // NOTE: This shows a false warning (will be fixed in jest@30).
   testTimeout: 100 * 1000,
+
+  testPathIgnorePatterns: ["node_modules", ".yalc"],
 };
 
 export default config;

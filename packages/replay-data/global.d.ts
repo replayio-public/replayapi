@@ -4,5 +4,4 @@
 /// <reference types="jest-extended" />
 
 declare var window;
-// declare var WebSocket;
-type WebSocket = any;
+declare var WebSocket;
