@@ -2,10 +2,10 @@ import { mkdir, mkdtemp, writeFile } from "fs/promises";
 import os from "os";
 import path from "path";
 
-import ReplaySession, { getApiKey } from "../../recording-data/ReplaySession";
-import { exists } from "../../util/fs-util";
-import { spawnAsync } from "../../util/spawnAsync";
-import { BACKEND_DIR } from "../backend-shared";
+import ReplaySession, { getApiKey } from "../recording-data/ReplaySession";
+import { exists } from "../util/fs-util";
+import { spawnAsync } from "../util/spawnAsync";
+import { BACKEND_DIR } from "../backend-wrapper/backend-shared";
 import { AnalysisType } from "./dependency-graph-shared";
 import { AnalysisInput } from "./dg-specs";
 import { ExecutionDataAnalysisResult } from "./specs/execution-point";

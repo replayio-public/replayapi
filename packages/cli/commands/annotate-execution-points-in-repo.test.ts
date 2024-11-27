@@ -7,11 +7,11 @@ jest.mock("../commands-shared/print");
 jest.mock("../git-util/github-issue");
 jest.mock("../git-util/git-repos");
 
-import { AnalysisType } from "@replay/data/src/backend-wrapper/analysis/dependency-graph-shared";
+import { AnalysisType } from "@replay/data/src/analysis/dependency-graph-shared";
 import {
   annotateRepoWithExecutionPointData,
   runAnalysisScript,
-} from "@replay/data/src/backend-wrapper/analysis/run-analysis";
+} from "@replay/data/src/analysis/run-analysis";
 import { RecordingComment, getSourceCodeComments } from "@replay/data/src/recording-data/comments";
 
 import { printCommandResult } from "../commands-shared/print";

@@ -1,11 +1,11 @@
 /* Copyright 2020-2024 Record Replay Inc. */
 
-import { AnalysisType } from "@replay/data/src/backend-wrapper/analysis/dependency-graph-shared";
-import { AnalysisInput } from "@replay/data/src/backend-wrapper/analysis/dg-specs";
+import { AnalysisType } from "@replay/data/src/analysis/dependency-graph-shared";
+import { AnalysisInput } from "@replay/data/src/analysis/dg-specs";
 import {
   annotateRepoWithExecutionPointData,
   runAnalysisScript,
-} from "@replay/data/src/backend-wrapper/analysis/run-analysis";
+} from "@replay/data/src/analysis/run-analysis";
 import { GitRepo } from "@replay/data/src/git-util/git-repos";
 import { fuzzyExtractRecordingAndPoint } from "@replay/data/src/recording-data/point-treasure-hunt";
 import { program } from "commander";

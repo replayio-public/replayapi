@@ -1,4 +1,4 @@
-import { getReplaySessionForTest } from "../../../testing/sessions";
+import { getReplaySessionForTest } from "../../testing/sessions";
 import { AnalysisType, DependencyGraphMode } from "./dependency-graph-shared";
 import { AnalysisInput } from "./dg-specs";
 import { runAnalysisExperimentalCommand, runAnalysisScript } from "./run-analysis";
