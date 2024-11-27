@@ -3,6 +3,7 @@ import path from "path";
 
 import type { Config } from "@jest/types";
 // TODO: Use `pathsToModuleNameMapper` instead.
+// @ts-ignore
 import tsconfigPaths from "tsconfig-paths-jest";
 
 Error.stackTraceLimit = Infinity;
