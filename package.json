@@ -24,8 +24,8 @@
     }
   },
   "dependencies": {
+    "@replayio/cli": "workspace:*",
     "@replayio/protocol": "^0.76.0",
-    "cli": "workspace:*",
     "commander": "^12.1.0",
     "graphql": "^16.9.0",
     "lodash": "^4.17.21",

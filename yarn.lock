@@ -1125,6 +1125,15 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@replayio/cli@workspace:*, @replayio/cli@workspace:packages/cli":
+  version: 0.0.0-use.local
+  resolution: "@replayio/cli@workspace:packages/cli"
+  dependencies:
+    simple-git: "npm:^3.27.0"
+    uuid: "npm:^11.0.3"
+  languageName: unknown
+  linkType: soft
+
 "@replayio/protocol@npm:^0.76.0":
   version: 0.76.0
   resolution: "@replayio/protocol@npm:0.76.0"
@@ -1991,14 +2000,6 @@ __metadata:
   checksum: 10c0/1f90262d5f6230a17e27d0c190b09d47ebe7efdd76a03b5a1127863f7b3c9aec4c3e6c8bb3a7bbf81d553d56a1fd35728f5a8ef4c63f867ac8d690109742a8c1
   languageName: node
   linkType: hard
-
-"cli@workspace:*, cli@workspace:packages/cli":
-  version: 0.0.0-use.local
-  resolution: "cli@workspace:packages/cli"
-  dependencies:
-    simple-git: "npm:^3.27.0"
-  languageName: unknown
-  linkType: soft
 
 "cliui@npm:^8.0.1":
   version: 8.0.1
@@ -4977,6 +4978,7 @@ __metadata:
   resolution: "replayapi@workspace:."
   dependencies:
     "@eslint/js": "npm:^9.15.0"
+    "@replayio/cli": "workspace:*"
     "@replayio/protocol": "npm:^0.76.0"
     "@tsconfig/node22": "npm:^22.0.0"
     "@types/eslint__js": "npm:^8.42.3"
@@ -4984,7 +4986,6 @@ __metadata:
     "@types/lodash": "npm:^4.17.13"
     "@types/node": "npm:^22.10.0"
     "@types/ws": "npm:^8.5.13"
-    cli: "workspace:*"
     commander: "npm:^12.1.0"
     eslint: "npm:^9.15.0"
     eslint-config-prettier: "npm:^9.1.0"
@@ -5830,6 +5831,15 @@ __metadata:
   dependencies:
     punycode: "npm:^2.1.0"
   checksum: 10c0/4ef57b45aa820d7ac6496e9208559986c665e49447cb072744c13b66925a362d96dd5a46c4530a6b8e203e5db5fe849369444440cb22ecfc26c679359e5dfa3c
+  languageName: node
+  linkType: hard
+
+"uuid@npm:^11.0.3":
+  version: 11.0.3
+  resolution: "uuid@npm:11.0.3"
+  bin:
+    uuid: dist/esm/bin/uuid
+  checksum: 10c0/cee762fc76d949a2ff9205770334699e0043d52bb766472593a25f150077c9deed821230251ea3d6ab3943a5ea137d2826678797f1d5f6754c7ce5ce27e9f7a6
   languageName: node
   linkType: hard
 
