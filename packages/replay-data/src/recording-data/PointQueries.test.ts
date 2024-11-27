@@ -99,8 +99,8 @@ describe("PointQueries", () => {
         const staticNames = Array.from(scope.staticScope.declarations.values()).map(s => s.name);
         const dynamicNames = scope.dynamicBindings.map(b => b.name);
         const prefix = [scope.staticScope.node.type];
-        allStaticBindings.push(prefix.concat(staticNames.toSorted()));
-        allMatchingDynamicBindings.push(prefix.concat(dynamicNames.toSorted()));
+        allStaticBindings.push(prefix.concat(staticNames.sort()));
+        allMatchingDynamicBindings.push(prefix.concat(dynamicNames.sort()));
       }
 
       // TODO: Explicitely define and assert on bindings that we see both statically and dynamically.

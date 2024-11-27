@@ -145,7 +145,7 @@ describe("input dependencies", () => {
 
   const node = parser.tree.rootNode;
   const dependencies = parser.getInterestingInputDependencies(node).map(n => n.text);
-  expect(dependencies.toSorted()).toEqual([
+  expect(dependencies.sort()).toEqual([
     "rule",
     "rule.declarations",
     "rule.declarations.map",
@@ -162,5 +162,5 @@ describe("input dependencies", () => {
     "rule.selector",
     "rule.sourceLink",
     "rule.domRule.type",
-  ].toSorted());
+  ].sort());
 });

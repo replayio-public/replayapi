@@ -20,9 +20,7 @@ try {
   const s = `(${rawTsconfig})`;
   tsconfig = eval(s);
 } catch (e) {
-  throw new Error(
-    `\n\n\n\nERROR PARSING tsconfig.json:\n${e.stack}\n\n\n`
-  );
+  throw new Error(`\n\n\n\nERROR PARSING tsconfig.json:\n${e.stack}\n\n\n`);
 }
 
 // Convert paths to root (tsconfig files usually convert all paths relative to their own location, so we have to do it manually):
@@ -44,7 +42,7 @@ module.exports = {
       "ts-jest",
       {
         // diagnostics: true,
-        diagnostics: false
+        diagnostics: false,
       },
     ],
     // ".*\\.yalc.*": [
@@ -62,6 +60,8 @@ module.exports = {
   // 100s timeout for long-running API fetching tests.
   // NOTE: This shows a false warning (will be fixed in jest@30).
   testTimeout: 100 * 1000,
+
+  testPathIgnorePatterns: ["node_modules", ".yalc"],
 };
 
 function transformObjectPaths(paths, cb) {

@@ -101,7 +101,9 @@
     "resolveJsonModule": true
   },
   "exclude": [
-    "node_modules"
+    "**/node_modules",
+    "**/.yalc",
+    "**/testing/samples"
   ],
   "include": [
     "**/*.ts",

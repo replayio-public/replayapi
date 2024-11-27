@@ -17,7 +17,7 @@ describe("Scopes", () => {
     expect(scope.node.endPosition).toEqual({ row: 154, column: 1 });
     const declared = Array.from(scope.declarations.values())
       .map(d => d.name)
-      .toSorted();
-    expect(declared).toEqual(["index", "inheritedSource", "style"].toSorted());
+      .sort();
+    expect(declared).toEqual(["index", "inheritedSource", "style"].sort());
   });
 });
