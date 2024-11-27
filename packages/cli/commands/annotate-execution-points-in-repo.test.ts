@@ -2,10 +2,10 @@
 
 // Mock dependencies before importing them
 jest.mock("@replay/data/src/recording-data/comments");
-jest.mock("../git-util/github-issue");
-jest.mock("../git-util/git-repos");
 jest.mock("@replay/data/src/backend-wrapper/analysis/run-analysis");
 jest.mock("../commands-shared/print");
+jest.mock("../git-util/github-issue");
+jest.mock("../git-util/git-repos");
 
 import { AnalysisType } from "@replay/data/src/backend-wrapper/analysis/dependency-graph-shared";
 import {
