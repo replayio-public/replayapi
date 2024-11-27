@@ -1,9 +1,9 @@
 /* Copyright 2020-2024 Record Replay Inc. */
 
+import { annotateExecutionData } from "@replay/data/src/analysis/annotateRepoWithExecutionPointData";
 import { AnalysisType } from "@replay/data/src/analysis/dependency-graph-shared";
 import { AnalysisInput } from "@replay/data/src/analysis/dg-specs";
 import {
-  annotateRepoWithExecutionPointData,
   runAnalysisScript,
 } from "@replay/data/src/analysis/run-analysis";
 import { GitRepo } from "@replay/data/src/git-util/git-repos";
@@ -64,7 +64,11 @@ export async function addExecutionPointComments(
   ]);
 
   // 5. Run annotation script.
-  await annotateRepoWithExecutionPointData(repo.folderPath, analysisResults);
+  // await annotateRepoWithExecutionPointData(repo.folderPath, analysisResults);
+  await annotateExecutionData({
+    repository: repo.folderPath,
+    results: analysisResults,
+  });
 
   printCommandResult({
     status: "Success",

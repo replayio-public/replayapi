@@ -5,7 +5,7 @@ import path from "path";
 import ReplaySession, { getApiKey } from "../recording-data/ReplaySession";
 import { exists } from "../util/fs-util";
 import { spawnAsync } from "../util/spawnAsync";
-import { BACKEND_DIR } from "../backend-wrapper/backend-shared";
+import { BACKEND_DIR } from "../backend-shared";
 import { AnalysisType } from "./dependency-graph-shared";
 import { AnalysisInput } from "./dg-specs";
 import { ExecutionDataAnalysisResult } from "./specs/execution-point";
@@ -143,21 +143,4 @@ function parseDependencyOutput(stdout: string): any {
   } catch (error: any) {
     throw new Error(`Failed to parse DG stdout "${error.message}". Input: ${outputDataString}`);
   }
-}
-
-export async function annotateRepoWithExecutionPointData(
-  repoPath: string,
-  results: ExecutionDataAnalysisResult
-): Promise<void> {
-  const scriptName = "execution-data-annotate";
-  const spec = {
-    repository: repoPath,
-    results,
-  };
-  const { cacheDir, specFile } = await prepareAnalysisForScript(scriptName, spec);
-
-  // Run analysis
-  const scriptArgs = ["-k", getApiKey(), "-d", cacheDir, "-s", specFile]; // default args.
-  const scriptFile = scriptName + ".ts";
-  await runScript(scriptFile, scriptArgs);
 }

@@ -2,21 +2,23 @@
 
 // Mock dependencies before importing them
 jest.mock("@replay/data/src/recording-data/comments");
-jest.mock("@replay/data/src/backend-wrapper/analysis/run-analysis");
+jest.mock("@replay/data/src/analysis/run-analysis");
+jest.mock("@replay/data/src/git-util/github-issue");
+jest.mock("@replay/data/src/git-util/git-repos");
+// mock annotateExecutionData
+jest.mock("@replay/data/src/analysis/annotateRepoWithExecutionPointData.ts", () => ({
+  annotateExecutionData: jest.fn(),
+}));
 jest.mock("../commands-shared/print");
-jest.mock("../git-util/github-issue");
-jest.mock("../git-util/git-repos");
 
+import { annotateExecutionData } from "@replay/data/src/analysis/annotateRepoWithExecutionPointData";
 import { AnalysisType } from "@replay/data/src/analysis/dependency-graph-shared";
-import {
-  annotateRepoWithExecutionPointData,
-  runAnalysisScript,
-} from "@replay/data/src/analysis/run-analysis";
+import { runAnalysisScript } from "@replay/data/src/analysis/run-analysis";
 import { RecordingComment, getSourceCodeComments } from "@replay/data/src/recording-data/comments";
 
-import { printCommandResult } from "../commands-shared/print";
 import { GitRepo } from "../../replay-data/src/git-util/git-repos";
 import { scanRecordingId } from "../../replay-data/src/git-util/github-issue";
+import { printCommandResult } from "../commands-shared/print";
 import { addExecutionPointComments } from "./annotate-execution-points-in-repo";
 
 describe("addExecutionPointComments", () => {
@@ -85,7 +87,7 @@ describe("addExecutionPointComments", () => {
 
     const recordingId = "abc123";
     const point = "1234";
-    const analysisResults = { data: "some analysis results" };
+    const analysisResults = { points: ["point1"] };
     const folderPath = "/path/to/workspace/repo";
 
     (scanRecordingId as jest.MockedFunction<typeof scanRecordingId>).mockReturnValue(recordingId);
@@ -117,11 +119,9 @@ describe("addExecutionPointComments", () => {
       analysisResults
     );
 
-    (
-      annotateRepoWithExecutionPointData as jest.MockedFunction<
-        typeof annotateRepoWithExecutionPointData
-      >
-    ).mockResolvedValue(undefined);
+    (annotateExecutionData as jest.MockedFunction<typeof annotateExecutionData>).mockResolvedValue(
+      undefined
+    );
 
     // Mock GitRepo class
     const gitRepoInitMock = jest.fn().mockResolvedValue(undefined);
@@ -142,7 +142,11 @@ describe("addExecutionPointComments", () => {
     });
     expect(GitRepo).toHaveBeenCalledWith(repoUrl, workspaceDir);
     expect(gitRepoInitMock).toHaveBeenCalledWith(branchOrCommit);
-    expect(annotateRepoWithExecutionPointData).toHaveBeenCalledWith(folderPath, analysisResults);
+    const annotateSpec = {
+      repository: folderPath,
+      results: analysisResults,
+    };
+    expect(annotateExecutionData).toHaveBeenCalledWith(annotateSpec);
     expect(printCommandResult).toHaveBeenCalledWith({
       status: "Success",
       annotatedRepo: folderPath,
