@@ -2,7 +2,7 @@ import "./commands/fetch-comments";
 import "./commands/session";
 //import "./commands/sources";
 import "./commands/version";
-import "./commands/annotate-execution-points-in-repo";
+import "./commands/annotate-execution-points";
 
 import { program } from "commander";
 

@@ -75,6 +75,7 @@ async function runScript(scriptFile: string, scriptArgs: string[]) {
 
 /**
  * Run the given analysis via a script in the local `backend` repo.
+ * NOTE: We have this for a local dev loop that does not require deploying backend changes.
  */
 export async function runAnalysisScript(input: AnalysisInput): Promise<AnalysisResult> {
   const { cacheDir, specFile } = await prepareAnalysisForScript(input.analysisType, input.spec);

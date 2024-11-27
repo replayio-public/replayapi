@@ -4,10 +4,11 @@ import { annotateExecutionData } from "@replay/data/src/analysis/annotateRepoWit
 import { AnalysisType } from "@replay/data/src/analysis/dependency-graph-shared";
 import { AnalysisInput } from "@replay/data/src/analysis/dg-specs";
 import {
-  runAnalysisScript,
+  runAnalysisExperimentalCommand,
 } from "@replay/data/src/analysis/run-analysis";
 import { GitRepo } from "@replay/data/src/git-util/git-repos";
 import { fuzzyExtractRecordingAndPoint } from "@replay/data/src/recording-data/point-treasure-hunt";
+import ReplaySession from "@replay/data/src/recording-data/ReplaySession";
 import { program } from "commander";
 
 import { printCommandResult } from "../commands-shared/print";
@@ -16,7 +17,7 @@ import { printCommandResult } from "../commands-shared/print";
  * @see https://linear.app/replay/issue/PRO-904/3-let-oh-fix-the-github-issue-using-brians-10609-solution
  */
 program
-  .command("annotate-execution-points-in-repo")
+  .command("annotate-execution-points")
   .description(
     "Analyze a recording based on recording comments. Add analysis results into the code as comments."
   )
@@ -46,6 +47,8 @@ export async function addExecutionPointComments(
     return;
   }
 
+  const session = new ReplaySession();
+  await session.initialize(recordingId);
   const analysisInput: AnalysisInput = {
     analysisType: AnalysisType.ExecutionPoint,
     spec: {
@@ -58,7 +61,7 @@ export async function addExecutionPointComments(
 
   const [analysisResults] = await Promise.all([
     // 3. Get analysis results for the point.
-    runAnalysisScript(analysisInput),
+    runAnalysisExperimentalCommand(session, analysisInput),
     // 4. Clone + checkout branch.
     repo.init(branchOrCommit),
   ]);
