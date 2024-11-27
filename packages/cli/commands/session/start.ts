@@ -1,6 +1,6 @@
 import { startServer } from "session-server/client";
 
-import { RecordingOption, requiresRecording, APIKeyOption, requiresAPIKey } from "../options";
+import { APIKeyOption, RecordingOption, requiresAPIKey, requiresRecording } from "../options";
 import { sessionCommand } from "./root";
 
 const startSessionCommand = sessionCommand

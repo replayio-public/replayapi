@@ -6,7 +6,7 @@ import { SessionId } from "@replayio/protocol";
 import { Deferred, defer } from "protocol/utils";
 import { WebSocket } from "ws";
 
-import { type Request, type Response } from "./requests";
+import { Request, Response, type, type } from "./requests";
 
 export type ServerInfo = {
   sessionId: SessionId;
@@ -168,7 +168,7 @@ export function startServer(apiKey: string, recordingId: string): Deferred<Serve
   const child = fork(path.join(__dirname, "server-process.ts"), [recordingId], {
     env: {
       ...process.env,
-      REPLAY_API_KEY: apiKey
+      REPLAY_API_KEY: apiKey,
     },
     // Detach the child process so it can run independently
     detached: true,
@@ -243,7 +243,10 @@ export async function endServer(sessionId: string): Promise<void> {
   });
 }
 
-export function sendRequestToServer<ResponseT extends Response>(sessionId: string, request: Request): Promise<ResponseT> {
+export function sendRequestToServer<ResponseT extends Response>(
+  sessionId: string,
+  request: Request
+): Promise<ResponseT> {
   const serverInfos = getServerInfos();
   const serverInfo = serverInfos.find(info => info.sessionId === sessionId);
   if (!serverInfo) {

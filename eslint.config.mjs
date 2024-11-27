@@ -1,8 +1,7 @@
-import eslintPluginPrettierRecommended from "eslint-plugin-prettier/recommended";
+import eslint from "@eslint/js";
 import eslintConfigPrettier from "eslint-config-prettier";
-
-import eslint from '@eslint/js';
-import tseslint from 'typescript-eslint';
+import eslintPluginPrettierRecommended from "eslint-plugin-prettier/recommended";
+import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   eslint.configs.recommended,
@@ -27,10 +26,7 @@ export default tseslint.config(
       "@typescript-eslint/no-unsafe-enum-comparison": "off",
       "@typescript-eslint/no-unsafe-member-access": "off",
       "@typescript-eslint/no-unsafe-return": "off",
-      "@typescript-eslint/no-unused-vars": [
-        "warn",
-        { "argsIgnorePattern": "^_" },
-      ],
+      "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
       "@typescript-eslint/prefer-nullish-coalescing": "off",
       "@typescript-eslint/no-require-imports": "off",
       "@typescript-eslint/require-await": "off",
@@ -65,7 +61,7 @@ export default tseslint.config(
     linterOptions: {
       // we have a lot of these in graphql generated code
       reportUnusedDisableDirectives: false,
-    }
+    },
   },
   {
     ignores: [
@@ -79,7 +75,6 @@ export default tseslint.config(
   // eslintConfigPrettier,
   // eslintPluginPrettierRecommended,
 );
-
 
 // module.exports = [
 //   {
