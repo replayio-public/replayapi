@@ -8,8 +8,8 @@
     "lint": "eslint ./*.ts ./*.mjs packages",
     "publish-devtools": "cd $REPLAY_DIR/devtools && cd packages/shared && npx --yes yalc publish --private && cd ../../packages/protocol && npx yalc publish --private && cd ../../packages/replay-next && npx yalc publish --private",
     "link-devtools": "npx yalc link shared && npx yalc link protocol && npx yalc link replay-next",
-    "yalc-devtools": "publish-devtools && link-devtools",
-    "yalc-all": "yalc-devtools"
+    "yalc-devtools": "yarn publish-devtools && yarn link-devtools",
+    "yalc-all": "yarn yalc-devtools"
   },
   "author": "",
   "license": "ISC",
