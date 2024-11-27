@@ -6,12 +6,11 @@ import {
   annotateRepoWithExecutionPointData,
   runAnalysisScript,
 } from "@replay/data/src/backend-wrapper/analysis/run-analysis";
-import { getSourceCodeComments } from "@replay/data/src/recording-data/comments";
+import { GitRepo } from "@replay/data/src/git-util/git-repos";
+import { fuzzyExtractRecordingAndPoint } from "@replay/data/src/recording-data/point-treasure-hunt";
 import { program } from "commander";
 
 import { printCommandResult } from "../commands-shared/print";
-import { GitRepo } from "../git-util/git-repos";
-import { scanRecordingId } from "../git-util/github-issue";
 
 /**
  * @see https://linear.app/replay/issue/PRO-904/3-let-oh-fix-the-github-issue-using-brians-10609-solution
@@ -33,21 +32,16 @@ export async function addExecutionPointComments(
   repoUrl: string,
   branchOrCommit: string,
   issueDescription: string
-  // opts: any
 ): Promise<void> {
-  // const { dryRun } = opts;
-
-  // 1. Extract recordingId from issue.
-  const recordingId = scanRecordingId(issueDescription);
+  // Extract...
+  // 1. recordingId and
+  // 2. point from issueDescription and source comments.
+  const { recordingId, point } = await fuzzyExtractRecordingAndPoint(issueDescription);
   if (!recordingId) {
     printCommandResult({ status: "NoRecordingId" });
     return;
   }
-
-  // 2. Get first source comment with a point.
-  //    NOTE: All source comments should have a point.
-  const comment = (await getSourceCodeComments(recordingId)).find(c => c.point);
-  if (!comment) {
+  if (!point) {
     printCommandResult({ status: "NoSourceComments" });
     return;
   }
@@ -56,7 +50,7 @@ export async function addExecutionPointComments(
     analysisType: AnalysisType.ExecutionPoint,
     spec: {
       recordingId,
-      point: comment.point,
+      point,
       depth: 2,
     },
   };

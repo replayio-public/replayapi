@@ -15,8 +15,8 @@ import {
 import { RecordingComment, getSourceCodeComments } from "@replay/data/src/recording-data/comments";
 
 import { printCommandResult } from "../commands-shared/print";
-import { GitRepo } from "../git-util/git-repos";
-import { scanRecordingId } from "../git-util/github-issue";
+import { GitRepo } from "../../replay-data/src/git-util/git-repos";
+import { scanRecordingId } from "../../replay-data/src/git-util/github-issue";
 import { addExecutionPointComments } from "./annotate-execution-points-in-repo";
 
 describe("addExecutionPointComments", () => {

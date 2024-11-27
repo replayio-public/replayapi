@@ -54,7 +54,8 @@
     "tsconfig-paths-jest": "^0.0.1",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
-    "typescript-eslint": "^8.16.0"
+    "typescript-eslint": "^8.16.0",
+    "uuid": "^11.0.3"
   },
   "packageManager": "yarn@4.5.3"
 }
