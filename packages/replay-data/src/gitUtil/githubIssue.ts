@@ -1,7 +1,10 @@
 import { RecordingId } from "@replayio/protocol";
 
+/**
+ * Fuzzy match a given string to find a recordingId in it.
+ */
 export function scanRecordingId(issue: string): RecordingId | null {
-  const match = /https:\/\/app.replay\.io\/recording\/([a-zA-Z0-9-]+)/.exec(issue);
+  const match = /\.replay\.io\/recording\/([a-zA-Z0-9-]+)/.exec(issue);
   if (!match) {
     return null;
   }

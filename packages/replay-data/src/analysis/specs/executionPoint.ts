@@ -1,7 +1,7 @@
 /* Copyright 2020-2024 Record Replay Inc. */
 
 import { z } from "zod";
-import { AnalysisDefaultSpecSchema, URLLocation } from "../dependency-graph-shared";
+import { AnalysisDefaultSpecSchema, URLLocation } from "../dependencyGraphShared";
 import { ExecutionPoint } from "@replayio/protocol";
 
 export const ExecutionPointSpecSchema = AnalysisDefaultSpecSchema.extend({

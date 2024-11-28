@@ -50,7 +50,7 @@ const config: Config.InitialOptions = {
   // NOTE: This shows a false warning (will be fixed in jest@30).
   testTimeout: 100 * 1000,
 
-  testPathIgnorePatterns: ["node_modules", ".yalc"],
+  testPathIgnorePatterns: ["node_modules", ".yalc", "workspace-for-testing"],
 };
 
 export default config;

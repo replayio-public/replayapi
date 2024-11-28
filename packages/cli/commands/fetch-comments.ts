@@ -1,7 +1,7 @@
-import { getSourceCodeComments } from "@replay/data/src/recording-data/comments";
+import { getSourceCodeComments } from "@replay/data/src/recordingData/comments";
 import { program } from "commander";
 
-import { printCommandResult } from "../commands-shared/print";
+import { printCommandResult } from "../commandsShared/print";
 import { APIKeyOption, RecordingOption, requiresAPIKey, requiresRecording } from "./options";
 
 const fetchCommand = program

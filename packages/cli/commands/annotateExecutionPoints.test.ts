@@ -1,25 +1,25 @@
 /* Copyright 2020-2024 Record Replay Inc. */
 
 // Mock dependencies before importing them
-jest.mock("@replay/data/src/recording-data/comments");
-jest.mock("@replay/data/src/analysis/run-analysis");
-jest.mock("@replay/data/src/git-util/github-issue");
-jest.mock("@replay/data/src/git-util/git-repos");
-// mock annotateExecutionData
-jest.mock("@replay/data/src/analysis/annotateRepoWithExecutionPointData.ts", () => ({
-  annotateExecutionData: jest.fn(),
+jest.mock("@replay/data/src/recordingData/comments");
+jest.mock("@replay/data/src/analysis/runAnalysis");
+jest.mock("@replay/data/src/gitUtil/gitRepos");
+jest.mock("@replay/data/src/analysis/annotateExecutionPoints", () => ({
+  annotateExecutionPoints: jest.fn(),
 }));
-jest.mock("../commands-shared/print");
+jest.mock("../commandsShared/print");
 
-import { annotateExecutionData } from "@replay/data/src/analysis/annotateRepoWithExecutionPointData";
-import { AnalysisType } from "@replay/data/src/analysis/dependency-graph-shared";
-import { runAnalysisScript } from "@replay/data/src/analysis/run-analysis";
-import { RecordingComment, getSourceCodeComments } from "@replay/data/src/recording-data/comments";
+import { annotateExecutionPoints } from "@replay/data/src/analysis/annotateExecutionPoints";
+import { AnalysisType } from "@replay/data/src/analysis/dependencyGraphShared";
+import {
+  runAnalysisExperimentalCommand,
+  runAnalysisScript,
+} from "@replay/data/src/analysis/runAnalysis";
+import { RecordingComment, getSourceCodeComments } from "@replay/data/src/recordingData/comments";
 
-import { GitRepo } from "../../replay-data/src/git-util/git-repos";
-import { scanRecordingId } from "../../replay-data/src/git-util/github-issue";
-import { printCommandResult } from "../commands-shared/print";
-import { addExecutionPointComments } from "./annotate-execution-points";
+import { GitRepo } from "../../replay-data/src/gitUtil/gitRepos";
+import { printCommandResult } from "../commandsShared/print";
+import { annotateExecutionPointsAction } from "./annotateExecutionPoints";
 
 describe("addExecutionPointComments", () => {
   beforeEach(() => {
@@ -31,12 +31,8 @@ describe("addExecutionPointComments", () => {
     const repoUrl = "https://github.com/user/repo.git";
     const branchOrCommit = "main";
     const issueDescription = "This is an issue without recordingId";
-    const recordingId = null;
 
-    const scanRecordingIdMock = scanRecordingId as jest.MockedFunction<typeof scanRecordingId>;
-    scanRecordingIdMock.mockReturnValue(recordingId);
-
-    await addExecutionPointComments(workspaceDir, repoUrl, branchOrCommit, issueDescription);
+    await annotateExecutionPointsAction(workspaceDir, repoUrl, branchOrCommit, issueDescription);
 
     expect(printCommandResult).toHaveBeenCalledWith({ status: "NoRecordingId" });
   });
@@ -45,11 +41,8 @@ describe("addExecutionPointComments", () => {
     const workspaceDir = "/path/to/workspace";
     const repoUrl = "https://github.com/user/repo.git";
     const branchOrCommit = "main";
-    const issueDescription = "This is an issue with recordingId abc123";
-    const recordingId = "abc123";
-
-    const scanRecordingIdMock = scanRecordingId as jest.MockedFunction<typeof scanRecordingId>;
-    scanRecordingIdMock.mockReturnValue(recordingId);
+    const issueDescription =
+      "This is an issue with recordingId https://app.replay.io/recording/011f1663-6205-4484-b468-5ec471dc5a31";
 
     const mockComments: RecordingComment[] = [
       {
@@ -74,23 +67,22 @@ describe("addExecutionPointComments", () => {
       mockComments
     );
 
-    await addExecutionPointComments(workspaceDir, repoUrl, branchOrCommit, issueDescription);
+    await annotateExecutionPointsAction(workspaceDir, repoUrl, branchOrCommit, issueDescription);
 
     expect(printCommandResult).toHaveBeenCalledWith({ status: "NoSourceComments" });
   });
 
-  it("should succeed when all steps pass", async () => {
+  it("should succeed", async () => {
     const workspaceDir = "/path/to/workspace";
     const repoUrl = "https://github.com/user/repo.git";
     const branchOrCommit = "main";
-    const issueDescription = "This is an issue with recordingId abc123";
+    const issueDescription =
+      "This is an issue with recordingId https://app.replay.io/recording/011f1663-6205-4484-b468-5ec471dc5a31";
 
-    const recordingId = "abc123";
+    const recordingId = "011f1663-6205-4484-b468-5ec471dc5a31";
     const point = "1234";
     const analysisResults = { points: ["point1"] };
     const folderPath = "/path/to/workspace/repo";
-
-    (scanRecordingId as jest.MockedFunction<typeof scanRecordingId>).mockReturnValue(recordingId);
 
     const mockComments: RecordingComment[] = [
       {
@@ -119,9 +111,9 @@ describe("addExecutionPointComments", () => {
       analysisResults
     );
 
-    (annotateExecutionData as jest.MockedFunction<typeof annotateExecutionData>).mockResolvedValue(
-      undefined
-    );
+    (
+      annotateExecutionPoints as jest.MockedFunction<typeof annotateExecutionPoints>
+    ).mockResolvedValue(undefined);
 
     // Mock GitRepo class
     const gitRepoInitMock = jest.fn().mockResolvedValue(undefined);
@@ -130,23 +122,24 @@ describe("addExecutionPointComments", () => {
       init: gitRepoInitMock,
     }));
 
-    await addExecutionPointComments(workspaceDir, repoUrl, branchOrCommit, issueDescription);
+    await annotateExecutionPointsAction(workspaceDir, repoUrl, branchOrCommit, issueDescription);
 
-    expect(runAnalysisScript).toHaveBeenCalledWith({
-      analysisType: AnalysisType.ExecutionPoint,
-      spec: {
-        recordingId,
-        point,
-        depth: 2,
-      },
-    });
+    expect(runAnalysisExperimentalCommand).toHaveBeenCalledWith(
+      /* ReplaySession */
+      expect.toBeObject(),
+
+      /* AnalysisInput */
+      {
+        analysisType: AnalysisType.ExecutionPoint,
+        spec: {
+          recordingId,
+          point,
+          depth: 2,
+        },
+      }
+    );
     expect(GitRepo).toHaveBeenCalledWith(repoUrl, workspaceDir);
     expect(gitRepoInitMock).toHaveBeenCalledWith(branchOrCommit);
-    const annotateSpec = {
-      repository: folderPath,
-      results: analysisResults,
-    };
-    expect(annotateExecutionData).toHaveBeenCalledWith(annotateSpec);
     expect(printCommandResult).toHaveBeenCalledWith({
       status: "Success",
       annotatedRepo: folderPath,

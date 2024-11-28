@@ -12,7 +12,7 @@ import path from "path";
 
 import { ExecutionPoint as ProtocolExecutionPoint } from "@replayio/protocol";
 
-import { ExecutionDataAnalysisResult } from "./specs/execution-point";
+import { ExecutionDataAnalysisResult } from "./specs/executionPoint";
 
 export interface AnnotateExecutionDataSpec {
   // Repository directory to annotate.
@@ -46,7 +46,7 @@ function countLeadingSpaces(str: string) {
   return leadingSpaces ? leadingSpaces[0].length : 0;
 }
 
-export async function annotateExecutionData(spec: AnnotateExecutionDataSpec): Promise<void> {
+export async function annotateExecutionPoints(spec: AnnotateExecutionDataSpec): Promise<void> {
   let { results } = spec;
   const { points } = results;
 

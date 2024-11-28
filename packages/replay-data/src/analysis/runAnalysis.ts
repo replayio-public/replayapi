@@ -2,13 +2,12 @@ import { mkdir, mkdtemp, writeFile } from "fs/promises";
 import os from "os";
 import path from "path";
 
-import ReplaySession, { getApiKey } from "../recording-data/ReplaySession";
-import { exists } from "../util/fs-util";
+import ReplaySession, { getApiKey } from "../recordingData/ReplaySession";
+import { exists } from "../util/fsUtil";
 import { spawnAsync } from "../util/spawnAsync";
-import { BACKEND_DIR } from "../backend-shared";
-import { AnalysisType } from "./dependency-graph-shared";
-import { AnalysisInput } from "./dg-specs";
-import { ExecutionDataAnalysisResult } from "./specs/execution-point";
+import { BACKEND_DIR } from "../backendShared";
+import { AnalysisType } from "./dependencyGraphShared";
+import { AnalysisInput } from "./dgSpecs";
 
 /**
  * TODO: Typify results based on AnalysisType, just like we have done with AnalysisInput.

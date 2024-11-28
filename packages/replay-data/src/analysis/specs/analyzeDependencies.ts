@@ -1,6 +1,6 @@
 /* Copyright 2020-2024 Record Replay Inc. */
 import { z } from "zod";
-import { AnalysisDefaultSpecSchema, DependencyChainStep, DependencyGraphMode } from "../dependency-graph-shared";
+import { AnalysisDefaultSpecSchema, DependencyChainStep, DependencyGraphMode } from "../dependencyGraphShared";
 
 export interface AnalyzeDependenciesResult {
   dependencies: DependencyChainStep[];

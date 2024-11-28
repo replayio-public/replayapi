@@ -2,9 +2,9 @@
 
 import { z } from "zod";
 
-import { AnalysisDefaultSpecSchema, AnalysisType } from "./dependency-graph-shared";
-import { AnalyzeDependenciesSpecSchema } from "./specs/analyze-dependencies";
-import { ExecutionPointSpecSchema } from "./specs/execution-point";
+import { AnalysisDefaultSpecSchema, AnalysisType } from "./dependencyGraphShared";
+import { AnalyzeDependenciesSpecSchema } from "./specs/analyzeDependencies";
+import { ExecutionPointSpecSchema } from "./specs/executionPoint";
 import { RerecordAnalysisSpecSchema } from "./specs/rerecording";
 
 function inputSchema<

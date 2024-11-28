@@ -1,6 +1,6 @@
 import { ExecutionPoint } from "@replayio/protocol";
 
-import ReplaySession from "./src/recording-data/ReplaySession";
+import ReplaySession from "./src/recordingData/ReplaySession";
 
 /**
  * Debugging recordingId used only during early development.

@@ -7,10 +7,10 @@ import {
   AnalysisType,
   DependencyChainStep,
   DependencyGraphMode,
-} from "../analysis/dependency-graph-shared";
-import { AnalysisInput } from "../analysis/dg-specs";
-import { runAnalysisExperimentalCommand } from "../analysis/run-analysis";
-import { AnalyzeDependenciesResult } from "../analysis/specs/analyze-dependencies";
+} from "../analysis/dependencyGraphShared";
+import { AnalysisInput } from "../analysis/dgSpecs";
+import { runAnalysisExperimentalCommand } from "../analysis/runAnalysis";
+import { AnalyzeDependenciesResult } from "../analysis/specs/analyzeDependencies";
 import PointQueries from "./PointQueries";
 import ReplaySession from "./ReplaySession";
 import { CodeAtPoint, FrameWithPoint } from "./types";

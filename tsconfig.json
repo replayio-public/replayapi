@@ -106,7 +106,8 @@
   "exclude": [
     "**/node_modules",
     "**/.yalc",
-    "**/testing/samples"
+    "**/testing/samples",
+    "workspace-for-testing"
   ],
   "include": [
     "**/*.ts",

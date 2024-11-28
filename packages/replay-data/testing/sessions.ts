@@ -1,6 +1,6 @@
 import assert from "assert";
 
-import ReplaySession from "../src/recording-data/ReplaySession";
+import ReplaySession from "../src/recordingData/ReplaySession";
 
 let sessionPromise: Promise<ReplaySession> | null = null;
 export async function getReplaySessionForTest(recordingId: string): Promise<ReplaySession> {

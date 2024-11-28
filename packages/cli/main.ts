@@ -2,12 +2,12 @@ import "./commands/fetch-comments";
 import "./commands/session";
 //import "./commands/sources";
 import "./commands/version";
-import "./commands/annotate-execution-points";
+import "./commands/annotateExecutionPoints";
 
 import { program } from "commander";
 
 // commands auto-register themselves when imported
-import { printCommandError } from "./commands-shared/print";
+import { printCommandError } from "./commandsShared/print";
 
 program.configureHelp({
   sortOptions: true,

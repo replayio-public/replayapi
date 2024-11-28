@@ -1,17 +1,17 @@
 /* Copyright 2020-2024 Record Replay Inc. */
 
-import { annotateExecutionData } from "@replay/data/src/analysis/annotateRepoWithExecutionPointData";
-import { AnalysisType } from "@replay/data/src/analysis/dependency-graph-shared";
-import { AnalysisInput } from "@replay/data/src/analysis/dg-specs";
+import { annotateExecutionPoints } from "@replay/data/src/analysis/annotateExecutionPoints";
+import { AnalysisType } from "@replay/data/src/analysis/dependencyGraphShared";
+import { AnalysisInput } from "@replay/data/src/analysis/dgSpecs";
 import {
   runAnalysisExperimentalCommand,
-} from "@replay/data/src/analysis/run-analysis";
-import { GitRepo } from "@replay/data/src/git-util/git-repos";
-import { fuzzyExtractRecordingAndPoint } from "@replay/data/src/recording-data/point-treasure-hunt";
-import ReplaySession from "@replay/data/src/recording-data/ReplaySession";
+} from "@replay/data/src/analysis/runAnalysis";
+import { GitRepo } from "@replay/data/src/gitUtil/gitRepos";
+import { fuzzyExtractRecordingAndPoint } from "@replay/data/src/recordingData/fuzzyPoints";
+import ReplaySession from "@replay/data/src/recordingData/ReplaySession";
 import { program } from "commander";
 
-import { printCommandResult } from "../commands-shared/print";
+import { printCommandResult } from "../commandsShared/print";
 
 /**
  * @see https://linear.app/replay/issue/PRO-904/3-let-oh-fix-the-github-issue-using-brians-10609-solution
@@ -26,9 +26,9 @@ program
   .argument("<repoUrl>", "URL of the repository to analyze.")
   .argument("<branchOrCommit>", "Branch or commit to analyze.")
   .argument("<issueDescription>", "Description of the issue to fix.")
-  .action(addExecutionPointComments);
+  .action(annotateExecutionPointsAction);
 
-export async function addExecutionPointComments(
+export async function annotateExecutionPointsAction(
   workspaceDir: string,
   repoUrl: string,
   branchOrCommit: string,
@@ -68,7 +68,7 @@ export async function addExecutionPointComments(
 
   // 5. Run annotation script.
   // await annotateRepoWithExecutionPointData(repo.folderPath, analysisResults);
-  await annotateExecutionData({
+  await annotateExecutionPoints({
     repository: repo.folderPath,
     results: analysisResults,
   });

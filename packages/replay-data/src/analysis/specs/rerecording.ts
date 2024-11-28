@@ -3,7 +3,7 @@
 import { z } from "zod";
 
 import { WebSocketAnnotationContents } from "./caches";
-import { AnalysisDefaultSpecSchema } from "../dependency-graph-shared";
+import { AnalysisDefaultSpecSchema } from "../dependencyGraphShared";
 // Network resource accessed by a recording.
 export interface RerecordResource {
   url: string;

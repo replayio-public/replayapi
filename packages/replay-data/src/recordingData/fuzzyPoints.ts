@@ -1,6 +1,6 @@
 import { ExecutionPoint } from "@replayio/protocol";
 
-import { scanRecordingId } from "../git-util/github-issue";
+import { scanRecordingId } from "../gitUtil/githubIssue";
 import { getSourceCodeComments } from "./comments";
 
 export async function fuzzyExtractRecordingAndPoint(
