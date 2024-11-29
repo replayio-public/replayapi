@@ -52,6 +52,12 @@ export default class ReplaySession extends ReplayClient {
     return await super.initialize(recordingId, getApiKey());
   }
 
+  disconnect(): void {
+    // NOTE1: We only have one unexposed `socket` object in `protocol/socket.ts`.
+    // NOTE2: That file also registers a global `disconnect` function, so we can at least close it.
+    (global as any).disconnect?.();
+  }
+
   /** ###########################################################################
    * Busy.
    * ##########################################################################*/

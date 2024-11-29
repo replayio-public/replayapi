@@ -1,7 +1,8 @@
 import * as fs from "fs";
 import * as path from "path";
+import { inspect } from "util";
 
-import { spawnAsync } from "@replay/data/src/util/spawnAsync";
+import { SpawnAsyncResult, spawnAsync } from "@replay/data/src/util/spawnAsync";
 
 export class GitRepo {
   /**
@@ -20,8 +21,8 @@ export class GitRepo {
     this.folderPath = path.resolve(workspaceFolder, folderName);
   }
 
-  private async git(args: string[]): Promise<void> {
-    await spawnAsync("git", args, {
+  private async git(args: string[]): Promise<SpawnAsyncResult> {
+    return await spawnAsync("git", args, {
       cwd: this.folderPath,
     });
   }
@@ -31,6 +32,7 @@ export class GitRepo {
     if (branchOrCommit) {
       await this.checkoutBranch(branchOrCommit);
     }
+    await this.hardReset();
   }
 
   async clone(): Promise<void> {
@@ -40,13 +42,23 @@ export class GitRepo {
       }
       await this.git(["remote", "update"]);
     } else {
-      await spawnAsync("git", ["clone", this.url, this.folderPath]);
+      await this.git(["clone", this.url, this.folderPath]);
     }
   }
 
   async checkoutBranch(branchOrCommit: string): Promise<void> {
+    // Fetch + checkout the target branch or commit.
     await this.git(["fetch", "--all"]);
     await this.git(["checkout", branchOrCommit]);
+  }
+
+  async hardReset(): Promise<void> {
+    // TODO: We should not hard-reset without user consent; but without it we run the risk of getting stuck.
+
+    // First reset any staged changes
+    await this.git(["reset", "--hard"]);
+    // Clean any untracked files/directories
+    await this.git(["clean", "-fd"]);
   }
 }
 

@@ -1,17 +1,19 @@
 /* Copyright 2020-2024 Record Replay Inc. */
 
+import { debuglog } from "util";
+
 import { annotateExecutionPoints } from "@replay/data/src/analysis/annotateExecutionPoints";
 import { AnalysisType } from "@replay/data/src/analysis/dependencyGraphShared";
 import { AnalysisInput } from "@replay/data/src/analysis/dgSpecs";
-import {
-  runAnalysisExperimentalCommand,
-} from "@replay/data/src/analysis/runAnalysis";
+import { runAnalysisExperimentalCommand } from "@replay/data/src/analysis/runAnalysis";
 import { GitRepo } from "@replay/data/src/gitUtil/gitRepos";
 import { fuzzyExtractRecordingAndPoint } from "@replay/data/src/recordingData/fuzzyPoints";
 import ReplaySession from "@replay/data/src/recordingData/ReplaySession";
 import { program } from "commander";
 
 import { printCommandResult } from "../commandsShared/print";
+
+const debug = debuglog("replay:annotateExecutionPoints");
 
 /**
  * @see https://linear.app/replay/issue/PRO-904/3-let-oh-fix-the-github-issue-using-brians-10609-solution
@@ -34,6 +36,7 @@ export async function annotateExecutionPointsAction(
   branchOrCommit: string,
   issueDescription: string
 ): Promise<void> {
+  debug(`starting w/ issueDescription=${JSON.stringify(issueDescription)}`);
   // Extract...
   // 1. recordingId and
   // 2. point from issueDescription and source comments.
@@ -47,34 +50,40 @@ export async function annotateExecutionPointsAction(
     return;
   }
 
+  debug(`connecting to Replay server...`);
   const session = new ReplaySession();
-  await session.initialize(recordingId);
-  const analysisInput: AnalysisInput = {
-    analysisType: AnalysisType.ExecutionPoint,
-    spec: {
-      recordingId,
-      point,
-      depth: 2,
-    },
-  };
-  const repo = new GitRepo(repoUrl, workspaceDir);
+  try {
+    await session.initialize(recordingId);
+    const analysisInput: AnalysisInput = {
+      analysisType: AnalysisType.ExecutionPoint,
+      spec: {
+        recordingId,
+        point,
+        depth: 2,
+      },
+    };
+    const repo = new GitRepo(repoUrl, workspaceDir);
 
-  const [analysisResults] = await Promise.all([
-    // 3. Get analysis results for the point.
-    runAnalysisExperimentalCommand(session, analysisInput),
-    // 4. Clone + checkout branch.
-    repo.init(branchOrCommit),
-  ]);
+    debug(`connecting to Replay server...`);
+    const [analysisResults] = await Promise.all([
+      // 3. Get analysis results for the point.
+      runAnalysisExperimentalCommand(session, analysisInput),
+      // 4. Clone + checkout branch.
+      repo.init(branchOrCommit),
+    ]);
 
-  // 5. Run annotation script.
-  // await annotateRepoWithExecutionPointData(repo.folderPath, analysisResults);
-  await annotateExecutionPoints({
-    repository: repo.folderPath,
-    results: analysisResults,
-  });
+    // 5. Run annotation script.
+    // await annotateRepoWithExecutionPointData(repo.folderPath, analysisResults);
+    await annotateExecutionPoints({
+      repository: repo.folderPath,
+      results: analysisResults,
+    });
 
-  printCommandResult({
-    status: "Success",
-    annotatedRepo: repo.folderPath,
-  });
+    printCommandResult({
+      status: "Success",
+      annotatedRepo: repo.folderPath,
+    });
+  } finally {
+    session?.disconnect();
+  }
 }
