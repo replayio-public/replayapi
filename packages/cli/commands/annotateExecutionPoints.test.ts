@@ -19,7 +19,7 @@ import { RecordingComment, getSourceCodeComments } from "@replay/data/src/record
 
 import { GitRepo } from "../../replay-data/src/gitUtil/gitRepos";
 import { printCommandResult } from "../commandsShared/print";
-import { annotateExecutionPointsAction } from "./annotateExecutionPoints";
+import { annotateExecutionPointsAction } from "./annotate-execution-points";
 
 describe("addExecutionPointComments", () => {
   beforeEach(() => {
