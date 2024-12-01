@@ -1,5 +1,6 @@
 /* Copyright 2020-2024 Record Replay Inc. */
 
+import { readFile } from "fs/promises";
 import { debuglog } from "util";
 
 import { annotateExecutionPoints } from "@replay/data/src/analysis/annotateExecutionPoints";
@@ -18,25 +19,44 @@ const debug = debuglog("replay:annotateExecutionPoints");
 /**
  * @see https://linear.app/replay/issue/PRO-904/3-let-oh-fix-the-github-issue-using-brians-10609-solution
  */
+
 program
   .command("annotate-execution-points")
   .description(
-    "Analyze a recording based on recording comments. Add analysis results into the code as comments."
+    "Analyze recording provided in issueDescription and annotate code at given path with comments." +
+      " If it is not a repo yet, then a GitHub URL is extracted from issueDescription for cloning."
   )
-  // .option("-y, --dry-run", "Whether to only analyze, but not commit any changes.")
-  .argument("<workspaceDir>", "Local file path to workspace, that the agent has access to.")
-  .argument("<repoUrl>", "URL of the repository to analyze.")
-  .argument("<branchOrCommit>", "Branch or commit to analyze.")
-  .argument("<issueDescription>", "Description of the issue to fix.")
+  .option("-f --repo-folder-path <repoFolderPath>", "Local file path of the target repo.")
+  .option(
+    "-a --append-repo-name-to-path",
+    "If repoFolderPath is not a git repo, add the name of the repo to the path before cloning.",
+    true
+  )
+  .argument(
+    "<issueDescriptionFile>",
+    "Path to a file that contains the description of the issue to fix."
+  )
   .action(annotateExecutionPointsAction);
 
 export async function annotateExecutionPointsAction(
-  workspaceDir: string,
-  repoUrl: string,
-  branchOrCommit: string,
-  issueDescription: string
+  issueDescriptionFile: string,
+  {
+    repoFolderPath,
+    appendRepoNameToPath,
+  }: { repoFolderPath: string; appendRepoNameToPath: boolean }
 ): Promise<void> {
-  debug(`starting w/ issueDescription=${JSON.stringify(issueDescription)}`);
+  debug(`starting w/ issueDescriptionFile=${JSON.stringify(issueDescriptionFile)}`);
+
+  const issueDescription = await readFile(issueDescriptionFile, "utf8");
+
+  // TODO: Check whether we have to clone.
+  // TODO: Extract repoUrl and branchOrCommit from issueDescription.
+  // TODO: Respect appendRepoNameToPath
+  const repo = new GitRepo(repoUrl, workspaceDir);
+  // 4. Clone + checkout branch.
+  await repo.init(branchOrCommit);
+  // return annotateExecutionPointsAction(issueDescription, { repoFolderPath: repo.folderPath });
+
   // Extract...
   // 1. recordingId and
   // 2. point from issueDescription and source comments.
@@ -62,26 +82,20 @@ export async function annotateExecutionPointsAction(
         depth: 2,
       },
     };
-    const repo = new GitRepo(repoUrl, workspaceDir);
 
-    debug(`connecting to Replay server...`);
-    const [analysisResults] = await Promise.all([
-      // 3. Get analysis results for the point.
-      runAnalysisExperimentalCommand(session, analysisInput),
-      // 4. Clone + checkout branch.
-      repo.init(branchOrCommit),
-    ]);
+    debug(`analyzing recording...`);
+    const analysisResults = await runAnalysisExperimentalCommand(session, analysisInput);
 
     // 5. Run annotation script.
-    // await annotateRepoWithExecutionPointData(repo.folderPath, analysisResults);
+    debug(`annotating repo with analysis results...`);
     await annotateExecutionPoints({
-      repository: repo.folderPath,
+      repository: repoFolderPath,
       results: analysisResults,
     });
 
     printCommandResult({
       status: "Success",
-      annotatedRepo: repo.folderPath,
+      annotatedRepo: repoFolderPath,
     });
   } finally {
     session?.disconnect();

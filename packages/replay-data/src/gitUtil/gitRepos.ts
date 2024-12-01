@@ -1,6 +1,5 @@
 import * as fs from "fs";
 import * as path from "path";
-import { inspect } from "util";
 
 import { SpawnAsyncResult, spawnAsync } from "@replay/data/src/util/spawnAsync";
 

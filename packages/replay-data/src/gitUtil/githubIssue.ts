@@ -8,10 +8,10 @@ export function scanRecordingId(issue: string): RecordingId | null {
   if (!match) {
     return null;
   }
-  const titleAndId = match[1];
-  const match2 = /^.*?--([a-zA-Z0-9-]+)$/.exec(titleAndId);
+  const idMaybeWithTitle = match[1];
+  const match2 = /^.*?--([a-zA-Z0-9-]+)$/.exec(idMaybeWithTitle);
   if (match2) {
     return match2[1];
   }
-  return titleAndId;
+  return idMaybeWithTitle;
 }

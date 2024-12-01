@@ -32,7 +32,11 @@ describe("addExecutionPointComments", () => {
     const branchOrCommit = "main";
     const issueDescription = "This is an issue without recordingId";
 
-    await annotateExecutionPointsAction(workspaceDir, repoUrl, branchOrCommit, issueDescription);
+    await annotateExecutionPointsAction(issueDescription, {
+      workspaceDir,
+      repoUrl,
+      branchOrCommit,
+    });
 
     expect(printCommandResult).toHaveBeenCalledWith({ status: "NoRecordingId" });
   });
@@ -67,7 +71,11 @@ describe("addExecutionPointComments", () => {
       mockComments
     );
 
-    await annotateExecutionPointsAction(workspaceDir, repoUrl, branchOrCommit, issueDescription);
+    await annotateExecutionPointsAction(issueDescription, {
+      workspaceDir,
+      repoUrl,
+      branchOrCommit,
+    });
 
     expect(printCommandResult).toHaveBeenCalledWith({ status: "NoSourceComments" });
   });
@@ -122,7 +130,11 @@ describe("addExecutionPointComments", () => {
       init: gitRepoInitMock,
     }));
 
-    await annotateExecutionPointsAction(workspaceDir, repoUrl, branchOrCommit, issueDescription);
+    await annotateExecutionPointsAction(issueDescription, {
+      workspaceDir,
+      repoUrl,
+      branchOrCommit,
+    });
 
     expect(runAnalysisExperimentalCommand).toHaveBeenCalledWith(
       /* ReplaySession */
