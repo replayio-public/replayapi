@@ -9,22 +9,23 @@ export function scanReplayUrl(text: string): {
   recordingId?: RecordingId;
   point?: string;
 } {
-  const match = /\.replay\.io\/recording\/([a-zA-Z0-9-]+)/.exec(text);
+  const match = /\.replay\.io\/recording\/([a-zA-Z0-9-]+)(?:[^\s:\])]*)/.exec(text);
+  let recordingId: RecordingId | undefined;
+  let point: ExecutionPoint | undefined;
   if (match) {
+    const idMaybeWithTitle = match[1];
+    recordingId = /^.*?--([a-zA-Z0-9-]+)$/.exec(idMaybeWithTitle)?.[1] || idMaybeWithTitle;
+
     try {
       const url = new URL(
-        "https://replay.io/recording/" + match[1] + text.slice(match.index + match[0].length)
+        "https://" + match[0]
       );
-      const idMaybeWithTitle = match[1];
-      const recordingId = /^.*?--([a-zA-Z0-9-]+)$/.exec(idMaybeWithTitle)?.[1] || idMaybeWithTitle;
-      const point = url.searchParams.get("point") || undefined;
-
-      return { recordingId, point };
+      point = url.searchParams.get("point") || undefined;
     } catch (_e: any) {
       // Mute exception.
     }
   }
-  return { recordingId: undefined, point: undefined };
+  return { recordingId, point };
 }
 
 /**

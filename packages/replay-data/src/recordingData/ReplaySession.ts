@@ -55,7 +55,13 @@ export default class ReplaySession extends ReplayClient {
   disconnect(): void {
     // NOTE1: We only have one unexposed `socket` object in `protocol/socket.ts`.
     // NOTE2: That file also registers a global `disconnect` function, so we can at least close it.
-    (global as any).disconnect?.();
+    try {
+      (global as any).disconnect?.();
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (_err: any) {
+      // Mute error.
+      // Note: This could happen, if the socket is already closed or not yet initialized.
+    }
   }
 
   /** ###########################################################################

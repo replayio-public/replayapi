@@ -3,7 +3,7 @@ import { scanReplayUrl } from "./replayStringUtil";
 describe("scanReplayUrl", () => {
   test("extracts recording ID and point from valid URL", () => {
     const result = scanReplayUrl(
-      "Check out https://app.replay.io/recording/localhost8080--011f1663-6205-4484-b468-5ec471dc5a31?point=78858008544042601258383216576823298"
+      "Check out https://app.replay.io/recording/localhost8080--011f1663-6205-4484-b468-5ec471dc5a31?point=78858008544042601258383216576823298:"
     );
     expect(result).toEqual({
       recordingId: "011f1663-6205-4484-b468-5ec471dc5a31",

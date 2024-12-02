@@ -30,7 +30,7 @@ program
   .option("-w --workspace-path <workspacePath>", "Local file path of the workspace.")
   .option(
     "-i --is-workspace-repo-path",
-    "`workspacePath` itself is the repo. If not, add the name of the repo to the path before cloning.",
+    "Whether `workspacePath` is the path to the repo. If not, it is considered the parent path. In that case, we add the name of the repo to the path before cloning.",
     false
   )
   .argument(

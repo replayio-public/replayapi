@@ -11,6 +11,7 @@ describe("extractRepoFolderName", () => {
 
   test("extracts repo name from SSH URL", () => {
     expect(extractRepoFolderName("git@github.com:user/repo")).toBe("repo");
+    expect(extractRepoFolderName("git@github.com:user/repo:")).toBe(null);
     expect(extractRepoFolderName("git@github.com:user/repo.git")).toBe("repo");
   });
 

@@ -4,6 +4,7 @@ import * as fs from "fs";
 import * as path from "path";
 
 import { SpawnAsyncResult, spawnAsync } from "@replay/data/src/util/spawnAsync";
+import { extractRepoFolderName } from "./gitStringUtil";
 
 export default class LocalGitRepo {
   /**
@@ -76,19 +77,3 @@ export default class LocalGitRepo {
   }
 }
 
-function extractRepoFolderName(url: string): string | null {
-  const patterns = [
-    /github\.com\/[^/]+\/([^/\n\s#?]+)/,
-    /git@github\.com:[^/]+\/([^/\n\s#?.]+)(?:\.git)?/,
-    /https:\/\/github\.com\/[^/]+\/([^/\n\s#?.]+)(?:\.git)?/,
-  ];
-
-  for (const pattern of patterns) {
-    const match = url.match(pattern);
-    if (match && match[1]) {
-      return match[1];
-    }
-  }
-
-  return null;
-}
