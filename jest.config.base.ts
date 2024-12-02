@@ -42,7 +42,7 @@ const config: Config.InitialOptions = {
   setupFilesAfterEnv: ["jest-extended/all"],
   globalTeardown: RootDir + "/testing/globalTeardown.js",
   moduleNameMapper: pathsToModuleNameMapper(tsconfig.compilerOptions.paths, {
-    prefix: RootDir +"/",
+    prefix: RootDir + "/",
   }),
   transformIgnorePatterns: ["node_modules"],
 

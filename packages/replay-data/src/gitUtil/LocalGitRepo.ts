@@ -1,23 +1,35 @@
+/* Copyright 2020-2024 Record Replay Inc. */
+
 import * as fs from "fs";
 import * as path from "path";
 
 import { SpawnAsyncResult, spawnAsync } from "@replay/data/src/util/spawnAsync";
 
-export class GitRepo {
+export default class LocalGitRepo {
   /**
    * Local path to the git repo.
    */
   public readonly folderPath: string;
 
   constructor(
-    public url: string,
-    workspaceFolder: string
+    workspaceFolder: string,
+    isWorkspaceRepoPath: boolean,
+    public url?: string,
+    public treeish?: string
   ) {
-    const folderName = extractRepoFolderName(url);
-    if (!folderName) {
-      throw new Error(`Could not extract repo folder name from git URL: ${url}`);
+    if (isWorkspaceRepoPath) {
+      this.folderPath = workspaceFolder;
+    } else if (url) {
+      const folderName = extractRepoFolderName(url);
+      if (!folderName) {
+        throw new Error(`Could not extract repo folder name from git URL: ${url}`);
+      }
+      this.folderPath = path.resolve(workspaceFolder, folderName);
+    } else {
+      throw new Error(
+        `Invalid arguments: If isWorkspaceRepoPath is false, a URL must be provided to determine the target path. - [${workspaceFolder}, ${isWorkspaceRepoPath}, ${url}]`
+      );
     }
-    this.folderPath = path.resolve(workspaceFolder, folderName);
   }
 
   private async git(args: string[]): Promise<SpawnAsyncResult> {
@@ -26,12 +38,14 @@ export class GitRepo {
     });
   }
 
-  async init(branchOrCommit?: string): Promise<void> {
+  async init(): Promise<void> {
     await this.clone();
-    if (branchOrCommit) {
-      await this.checkoutBranch(branchOrCommit);
+    if (this.treeish) {
+      await this.checkoutBranch(this.treeish);
     }
-    await this.hardReset();
+    
+    // TODO: We should not hard-reset without user consent; but without it we run the risk of getting stuck.
+    // await this.hardReset();
   }
 
   async clone(): Promise<void> {
@@ -41,6 +55,9 @@ export class GitRepo {
       }
       await this.git(["remote", "update"]);
     } else {
+      if (!this.url) {
+        throw new Error(`Cannot clone a repo without a URL: ${this.url}`);
+      }
       await this.git(["clone", this.url, this.folderPath]);
     }
   }
@@ -52,8 +69,6 @@ export class GitRepo {
   }
 
   async hardReset(): Promise<void> {
-    // TODO: We should not hard-reset without user consent; but without it we run the risk of getting stuck.
-
     // First reset any staged changes
     await this.git(["reset", "--hard"]);
     // Clean any untracked files/directories

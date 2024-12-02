@@ -1,7 +1,7 @@
 import { getReplaySessionForTest } from "../../testing/sessions";
 import { AnalysisType, DependencyGraphMode } from "./dependencyGraphShared";
 import { AnalysisInput } from "./dgSpecs";
-import { runAnalysisExperimentalCommand } from "./runAnalysis";
+import { runAnalysis } from "./runAnalysis";
 
 const RecordingId = "011f1663-6205-4484-b468-5ec471dc5a31";
 const Point = "78858008544042601258383216576823298";
@@ -18,7 +18,7 @@ describe("run-analysis", () => {
       spec,
     };
     const session = await getReplaySessionForTest(RecordingId);
-    const result1 = await runAnalysisExperimentalCommand(session, input);
+    const result1 = await runAnalysis(session, input);
     expect(result1.dependencies.slice(-4)).toEqual([
       {
         code: "ReactCreateElement",

@@ -9,7 +9,7 @@ import {
   DependencyGraphMode,
 } from "../analysis/dependencyGraphShared";
 import { AnalysisInput } from "../analysis/dgSpecs";
-import { runAnalysisExperimentalCommand } from "../analysis/runAnalysis";
+import { runAnalysis } from "../analysis/runAnalysis";
 import { AnalyzeDependenciesResult } from "../analysis/specs/analyzeDependencies";
 import PointQueries from "./PointQueries";
 import ReplaySession from "./ReplaySession";
@@ -42,7 +42,7 @@ export default class DependencyChain {
       analysisType: AnalysisType.Dependency,
       spec,
     };
-    return await runAnalysisExperimentalCommand(this.session, input);
+    return await runAnalysis(this.session, input);
   }
 
   private normalizeFrameForRichStack(frame: FrameWithPoint): RawRichStackFrame | null {

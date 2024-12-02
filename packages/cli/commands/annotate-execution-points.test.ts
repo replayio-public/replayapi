@@ -3,23 +3,43 @@
 // Mock dependencies before importing them
 jest.mock("@replay/data/src/recordingData/comments");
 jest.mock("@replay/data/src/analysis/runAnalysis");
-jest.mock("@replay/data/src/gitUtil/gitRepos");
+jest.mock("@replay/data/src/gitUtil/LocalGitRepo");
 jest.mock("@replay/data/src/analysis/annotateExecutionPoints", () => ({
   annotateExecutionPoints: jest.fn(),
 }));
 jest.mock("../commandsShared/print");
 
+import { unlink, writeFile } from "fs/promises";
+import { tmpdir } from "os";
+import path, { join } from "path";
+
 import { annotateExecutionPoints } from "@replay/data/src/analysis/annotateExecutionPoints";
 import { AnalysisType } from "@replay/data/src/analysis/dependencyGraphShared";
 import {
-  runAnalysisExperimentalCommand,
+  runAnalysis,
   runAnalysisScript,
 } from "@replay/data/src/analysis/runAnalysis";
+import LocalGitRepo from "@replay/data/src/gitUtil/LocalGitRepo";
 import { RecordingComment, getSourceCodeComments } from "@replay/data/src/recordingData/comments";
 
-import { GitRepo } from "../../replay-data/src/gitUtil/gitRepos";
 import { printCommandResult } from "../commandsShared/print";
-import { annotateExecutionPointsAction } from "./annotate-execution-points";
+import { CommandArgs, annotateExecutionPointsAction } from "./annotate-execution-points";
+
+async function runAction(problemDescription: string, options: CommandArgs) {
+  const problemDescriptionFile = join(tmpdir(), `problem-${Date.now()}.txt`);
+
+  try {
+    await writeFile(problemDescriptionFile, problemDescription, "utf-8");
+    return await annotateExecutionPointsAction(problemDescriptionFile, options);
+  } finally {
+    // Cleanup temp file if needed
+    try {
+      await unlink(problemDescriptionFile);
+    } catch {
+      // Ignore cleanup errors
+    }
+  }
+}
 
 describe("addExecutionPointComments", () => {
   beforeEach(() => {
@@ -27,25 +47,20 @@ describe("addExecutionPointComments", () => {
   });
 
   it("should print NoRecordingId when recordingId is not found", async () => {
-    const workspaceDir = "/path/to/workspace";
-    const repoUrl = "https://github.com/user/repo.git";
-    const branchOrCommit = "main";
-    const issueDescription = "This is an issue without recordingId";
+    const workspacePath = "/path/to/workspace";
+    const problemDescription = "This is an issue without recordingId";
 
-    await annotateExecutionPointsAction(issueDescription, {
-      workspaceDir,
-      repoUrl,
-      branchOrCommit,
+    await runAction(problemDescription, {
+      workspacePath,
+      isWorkspaceRepoPath: true,
     });
 
     expect(printCommandResult).toHaveBeenCalledWith({ status: "NoRecordingId" });
   });
 
-  it("should print NoSourceComments when no comments with point are found", async () => {
-    const workspaceDir = "/path/to/workspace";
-    const repoUrl = "https://github.com/user/repo.git";
-    const branchOrCommit = "main";
-    const issueDescription =
+  it("should print NoPointAndNoSourceComments when no comments with point are found", async () => {
+    const workspacePath = "/path/to/workspace";
+    const problemDescription =
       "This is an issue with recordingId https://app.replay.io/recording/011f1663-6205-4484-b468-5ec471dc5a31";
 
     const mockComments: RecordingComment[] = [
@@ -71,26 +86,25 @@ describe("addExecutionPointComments", () => {
       mockComments
     );
 
-    await annotateExecutionPointsAction(issueDescription, {
-      workspaceDir,
-      repoUrl,
-      branchOrCommit,
+    await runAction(problemDescription, {
+      workspacePath,
+      isWorkspaceRepoPath: true,
     });
 
-    expect(printCommandResult).toHaveBeenCalledWith({ status: "NoSourceComments" });
+    expect(printCommandResult).toHaveBeenCalledWith({ status: "NoPointAndNoSourceComments" });
   });
 
   it("should succeed", async () => {
-    const workspaceDir = "/path/to/workspace";
-    const repoUrl = "https://github.com/user/repo.git";
-    const branchOrCommit = "main";
-    const issueDescription =
-      "This is an issue with recordingId https://app.replay.io/recording/011f1663-6205-4484-b468-5ec471dc5a31";
+    const workspacePath = "/path/to/workspace";
+    const repoName = "my-repo";
+    const repoUrl = `https://github.com/user/${repoName}.git`;
+    const problemDescription = `This is an issue with recordingId https://app.replay.io/recording/011f1663-6205-4484-b468-5ec471dc5a31 and a github url ${repoUrl}`;
 
     const recordingId = "011f1663-6205-4484-b468-5ec471dc5a31";
     const point = "1234";
     const analysisResults = { points: ["point1"] };
-    const folderPath = "/path/to/workspace/repo";
+    const folderPath = "/path/to/my-workspace";
+    const repoPath = path.join(folderPath, repoName);
 
     const mockComments: RecordingComment[] = [
       {
@@ -125,18 +139,21 @@ describe("addExecutionPointComments", () => {
 
     // Mock GitRepo class
     const gitRepoInitMock = jest.fn().mockResolvedValue(undefined);
-    (GitRepo as jest.Mock).mockImplementation(() => ({
-      folderPath,
+    (LocalGitRepo as jest.Mock).mockImplementation(() => ({
       init: gitRepoInitMock,
     }));
 
-    await annotateExecutionPointsAction(issueDescription, {
-      workspaceDir,
-      repoUrl,
-      branchOrCommit,
+    await runAction(problemDescription, {
+      workspacePath,
+      isWorkspaceRepoPath: false,
     });
 
-    expect(runAnalysisExperimentalCommand).toHaveBeenCalledWith(
+    expect(annotateExecutionPoints).toHaveBeenCalledWith({
+      repository: repoPath,
+      results: analysisResults,
+    });
+
+    expect(runAnalysis).toHaveBeenCalledWith(
       /* ReplaySession */
       expect.toBeObject(),
 
@@ -150,11 +167,11 @@ describe("addExecutionPointComments", () => {
         },
       }
     );
-    expect(GitRepo).toHaveBeenCalledWith(repoUrl, workspaceDir);
-    expect(gitRepoInitMock).toHaveBeenCalledWith(branchOrCommit);
+    expect(LocalGitRepo).toHaveBeenCalledWith(workspacePath, false, repoUrl, undefined);
+    expect(gitRepoInitMock).toHaveBeenCalledWith();
     expect(printCommandResult).toHaveBeenCalledWith({
       status: "Success",
-      annotatedRepo: folderPath,
+      annotatedRepo: repoPath,
     });
   });
 });

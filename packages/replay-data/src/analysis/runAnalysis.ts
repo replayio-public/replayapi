@@ -61,6 +61,31 @@ export async function prepareAnalysisForScript(
   };
 }
 
+const analysisExperimentalCommandMap: Record<string, AnalysisType> = {
+  analyzeDependencies: AnalysisType.Dependency,
+  runPerformanceAnalysis: AnalysisType.Performance,
+  getReactStateChanges: AnalysisType.ReactStateChanges,
+  rerecordCompare: AnalysisType.RerecordCompare,
+  ["analyze" + AnalysisType.ExecutionPoint]: AnalysisType.ExecutionPoint,
+};
+
+const analysisExperimentalCommandMapInverted = Object.fromEntries(
+  Object.entries(analysisExperimentalCommandMap).map(([k, v]) => [v, k])
+) as Record<AnalysisType, string>;
+
+/**
+ * Run the given analysis via `experimentalCommand`.
+ */
+export async function runAnalysis(
+  session: ReplaySession,
+  input: AnalysisInput
+): Promise<AnalysisResult> {
+  return session.experimentalCommand(
+    analysisExperimentalCommandMapInverted[input.analysisType],
+    input.spec
+  );
+}
+
 async function runScript(scriptFile: string, scriptArgs: string[]) {
   if (!(await exists(BACKEND_DIR))) {
     throw new Error(`Backend directory not found: ${BACKEND_DIR}`);
@@ -71,7 +96,6 @@ async function runScript(scriptFile: string, scriptArgs: string[]) {
     cwd: BACKEND_DIR,
   });
 }
-
 /**
  * Run the given analysis via a script in the local `backend` repo.
  * NOTE: We have this for a local dev loop that does not require deploying backend changes.
@@ -100,31 +124,6 @@ export async function runAnalysisScript(input: AnalysisInput): Promise<AnalysisR
 
   const dependencies = parseDependencyOutput(stdout.toString());
   return dependencies;
-}
-
-const analysisExperimentalCommandMap: Record<string, AnalysisType> = {
-  analyzeDependencies: AnalysisType.Dependency,
-  runPerformanceAnalysis: AnalysisType.Performance,
-  getReactStateChanges: AnalysisType.ReactStateChanges,
-  rerecordCompare: AnalysisType.RerecordCompare,
-  ["analyze" + AnalysisType.ExecutionPoint]: AnalysisType.ExecutionPoint,
-};
-
-const analysisExperimentalCommandMapInverted = Object.fromEntries(
-  Object.entries(analysisExperimentalCommandMap).map(([k, v]) => [v, k])
-) as Record<AnalysisType, string>;
-
-/**
- * Run the given analysis via `experimentalCommand`.
- */
-export async function runAnalysisExperimentalCommand(
-  session: ReplaySession,
-  input: AnalysisInput
-): Promise<AnalysisResult> {
-  return session.experimentalCommand(
-    analysisExperimentalCommandMapInverted[input.analysisType],
-    input.spec
-  );
 }
 
 function parseDependencyOutput(stdout: string): any {

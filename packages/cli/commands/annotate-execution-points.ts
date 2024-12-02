@@ -6,10 +6,11 @@ import { debuglog } from "util";
 import { annotateExecutionPoints } from "@replay/data/src/analysis/annotateExecutionPoints";
 import { AnalysisType } from "@replay/data/src/analysis/dependencyGraphShared";
 import { AnalysisInput } from "@replay/data/src/analysis/dgSpecs";
-import { runAnalysisExperimentalCommand } from "@replay/data/src/analysis/runAnalysis";
-import { GitRepo } from "@replay/data/src/gitUtil/gitRepos";
-import { fuzzyExtractRecordingAndPoint } from "@replay/data/src/recordingData/fuzzyPoints";
+import { runAnalysis } from "@replay/data/src/analysis/runAnalysis";
+import { scanGitUrl } from "@replay/data/src/gitUtil/gitStringUtil";
+import LocalGitRepo from "@replay/data/src/gitUtil/LocalGitRepo";
 import ReplaySession from "@replay/data/src/recordingData/ReplaySession";
+import { scanRecordingAndPoint } from "@replay/data/src/recordingData/replayStringUtil";
 import { program } from "commander";
 
 import { printCommandResult } from "../commandsShared/print";
@@ -23,56 +24,56 @@ const debug = debuglog("replay:annotateExecutionPoints");
 program
   .command("annotate-execution-points")
   .description(
-    "Analyze recording provided in issueDescription and annotate code at given path with comments." +
-      " If it is not a repo yet, then a GitHub URL is extracted from issueDescription for cloning."
+    "Analyze recording provided in problemDescription and annotate code at given path with comments." +
+      " If it is not a repo yet, then a GitHub URL is extracted from problemDescription for cloning."
   )
-  .option("-f --repo-folder-path <repoFolderPath>", "Local file path of the target repo.")
+  .option("-w --workspace-path <workspacePath>", "Local file path of the workspace.")
   .option(
-    "-a --append-repo-name-to-path",
-    "If repoFolderPath is not a git repo, add the name of the repo to the path before cloning.",
-    true
+    "-i --is-workspace-repo-path",
+    "`workspacePath` itself is the repo. If not, add the name of the repo to the path before cloning.",
+    false
   )
   .argument(
-    "<issueDescriptionFile>",
+    "<problemDescriptionFile>",
     "Path to a file that contains the description of the issue to fix."
   )
   .action(annotateExecutionPointsAction);
 
+export type CommandArgs = { workspacePath: string; isWorkspaceRepoPath: boolean };
+
 export async function annotateExecutionPointsAction(
-  issueDescriptionFile: string,
-  {
-    repoFolderPath,
-    appendRepoNameToPath,
-  }: { repoFolderPath: string; appendRepoNameToPath: boolean }
+  problemDescriptionFile: string,
+  { workspacePath, isWorkspaceRepoPath = false }: CommandArgs
 ): Promise<void> {
-  debug(`starting w/ issueDescriptionFile=${JSON.stringify(issueDescriptionFile)}`);
+  debug(`starting w/ problemDescriptionFile=${JSON.stringify(problemDescriptionFile)}`);
 
-  const issueDescription = await readFile(issueDescriptionFile, "utf8");
-
-  // TODO: Check whether we have to clone.
-  // TODO: Extract repoUrl and branchOrCommit from issueDescription.
-  // TODO: Respect appendRepoNameToPath
-  const repo = new GitRepo(repoUrl, workspaceDir);
-  // 4. Clone + checkout branch.
-  await repo.init(branchOrCommit);
-  // return annotateExecutionPointsAction(issueDescription, { repoFolderPath: repo.folderPath });
+  const problemDescription = await readFile(problemDescriptionFile, "utf8");
 
   // Extract...
   // 1. recordingId and
-  // 2. point from issueDescription and source comments.
-  const { recordingId, point } = await fuzzyExtractRecordingAndPoint(issueDescription);
+  // 2. point from problemDescription and source comments.
+  const { recordingId, point } = await scanRecordingAndPoint(problemDescription);
   if (!recordingId) {
     printCommandResult({ status: "NoRecordingId" });
     return;
   }
   if (!point) {
-    printCommandResult({ status: "NoSourceComments" });
+    printCommandResult({ status: "NoPointAndNoSourceComments" });
     return;
   }
 
-  debug(`connecting to Replay server...`);
   const session = new ReplaySession();
   try {
+    // Extract possible GitHub url from problemDescription.
+    const { repoUrl, branch, commit, tag } = scanGitUrl(problemDescription);
+    const treeish = branch || commit || tag;
+
+    const repo = new LocalGitRepo(workspacePath, !!isWorkspaceRepoPath, repoUrl, treeish);
+    // 4. Clone + checkout branch if necessary.
+    await repo.init();
+
+    // 5. Initialize session.
+    debug(`connecting to Replay server...`);
     await session.initialize(recordingId);
     const analysisInput: AnalysisInput = {
       analysisType: AnalysisType.ExecutionPoint,
@@ -83,19 +84,20 @@ export async function annotateExecutionPointsAction(
       },
     };
 
+    // 6. Analyze recording.
     debug(`analyzing recording...`);
-    const analysisResults = await runAnalysisExperimentalCommand(session, analysisInput);
+    const analysisResults = await runAnalysis(session, analysisInput);
 
-    // 5. Run annotation script.
+    // 7. Run annotation script.
     debug(`annotating repo with analysis results...`);
     await annotateExecutionPoints({
-      repository: repoFolderPath,
+      repository: repo.folderPath,
       results: analysisResults,
     });
 
     printCommandResult({
       status: "Success",
-      annotatedRepo: repoFolderPath,
+      annotatedRepo: repo.folderPath,
     });
   } finally {
     session?.disconnect();
