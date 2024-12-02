@@ -45,8 +45,8 @@ export default class LocalGitRepo {
       await this.checkoutBranch(this.treeish);
     }
     
-    // TODO: We should not hard-reset without user consent; but without it we run the risk of getting stuck.
-    // await this.hardReset();
+    // NOTE: We should not hard-reset without user consent; but without it we run the risk of getting stuck.
+    await this.hardReset();
   }
 
   async clone(): Promise<void> {
