@@ -65,7 +65,8 @@ export async function annotateExecutionPointsAction(
   const session = new ReplaySession();
   try {
     // Extract possible GitHub url from problemDescription.
-    const { repoUrl, branch, commit, tag } = scanGitUrl(problemDescription);
+    const gitInfo = scanGitUrl(problemDescription);
+    const { repoUrl, branch, commit, tag } = gitInfo || {};
     const treeish = branch || commit || tag;
 
     const repo = new LocalGitRepo(workspacePath, !!isWorkspaceRepoPath, repoUrl, treeish);
