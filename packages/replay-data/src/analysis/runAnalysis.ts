@@ -2,10 +2,7 @@ import { mkdir, mkdtemp, writeFile } from "fs/promises";
 import os from "os";
 import path from "path";
 
-import ReplaySession, { getApiKey } from "../recordingData/ReplaySession";
-import { exists } from "../util/fsUtil";
-import { spawnAsync } from "../util/spawnAsync";
-import { BACKEND_DIR } from "../backendShared";
+import ReplaySession from "../recordingData/ReplaySession";
 import { AnalysisType } from "./dependencyGraphShared";
 import { AnalysisInput } from "./dgSpecs";
 
@@ -13,8 +10,6 @@ import { AnalysisInput } from "./dgSpecs";
  * TODO: Typify results based on AnalysisType, just like we have done with AnalysisInput.
  */
 export type AnalysisResult = any;
-
-const TsRunner = "ts-node";
 
 async function prepareAnalysisBase(): Promise<{ replayDir: string }> {
   if (!process.env.DATABASE_URL) {
@@ -84,62 +79,4 @@ export async function runAnalysis(
     analysisExperimentalCommandMapInverted[input.analysisType],
     input.spec
   );
-}
-
-async function runScript(scriptFile: string, scriptArgs: string[]) {
-  if (!(await exists(BACKEND_DIR))) {
-    throw new Error(`Backend directory not found: ${BACKEND_DIR}`);
-  }
-  // Run analysis
-  const scriptPath = path.join("scripts/analysis/", scriptFile);
-  await spawnAsync(TsRunner, [scriptPath, ...scriptArgs], {
-    cwd: BACKEND_DIR,
-  });
-}
-/**
- * Run the given analysis via a script in the local `backend` repo.
- * NOTE: We have this for a local dev loop that does not require deploying backend changes.
- */
-export async function runAnalysisScript(input: AnalysisInput): Promise<AnalysisResult> {
-  const { cacheDir, specFile } = await prepareAnalysisForScript(input.analysisType, input.spec);
-
-  // Run analysis
-  let scriptFile: string;
-  let scriptArgs = ["-k", getApiKey(), "-d", cacheDir, "-s", specFile]; // default args.
-  switch (input.analysisType) {
-    case AnalysisType.Dependency:
-      scriptFile = "dependency-graph.ts";
-      break;
-    case AnalysisType.ExecutionPoint:
-      scriptFile = "execution-data.ts";
-      break;
-    default:
-      throw new Error(`Unsupported analysis type: ${input.analysisType}`);
-  }
-
-  const scriptPath = path.join("scripts/analysis/", scriptFile);
-  const { stdout } = await spawnAsync(TsRunner, [scriptPath, ...scriptArgs], {
-    cwd: BACKEND_DIR,
-  });
-
-  const dependencies = parseDependencyOutput(stdout.toString());
-  return dependencies;
-}
-
-function parseDependencyOutput(stdout: string): any {
-  const startString = " result:  ";
-  const start = stdout.indexOf(startString + "{");
-  const end = stdout.lastIndexOf("}");
-
-  if (start === -1 || end === -1) {
-    throw new Error("Could not find dependency data markers in stdout");
-  }
-
-  const outputDataString = stdout.slice(start + startString.length, end + 1);
-  try {
-    // NOTE: The script currently does not output valid JSON, so we need to use eval instead.
-    return eval(`(${outputDataString})`);
-  } catch (error: any) {
-    throw new Error(`Failed to parse DG stdout "${error.message}". Input: ${outputDataString}`);
-  }
 }

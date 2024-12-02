@@ -15,10 +15,7 @@ import path, { join } from "path";
 
 import { annotateExecutionPoints } from "@replay/data/src/analysis/annotateExecutionPoints";
 import { AnalysisType } from "@replay/data/src/analysis/dependencyGraphShared";
-import {
-  runAnalysis,
-  runAnalysisScript,
-} from "@replay/data/src/analysis/runAnalysis";
+import { runAnalysis } from "@replay/data/src/analysis/runAnalysis";
 import LocalGitRepo from "@replay/data/src/gitUtil/LocalGitRepo";
 import { RecordingComment, getSourceCodeComments } from "@replay/data/src/recordingData/comments";
 
@@ -127,10 +124,6 @@ describe("addExecutionPointComments", () => {
 
     (getSourceCodeComments as jest.MockedFunction<typeof getSourceCodeComments>).mockResolvedValue(
       mockComments
-    );
-
-    (runAnalysisScript as jest.MockedFunction<typeof runAnalysisScript>).mockResolvedValue(
-      analysisResults
     );
 
     (
