@@ -11,6 +11,7 @@ import fs from "fs";
 import path from "path";
 
 import { ExecutionPoint as ProtocolExecutionPoint } from "@replayio/protocol";
+import sortBy from "lodash/sortBy";
 
 import { ExecutionDataAnalysisResult } from "./specs/executionPoint";
 
@@ -46,9 +47,19 @@ function countLeadingSpaces(str: string) {
   return leadingSpaces ? leadingSpaces[0].length : 0;
 }
 
-export async function annotateExecutionPoints(spec: AnnotateExecutionDataSpec): Promise<void> {
+export type AnnotateExecutionPointsResult = {
+  point: ProtocolExecutionPoint;
+  file: string;
+  line: number;
+}[];
+
+export async function annotateExecutionPoints(
+  spec: AnnotateExecutionDataSpec
+): Promise<AnnotateExecutionPointsResult> {
   let { results } = spec;
   const { points } = results;
+
+  const annotatedLocations: AnnotateExecutionPointsResult = [];
 
   // Write annotations to source files.
   const pointNames = new Map<ProtocolExecutionPoint, string>();
@@ -100,5 +111,13 @@ export async function annotateExecutionPoints(spec: AnnotateExecutionDataSpec): 
     }
     assert(found, `Line ${location.source} not found in ${filePath}`);
     fs.writeFileSync(filePath, lines.join("\n"));
+    annotatedLocations.push({
+      point: point,
+      file: filePath,
+      line: location.line,
+    });
   }
+
+  sortBy(annotatedLocations, "point", "desc");
+  return annotatedLocations;
 }
