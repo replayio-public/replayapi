@@ -2,6 +2,8 @@
 
 import "../bootstrap";
 
+import { debuglog } from "util";
+
 import { ExecutionPoint, RecordingId, SessionId } from "@replayio/protocol";
 import { sendMessage } from "protocol/socket";
 import { assert } from "protocol/utils";
@@ -12,6 +14,8 @@ import { STATUS_PENDING } from "suspense";
 
 import PointQueries from "./PointQueries";
 import ReplaySources from "./ReplaySources";
+
+const debug = debuglog("replay:ReplaySession");
 
 /**
  * The devtools require a `time` value for managing pauses, but it is not necessary.
@@ -49,7 +53,9 @@ export default class ReplaySession extends ReplayClient {
   }
 
   async initialize(recordingId: RecordingId): Promise<SessionId> {
-    return await super.initialize(recordingId, getApiKey());
+    const sessionId = await super.initialize(recordingId, getApiKey());
+    debug(`Initialized session "${sessionId}".`);
+    return sessionId;
   }
 
   disconnect(): void {
@@ -57,7 +63,7 @@ export default class ReplaySession extends ReplayClient {
     // NOTE2: That file also registers a global `disconnect` function, so we can at least close it.
     try {
       (global as any).disconnect?.();
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (_err: any) {
       // Mute error.
       // Note: This could happen, if the socket is already closed or not yet initialized.
