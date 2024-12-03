@@ -73,6 +73,10 @@ export async function annotateExecutionPointsAction(
     // 4. Clone + checkout branch if necessary.
     await repo.init();
 
+    // 4b. Hard reset.
+    //     NOTE: We should not hard-reset without user consent; but without it we run the risk of getting stuck.
+    await repo.hardReset();
+
     // 5. Initialize session.
     debug(`connecting to Replay server...`);
     await session.initialize(recordingId);

@@ -21,7 +21,7 @@ export async function spawnAsync(
 ): SpawnAsyncResult {
   let p: ChildProcess;
   try {
-    debug(`$ ${command} ${args.join(" ")}`);
+    console.warn(`$ ${command} ${args.join(" ")}`);
     p = spawn(command, args, options);
   } catch (err: any) {
     throw new NestedError("Unable to spawn command: Make sure both, command and cwd, exist!", err);

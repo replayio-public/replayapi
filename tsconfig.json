@@ -43,6 +43,7 @@
       "@replayapi/cli/*": [
         "packages/cli/*"
       ],
+      // TODO: Fix path naming (`server` should not point to `client`).
       "session-server": [
         "packages/session-server/client.ts"
       ],
@@ -66,6 +67,9 @@
       ],
       "shared/*": [
         ".yalc/shared/*"
+      ],
+      "testing/*": [
+        "testing/*"
       ],
       // stub out some unfortunate/unavoidable dependencies
       "@sentry/react": [

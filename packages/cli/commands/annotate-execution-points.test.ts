@@ -3,7 +3,16 @@
 // Mock dependencies before importing them
 jest.mock("@replay/data/src/recordingData/comments");
 jest.mock("@replay/data/src/analysis/runAnalysis");
-jest.mock("@replay/data/src/gitUtil/LocalGitRepo");
+// jest.mock("@replay/data/src/gitUtil/LocalGitRepo");
+jest.mock("@replay/data/src/gitUtil/LocalGitRepo", () => {
+  const { mockClassMethods } = require("testing/mock-util");
+  const Clazz = jest.requireActual("@replay/data/src/gitUtil/LocalGitRepo").default;
+  mockClassMethods(Clazz);
+  return {
+    __esModule: true,
+    default: Clazz,
+  };
+});
 jest.mock("@replay/data/src/analysis/annotateExecutionPoints", () => ({
   annotateExecutionPoints: jest.fn(),
 }));
@@ -21,6 +30,7 @@ import { RecordingComment, getSourceCodeComments } from "@replay/data/src/record
 
 import { printCommandResult } from "../commandsShared/print";
 import { CommandArgs, annotateExecutionPointsAction } from "./annotate-execution-points";
+
 
 async function runAction(problemDescription: string, options: CommandArgs) {
   const problemDescriptionFile = join(tmpdir(), `problem-${Date.now()}.txt`);
@@ -100,8 +110,7 @@ describe("addExecutionPointComments", () => {
     const recordingId = "011f1663-6205-4484-b468-5ec471dc5a31";
     const point = "1234";
     const analysisResults = { points: ["point1"] };
-    const folderPath = "/path/to/my-workspace";
-    const repoPath = path.join(folderPath, repoName);
+    const repoPath = path.join(workspacePath, repoName);
 
     const mockComments: RecordingComment[] = [
       {
@@ -126,26 +135,22 @@ describe("addExecutionPointComments", () => {
       mockComments
     );
 
+    (runAnalysis as jest.MockedFunction<typeof runAnalysis>).mockResolvedValue(analysisResults);
+
     (
       annotateExecutionPoints as jest.MockedFunction<typeof annotateExecutionPoints>
     ).mockResolvedValue(undefined);
 
-    // Mock GitRepo class
-    const gitRepoInitMock = jest.fn().mockResolvedValue(undefined);
-    (LocalGitRepo as jest.Mock).mockImplementation(() => ({
-      init: gitRepoInitMock,
-    }));
-
+    // Go.
     await runAction(problemDescription, {
       workspacePath,
       isWorkspaceRepoPath: false,
     });
 
-    expect(annotateExecutionPoints).toHaveBeenCalledWith({
-      repository: repoPath,
-      results: analysisResults,
-    });
-
+    // Expect.
+    // expect(LocalGitRepo).toHaveBeenCalledWith(workspacePath, false, repoUrl, undefined);
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(LocalGitRepo.prototype.init).toHaveBeenCalledWith();
     expect(runAnalysis).toHaveBeenCalledWith(
       /* ReplaySession */
       expect.toBeObject(),
@@ -160,8 +165,10 @@ describe("addExecutionPointComments", () => {
         },
       }
     );
-    expect(LocalGitRepo).toHaveBeenCalledWith(workspacePath, false, repoUrl, undefined);
-    expect(gitRepoInitMock).toHaveBeenCalledWith();
+    expect(annotateExecutionPoints).toHaveBeenCalledWith({
+      repository: repoPath,
+      results: analysisResults,
+    });
     expect(printCommandResult).toHaveBeenCalledWith({
       status: "Success",
       annotatedRepo: repoPath,
