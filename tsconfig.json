@@ -50,13 +50,13 @@
       "session-server/*": [
         "packages/session-server/*"
       ],
-      "@replay/data/*": [
+      "@replayio/data/*": [
         "packages/replay-data/*"
       ],
-      "@replay/tools/*": [
+      "@replayio/tools/*": [
         "packages/replay-ai-tools/*"
       ],
-      "@replay/source-parser/*": [
+      "@replayio/source-parser/*": [
         "packages/source-parser/*"
       ],
       "protocol/*": [

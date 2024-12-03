@@ -3,7 +3,7 @@
 import * as fs from "fs";
 import * as path from "path";
 
-import { SpawnAsyncResult, spawnAsync } from "@replay/data/src/util/spawnAsync";
+import { SpawnAsyncResult, spawnAsync } from "@replayio/data/src/util/spawnAsync";
 import { extractRepoFolderName } from "./gitStringUtil";
 
 export default class LocalGitRepo {

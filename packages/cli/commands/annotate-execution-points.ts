@@ -3,14 +3,14 @@
 import { readFile } from "fs/promises";
 import { debuglog } from "util";
 
-import { annotateExecutionPoints } from "@replay/data/src/analysis/annotateExecutionPoints";
-import { AnalysisType } from "@replay/data/src/analysis/dependencyGraphShared";
-import { AnalysisInput } from "@replay/data/src/analysis/dgSpecs";
-import { runAnalysis } from "@replay/data/src/analysis/runAnalysis";
-import { scanGitUrl } from "@replay/data/src/gitUtil/gitStringUtil";
-import LocalGitRepo from "@replay/data/src/gitUtil/LocalGitRepo";
-import ReplaySession from "@replay/data/src/recordingData/ReplaySession";
-import { scanRecordingAndPoint } from "@replay/data/src/recordingData/replayStringUtil";
+import { annotateExecutionPoints } from "@replayio/data/src/analysis/annotateExecutionPoints";
+import { AnalysisType } from "@replayio/data/src/analysis/dependencyGraphShared";
+import { AnalysisInput } from "@replayio/data/src/analysis/dgSpecs";
+import { runAnalysis } from "@replayio/data/src/analysis/runAnalysis";
+import { scanGitUrl } from "@replayio/data/src/gitUtil/gitStringUtil";
+import LocalGitRepo from "@replayio/data/src/gitUtil/LocalGitRepo";
+import ReplaySession from "@replayio/data/src/recordingData/ReplaySession";
+import { scanRecordingAndPoint } from "@replayio/data/src/recordingData/replayStringUtil";
 import { program } from "commander";
 
 import { printCommandResult } from "../commandsShared/print";

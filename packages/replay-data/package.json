@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "@replay/data",
+  "name": "@replayio/data",
   "version": "0.0.0",
   "dependencies": {
     "suspense": "^0.0.53",

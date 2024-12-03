@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "@replay/source-parser",
+  "name": "@replayio/source-parser",
   "version": "0.0.0",
   "dependencies": {
     "tree-sitter": "^0.22.1",

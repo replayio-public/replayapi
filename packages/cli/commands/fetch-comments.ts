@@ -1,4 +1,4 @@
-import { getSourceCodeComments } from "@replay/data/src/recordingData/comments";
+import { getSourceCodeComments } from "@replayio/data/src/recordingData/comments";
 import { program } from "commander";
 
 import { printCommandResult } from "../commandsShared/print";

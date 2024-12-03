@@ -7,8 +7,10 @@ export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 corepack enable
 yarn
 
-# clone devtools and use yalc to hook up packages we depend on
-git -C .. clone https://github.com/replayio/devtools.git
+# Clone devtools if not already present.
+if [ ! -d "../devtools" ]; then
+    git -C .. clone https://github.com/replayio/devtools.git
+fi
+
 export REPLAY_DIR=$(pwd)/..
-yarn publish-devtools
-yarn link-devtools
+yarn yalc-all

@@ -1082,36 +1082,20 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@replay/data@workspace:packages/replay-data":
-  version: 0.0.0-use.local
-  resolution: "@replay/data@workspace:packages/replay-data"
-  dependencies:
-    suspense: "npm:^0.0.53"
-    zod: "npm:^3.23.8"
-  languageName: unknown
-  linkType: soft
-
-"@replay/source-parser@workspace:packages/source-parser":
-  version: 0.0.0-use.local
-  resolution: "@replay/source-parser@workspace:packages/source-parser"
-  dependencies:
-    tree-sitter: "npm:^0.22.1"
-    tree-sitter-cli: "npm:^0.24.4"
-    tree-sitter-html: "npm:^0.23.2"
-    tree-sitter-javascript: "npm:^0.23.1"
-    tree-sitter-typescript: "npm:^0.23.2"
-  languageName: unknown
-  linkType: soft
-
-"@replay/tools@workspace:packages/replay-ai-tools":
-  version: 0.0.0-use.local
-  resolution: "@replay/tools@workspace:packages/replay-ai-tools"
-  languageName: unknown
-  linkType: soft
-
 "@replayio/cli@workspace:*, @replayio/cli@workspace:packages/cli":
   version: 0.0.0-use.local
   resolution: "@replayio/cli@workspace:packages/cli"
+  dependencies:
+    "@replayio/data": "workspace:*"
+  languageName: unknown
+  linkType: soft
+
+"@replayio/data@workspace:*, @replayio/data@workspace:packages/replay-data":
+  version: 0.0.0-use.local
+  resolution: "@replayio/data@workspace:packages/replay-data"
+  dependencies:
+    suspense: "npm:^0.0.53"
+    zod: "npm:^3.23.8"
   languageName: unknown
   linkType: soft
 
@@ -1121,6 +1105,24 @@ __metadata:
   checksum: 10c0/00b2d9bf77540bc12d7195a9f6f014ee0983ebef89020d2e74ef6d5ee9559f83fff1652bd6124ca1c242cc38ca20abf154649e567679869e66bca2b498bd8d07
   languageName: node
   linkType: hard
+
+"@replayio/source-parser@workspace:packages/source-parser":
+  version: 0.0.0-use.local
+  resolution: "@replayio/source-parser@workspace:packages/source-parser"
+  dependencies:
+    tree-sitter: "npm:^0.22.1"
+    tree-sitter-cli: "npm:^0.24.4"
+    tree-sitter-html: "npm:^0.23.2"
+    tree-sitter-javascript: "npm:^0.23.1"
+    tree-sitter-typescript: "npm:^0.23.2"
+  languageName: unknown
+  linkType: soft
+
+"@replayio/tools@workspace:packages/replay-ai-tools":
+  version: 0.0.0-use.local
+  resolution: "@replayio/tools@workspace:packages/replay-ai-tools"
+  languageName: unknown
+  linkType: soft
 
 "@sinclair/typebox@npm:^0.27.8":
   version: 0.27.8

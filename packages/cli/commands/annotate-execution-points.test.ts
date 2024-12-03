@@ -1,19 +1,19 @@
 /* Copyright 2020-2024 Record Replay Inc. */
 
 // Mock dependencies before importing them
-jest.mock("@replay/data/src/recordingData/comments");
-jest.mock("@replay/data/src/analysis/runAnalysis");
-// jest.mock("@replay/data/src/gitUtil/LocalGitRepo");
-jest.mock("@replay/data/src/gitUtil/LocalGitRepo", () => {
+jest.mock("@replayio/data/src/recordingData/comments");
+jest.mock("@replayio/data/src/analysis/runAnalysis");
+// jest.mock("@replayio/data/src/gitUtil/LocalGitRepo");
+jest.mock("@replayio/data/src/gitUtil/LocalGitRepo", () => {
   const { mockClassMethods } = require("testing/mock-util");
-  const Clazz = jest.requireActual("@replay/data/src/gitUtil/LocalGitRepo").default;
+  const Clazz = jest.requireActual("@replayio/data/src/gitUtil/LocalGitRepo").default;
   mockClassMethods(Clazz);
   return {
     __esModule: true,
     default: Clazz,
   };
 });
-jest.mock("@replay/data/src/analysis/annotateExecutionPoints", () => ({
+jest.mock("@replayio/data/src/analysis/annotateExecutionPoints", () => ({
   annotateExecutionPoints: jest.fn(),
 }));
 jest.mock("../commandsShared/print");
@@ -22,11 +22,11 @@ import { unlink, writeFile } from "fs/promises";
 import { tmpdir } from "os";
 import path, { join } from "path";
 
-import { annotateExecutionPoints } from "@replay/data/src/analysis/annotateExecutionPoints";
-import { AnalysisType } from "@replay/data/src/analysis/dependencyGraphShared";
-import { runAnalysis } from "@replay/data/src/analysis/runAnalysis";
-import LocalGitRepo from "@replay/data/src/gitUtil/LocalGitRepo";
-import { RecordingComment, getSourceCodeComments } from "@replay/data/src/recordingData/comments";
+import { annotateExecutionPoints } from "@replayio/data/src/analysis/annotateExecutionPoints";
+import { AnalysisType } from "@replayio/data/src/analysis/dependencyGraphShared";
+import { runAnalysis } from "@replayio/data/src/analysis/runAnalysis";
+import LocalGitRepo from "@replayio/data/src/gitUtil/LocalGitRepo";
+import { RecordingComment, getSourceCodeComments } from "@replayio/data/src/recordingData/comments";
 
 import { printCommandResult } from "../commandsShared/print";
 import { CommandArgs, annotateExecutionPointsAction } from "./annotate-execution-points";

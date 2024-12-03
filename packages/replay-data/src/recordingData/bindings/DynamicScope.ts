@@ -1,4 +1,4 @@
-import StaticScope from "@replay/source-parser/src/bindings/StaticScope";
+import StaticScope from "@replayio/source-parser/src/bindings/StaticScope";
 import { NamedValue } from "@replayio/protocol";
 
 import PointQueries from "../PointQueries";

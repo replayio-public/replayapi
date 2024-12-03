@@ -1,7 +1,7 @@
 /* Copyright 2020-2024 Record Replay Inc. */
 
-import StaticScope from "@replay/source-parser/src/bindings/StaticScope";
-import SourceParser from "@replay/source-parser/src/SourceParser";
+import StaticScope from "@replayio/source-parser/src/bindings/StaticScope";
+import SourceParser from "@replayio/source-parser/src/SourceParser";
 import { ExecutionPoint, Frame, PauseId } from "@replayio/protocol";
 import { framesCache } from "replay-next/src/suspense/FrameCache";
 import { pointStackCache } from "replay-next/src/suspense/PointStackCache";

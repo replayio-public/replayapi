@@ -2,7 +2,7 @@
 
 import assert from "assert";
 
-import { PointFunctionInfo } from "@replay/data/src/recordingData/types";
+import { PointFunctionInfo } from "@replayio/data/src/recordingData/types";
 import { ContentType, SourceLocation } from "@replayio/protocol";
 import uniqBy from "lodash/uniqBy";
 import Parser, { QueryMatch, SyntaxNode, Tree } from "tree-sitter";

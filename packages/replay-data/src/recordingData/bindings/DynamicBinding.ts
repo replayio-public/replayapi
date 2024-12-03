@@ -1,4 +1,4 @@
-import { SyntaxNode } from "@replay/source-parser/src/tree-sitter-types";
+import { SyntaxNode } from "@replayio/source-parser/src/tree-sitter-types";
 
 import RecordedValue from "../values/RecordedValue";
 

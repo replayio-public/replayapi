@@ -1,4 +1,4 @@
-import SourceParser from "@replay/source-parser/src/SourceParser";
+import SourceParser from "@replayio/source-parser/src/SourceParser";
 import { Location, MappedLocation, SourceId } from "@replayio/protocol";
 import { assert } from "protocol/utils";
 import { Source, streamingSourceContentsCache } from "replay-next/src/suspense/SourcesCache";
