@@ -1,5 +1,6 @@
 import { ExecutionPoint } from "@replayio/protocol";
 
+import { getReplaySessionForTest } from "../../testing/sessions";
 import ReplaySession from "./ReplaySession";
 import { CodeAtPoint } from "./types";
 
@@ -78,8 +79,7 @@ const PointExpectations: Record<ExecutionPoint, PointExpectations> = {
 describe("PointQueries", () => {
   let session: ReplaySession;
   beforeAll(async () => {
-    session = new ReplaySession();
-    await session.initialize(RecordingId);
+    session = await getReplaySessionForTest(RecordingId);
   });
   test.each(Object.entries(PointExpectations))(
     "queryStatement for point %s",

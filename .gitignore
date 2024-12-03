@@ -2,6 +2,7 @@
 tmp
 tmp.*
 backend-data
+workspace-for-testing
 
 # Yarn
 .yarn/*

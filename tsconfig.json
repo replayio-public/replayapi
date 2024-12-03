@@ -40,9 +40,10 @@
     // "moduleResolution": "node",            /* Specify module resolution strategy: 'node' (Node.js) or 'classic' (TypeScript pre-1.6). */
     "baseUrl": "." /* Base directory to resolve non-absolute module names. */,
     "paths": {
-      "cli/*": [
+      "@replayapi/cli/*": [
         "packages/cli/*"
       ],
+      // TODO: Fix path naming (`server` should not point to `client`).
       "session-server": [
         "packages/session-server/client.ts"
       ],
@@ -67,12 +68,18 @@
       "shared/*": [
         ".yalc/shared/*"
       ],
+      "testing/*": [
+        "testing/*"
+      ],
       // stub out some unfortunate/unavoidable dependencies
       "@sentry/react": [
         "third-party/mocks/@sentry/react/index.js"
       ],
       "react": [
         "third-party/mocks/react/index.js"
+      ],
+      "react-is": [
+        "third-party/mocks/react-is/index.js"
       ]
     } /* A series of entries which re-map imports to lookup locations relative to the 'baseUrl'. */,
     // "rootDirs": [],                        /* List of root folders whose combined content represents the structure of the project at runtime. */
@@ -103,7 +110,8 @@
   "exclude": [
     "**/node_modules",
     "**/.yalc",
-    "**/testing/samples"
+    "**/testing/samples",
+    "workspace-for-testing"
   ],
   "include": [
     "**/*.ts",

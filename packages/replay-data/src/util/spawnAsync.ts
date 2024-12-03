@@ -4,16 +4,24 @@
 
 import { ChildProcess, SpawnOptions, spawn } from "child_process";
 import { Readable } from "stream";
+import { debuglog } from "util";
 
 import NestedError from "./NestedError";
+
+const debug = debuglog("replay:spawn");
+
+export type SpawnAsyncOptions = SpawnOptions;
+
+export type SpawnAsyncResult = Promise<{ stdout: string; stderr: string }>;
 
 export async function spawnAsync(
   command: string,
   args: string[],
-  options: SpawnOptions = {}
-): Promise<{ stdout: string; stderr: string }> {
+  options: SpawnAsyncOptions = {}
+): SpawnAsyncResult {
   let p: ChildProcess;
   try {
+    console.warn(`$ ${command} ${args.join(" ")}`);
     p = spawn(command, args, options);
   } catch (err: any) {
     throw new NestedError("Unable to spawn command: Make sure both, command and cwd, exist!", err);
@@ -33,6 +41,8 @@ export async function spawnAsync(
     );
   });
 
+  debug(`  Process "${command}" EXIT, code=${code} signal=${signal}`)
+
   if (code || signal) {
     throw new Error(
       `spawnAsync FATAL EXIT: "${command} ${args.join(" ")}"\n signal=${signal} code=${
@@ -50,6 +60,8 @@ export async function spawnAsync(
 async function streamStdioToBuffer(stdio: Readable): Promise<string> {
   const chunks = [];
   for await (const chunk of stdio) {
+    debug(`  [stdio] ${chunk.toString()}`)
+    // process.stdout.write(chunk);
     chunks.push(chunk);
   }
   return Buffer.concat(chunks).toString();

@@ -1,6 +1,7 @@
 /* Copyright 2020-2024 Record Replay Inc. */
 
 import { ExecutionPoint } from "@replayio/protocol";
+import { z } from "zod";
 
 export interface URLLocation {
   sourceId: string;
@@ -19,6 +20,26 @@ export interface FunctionInfo {
   // returned for callees when
   startPoint?: ExecutionPoint;
   endPoint?: ExecutionPoint;
+}
+
+export enum AnalysisType {
+  Performance = "Performance",
+  RootCause = "RootCause",
+  Dependency = "Dependency",
+  ReactStateChanges = "ReactStateChanges",
+  RerecordCompare = "RerecordCompare",
+  ExecutionPoint = "ExecutionPoint",
+}
+
+// Modes which change the way in which dependency edges are followed.
+export enum DependencyGraphMode {
+  /**
+   * Renders of a fiber depend on the last time the owner of that fiber was
+   * rendered, instead of whatever triggered the fiber's render.
+   */
+  ReactOwnerRenders = "ReactOwnerRenders",
+  /** Returns a list of render points of the enclosing rendering fiber */
+  ReactInstanceRenders = "ReactInstanceRenders",
 }
 
 // Description of a dependency associated with a library.
@@ -396,21 +417,6 @@ export type DependencyChainStep = DependencyChainStepInfo & {
   time?: number;
   point?: ExecutionPoint;
 };
-/* Copyright 2020-2024 Record Replay Inc. */
-
-// Options for changing how the dependency graph behaves. This is defined in its
-// own file to avoid circular imports.
-
-// Modes which change the way in which dependency edges are followed.
-export enum DependencyGraphMode {
-  /**
-   * Renders of a fiber depend on the last time the owner of that fiber was
-   * rendered, instead of whatever triggered the fiber's render.
-   */
-  ReactOwnerRenders = "ReactOwnerRenders",
-  /** Returns a list of render points of the enclosing rendering fiber */
-  ReactInstanceRenders = "ReactInstanceRenders",
-}
 
 // Options that can be set for a dependency graph.
 export interface DependencyGraphOptions {
@@ -421,18 +427,9 @@ export interface DependencyGraphOptions {
   mode?: DependencyGraphMode;
 }
 
-export interface AnalyzeDependenciesResult {
-  dependencies: DependencyChainStep[];
-}
-
-export interface AnalyzeDependenciesSpec {
-  recordingId: string;
-  point: ExecutionPoint;
-  mode?: DependencyGraphMode | undefined;
-}
-
-export interface AnalyzeDependenciesOptions {
-  server: string;
-  diskCacheDirPath?: string;
-  apiKey?: string;
-}
+export const AnalysisDefaultSpecSchema = z
+  .object({
+    recordingId: z.string(),
+  })
+  .strict();
+export type AnalysisDefaultSpec = z.infer<typeof AnalysisDefaultSpecSchema>;

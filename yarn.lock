@@ -1087,6 +1087,7 @@ __metadata:
   resolution: "@replay/data@workspace:packages/replay-data"
   dependencies:
     suspense: "npm:^0.0.53"
+    zod: "npm:^3.23.8"
   languageName: unknown
   linkType: soft
 
@@ -1105,6 +1106,12 @@ __metadata:
 "@replay/tools@workspace:packages/replay-ai-tools":
   version: 0.0.0-use.local
   resolution: "@replay/tools@workspace:packages/replay-ai-tools"
+  languageName: unknown
+  linkType: soft
+
+"@replayio/cli@workspace:*, @replayio/cli@workspace:packages/cli":
+  version: 0.0.0-use.local
+  resolution: "@replayio/cli@workspace:packages/cli"
   languageName: unknown
   linkType: soft
 
@@ -1329,13 +1336,6 @@ __metadata:
   version: 2.0.3
   resolution: "@types/stack-utils@npm:2.0.3"
   checksum: 10c0/1f4658385ae936330581bcb8aa3a066df03867d90281cdf89cc356d404bd6579be0f11902304e1f775d92df22c6dd761d4451c804b0a4fba973e06211e9bd77c
-  languageName: node
-  linkType: hard
-
-"@types/uuid@npm:^10.0.0":
-  version: 10.0.0
-  resolution: "@types/uuid@npm:10.0.0"
-  checksum: 10c0/9a1404bf287164481cb9b97f6bb638f78f955be57c40c6513b7655160beb29df6f84c915aaf4089a1559c216557dc4d2f79b48d978742d3ae10b937420ddac60
   languageName: node
   linkType: hard
 
@@ -1981,12 +1981,6 @@ __metadata:
   checksum: 10c0/1f90262d5f6230a17e27d0c190b09d47ebe7efdd76a03b5a1127863f7b3c9aec4c3e6c8bb3a7bbf81d553d56a1fd35728f5a8ef4c63f867ac8d690109742a8c1
   languageName: node
   linkType: hard
-
-"cli@workspace:*, cli@workspace:packages/cli":
-  version: 0.0.0-use.local
-  resolution: "cli@workspace:packages/cli"
-  languageName: unknown
-  linkType: soft
 
 "cliui@npm:^8.0.1":
   version: 8.0.1
@@ -4965,15 +4959,14 @@ __metadata:
   resolution: "replayapi@workspace:."
   dependencies:
     "@eslint/js": "npm:^9.15.0"
+    "@replayio/cli": "workspace:*"
     "@replayio/protocol": "npm:^0.76.0"
     "@tsconfig/node22": "npm:^22.0.0"
     "@types/eslint__js": "npm:^8.42.3"
     "@types/jest": "npm:^29.5.14"
     "@types/lodash": "npm:^4.17.13"
     "@types/node": "npm:^22.10.0"
-    "@types/uuid": "npm:^10.0.0"
     "@types/ws": "npm:^8.5.13"
-    cli: "workspace:*"
     commander: "npm:^12.1.0"
     eslint: "npm:^9.15.0"
     eslint-config-prettier: "npm:^9.1.0"
@@ -4993,6 +4986,7 @@ __metadata:
     tsx: "npm:^4.19.2"
     typescript: "npm:^5.7.2"
     typescript-eslint: "npm:^8.16.0"
+    uuid: "npm:^11.0.3"
     ws: "npm:^8.18.0"
   languageName: unknown
   linkType: soft
@@ -5811,6 +5805,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"uuid@npm:^11.0.3":
+  version: 11.0.3
+  resolution: "uuid@npm:11.0.3"
+  bin:
+    uuid: dist/esm/bin/uuid
+  checksum: 10c0/cee762fc76d949a2ff9205770334699e0043d52bb766472593a25f150077c9deed821230251ea3d6ab3943a5ea137d2826678797f1d5f6754c7ce5ce27e9f7a6
+  languageName: node
+  linkType: hard
+
 "v8-compile-cache-lib@npm:^3.0.1":
   version: 3.0.1
   resolution: "v8-compile-cache-lib@npm:3.0.1"
@@ -6013,5 +6016,12 @@ __metadata:
   version: 0.1.0
   resolution: "yocto-queue@npm:0.1.0"
   checksum: 10c0/dceb44c28578b31641e13695d200d34ec4ab3966a5729814d5445b194933c096b7ced71494ce53a0e8820685d1d010df8b2422e5bf2cdea7e469d97ffbea306f
+  languageName: node
+  linkType: hard
+
+"zod@npm:^3.23.8":
+  version: 3.23.8
+  resolution: "zod@npm:3.23.8"
+  checksum: 10c0/8f14c87d6b1b53c944c25ce7a28616896319d95bc46a9660fe441adc0ed0a81253b02b5abdaeffedbeb23bdd25a0bf1c29d2c12dd919aef6447652dd295e3e69
   languageName: node
   linkType: hard

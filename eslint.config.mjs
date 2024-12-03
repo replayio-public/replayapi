@@ -64,7 +64,13 @@ export default tseslint.config(
     },
   },
   {
-    ignores: ["packages/shared/**/*", "packages/protocol/**/*", "packages/replay-next/**/*"],
+    ignores: [
+      "packages/shared/**/*",
+      "packages/protocol/**/*",
+      "packages/replay-next/**/*",
+      "**/*.config.js",
+      "**/testing/samples/**/*",
+    ],
   }
   // eslintConfigPrettier,
   // eslintPluginPrettierRecommended,

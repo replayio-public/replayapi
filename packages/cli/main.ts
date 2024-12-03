@@ -1,10 +1,13 @@
-// commands auto-register themselves when imported
 import "./commands/fetch-comments";
 import "./commands/session";
 //import "./commands/sources";
 import "./commands/version";
+import "./commands/annotate-execution-points";
 
 import { program } from "commander";
+
+// commands auto-register themselves when imported
+import { printCommandError } from "./commandsShared/print";
 
 program.configureHelp({
   sortOptions: true,
@@ -12,5 +15,15 @@ program.configureHelp({
 });
 program.helpCommand("help [command]", "Display help for command");
 program.helpOption("-h, --help", "Display help for command");
+
+// Add a custom error handler.
+program.exitOverride(err => {
+  if (err.exitCode && err.code !== "commander.help") {
+    const message = `Failed to execute command: ${err.message}`;
+    const causedBy = err.cause ? `\n\n  [CAUSED BY] ${(err.cause as any).stack || err.cause}` : "";
+    printCommandError(message, `${err.stack}${causedBy}`);
+    process.exit(err.exitCode);
+  }
+});
 
 program.parse();

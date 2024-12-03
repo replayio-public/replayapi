@@ -24,8 +24,8 @@
     }
   },
   "dependencies": {
+    "@replayio/cli": "workspace:*",
     "@replayio/protocol": "^0.76.0",
-    "cli": "workspace:*",
     "commander": "^12.1.0",
     "graphql": "^16.9.0",
     "lodash": "^4.17.21",
@@ -38,7 +38,6 @@
     "@types/jest": "^29.5.14",
     "@types/lodash": "^4.17.13",
     "@types/node": "^22.10.0",
-    "@types/uuid": "^10.0.0",
     "@types/ws": "^8.5.13",
     "eslint": "^9.15.0",
     "eslint-config-prettier": "^9.1.0",
@@ -55,7 +54,8 @@
     "tsconfig-paths-jest": "^0.0.1",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
-    "typescript-eslint": "^8.16.0"
+    "typescript-eslint": "^8.16.0",
+    "uuid": "^11.0.3"
   },
   "packageManager": "yarn@4.5.3"
 }

@@ -2,7 +2,10 @@
 
 import "../bootstrap";
 
+import { debuglog } from "util";
+
 import { ExecutionPoint, RecordingId, SessionId } from "@replayio/protocol";
+import { sendMessage } from "protocol/socket";
 import { assert } from "protocol/utils";
 import { pauseIdCache } from "replay-next/src/suspense/PauseCache";
 import { sourcesCache } from "replay-next/src/suspense/SourcesCache";
@@ -11,6 +14,8 @@ import { STATUS_PENDING } from "suspense";
 
 import PointQueries from "./PointQueries";
 import ReplaySources from "./ReplaySources";
+
+const debug = debuglog("replay:ReplaySession");
 
 /**
  * The devtools require a `time` value for managing pauses, but it is not necessary.
@@ -48,7 +53,21 @@ export default class ReplaySession extends ReplayClient {
   }
 
   async initialize(recordingId: RecordingId): Promise<SessionId> {
-    return await super.initialize(recordingId, getApiKey());
+    const sessionId = await super.initialize(recordingId, getApiKey());
+    debug(`Initialized session "${sessionId}".`);
+    return sessionId;
+  }
+
+  disconnect(): void {
+    // NOTE1: We only have one unexposed `socket` object in `protocol/socket.ts`.
+    // NOTE2: That file also registers a global `disconnect` function, so we can at least close it.
+    try {
+      (global as any).disconnect?.();
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (_err: any) {
+      // Mute error.
+      // Note: This could happen, if the socket is already closed or not yet initialized.
+    }
   }
 
   /** ###########################################################################
@@ -66,6 +85,16 @@ export default class ReplaySession extends ReplayClient {
   private decBusy(): void {
     assert(this._busy > 0, "Busy counter MUST not be negative");
     this._busy--;
+  }
+
+  /** ###########################################################################
+   * experimentalCommand
+   * ##########################################################################*/
+
+  async experimentalCommand(name: string, params: Record<string, any>): Promise<any> {
+    const sessionId = await this.waitForSession();
+    const result = await sendMessage("Session.experimentalCommand", { name, params }, sessionId);
+    return result.rval;
   }
 
   /** ###########################################################################
@@ -103,13 +132,6 @@ export default class ReplaySession extends ReplayClient {
 }
 
 let replaySession: ReplaySession | null = null;
-
-export function getReplaySession(): ReplaySession {
-  if (!replaySession) {
-    throw new Error(`No Replay session exists. Call ${createReplaySession.name} first.`);
-  }
-  return replaySession;
-}
 
 export async function createReplaySession(recordingId: RecordingId): Promise<ReplaySession> {
   if (replaySession) {
