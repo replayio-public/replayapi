@@ -31,7 +31,6 @@ import { RecordingComment, getSourceCodeComments } from "@replay/data/src/record
 import { printCommandResult } from "../commandsShared/print";
 import { CommandArgs, annotateExecutionPointsAction } from "./annotate-execution-points";
 
-
 async function runAction(problemDescription: string, options: CommandArgs) {
   const problemDescriptionFile = join(tmpdir(), `problem-${Date.now()}.txt`);
 
