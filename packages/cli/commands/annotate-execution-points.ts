@@ -35,13 +35,18 @@ program
     "Whether `workspacePath` is the path to the repo. If not, it is considered the parent path. In that case, we add the name of the repo to the path before cloning.",
     false
   )
+  .option(
+    "-f --force-delete",
+    "Whether to delete the target repo directory if it already exists.",
+    false
+  )
   .argument(
     "<problemDescriptionFile>",
     "Path to a file that contains the description of the issue to fix."
   )
   .action(annotateExecutionPointsAction);
 
-export type CommandArgs = { workspacePath: string; isWorkspaceRepoPath: boolean };
+export type CommandArgs = { workspacePath: string; isWorkspaceRepoPath?: boolean, forceDelete?: boolean };
 
 async function getFirstCodeComment(
   recordingId: RecordingId
@@ -51,8 +56,14 @@ async function getFirstCodeComment(
 
 export async function annotateExecutionPointsAction(
   problemDescriptionFile: string,
-  { workspacePath, isWorkspaceRepoPath = false }: CommandArgs
+  { workspacePath, isWorkspaceRepoPath, forceDelete }: CommandArgs
 ): Promise<void> {
+  if (isWorkspaceRepoPath && forceDelete) {
+    // Sanity check.
+    throw new Error("Cannot use both --is-workspace-repo-path and --force-delete.");
+  }
+
+  // Start...
   debug(`starting w/ problemDescriptionFile=${JSON.stringify(problemDescriptionFile)}`);
 
   const problemDescription = await readFile(problemDescriptionFile, "utf8");
@@ -82,7 +93,7 @@ export async function annotateExecutionPointsAction(
     const repo = new LocalGitRepo(workspacePath, !!isWorkspaceRepoPath, repoUrl, treeish);
 
     // 4. Clone + checkout branch if necessary.
-    await repo.init();
+    await repo.init(!!forceDelete);
 
     // 4b. Hard reset.
     //     NOTE: We should not hard-reset without user consent; but without it we run the risk of getting stuck.
