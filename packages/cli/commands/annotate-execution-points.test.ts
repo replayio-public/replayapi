@@ -137,10 +137,13 @@ describe("addExecutionPointComments", () => {
     (runAnalysis as jest.MockedFunction<typeof runAnalysis>).mockResolvedValue(analysisResults);
 
     // Mock annotatedLocations
-    const annotatedLocations = [{ point, file: "file1", line: 1 }];
+    const annotationResult = {
+      annotatedLocations: [{ point, file: "file1", line: 1 }],
+      pointNames: new Map(),
+    };
     (
       annotateExecutionPoints as jest.MockedFunction<typeof annotateExecutionPoints>
-    ).mockResolvedValue(annotatedLocations);
+    ).mockResolvedValue(annotationResult);
 
     // Go.
     await runAction(problemDescription, {
@@ -171,6 +174,7 @@ describe("addExecutionPointComments", () => {
       results: analysisResults,
     });
 
+    const { annotatedLocations } = annotationResult;
     const startLocation = annotatedLocations.find(l => l.point === point);
     const startLocationStr = startLocation
       ? `${startLocation.file}:${startLocation.line}`
@@ -182,6 +186,7 @@ describe("addExecutionPointComments", () => {
       annotatedRepo: repoPath,
       annotatedLocations,
       startLocation: startLocationStr,
+      startName: annotationResult.pointNames.get(point),
     });
   });
 });

@@ -46,7 +46,11 @@ program
   )
   .action(annotateExecutionPointsAction);
 
-export type CommandArgs = { workspacePath: string; isWorkspaceRepoPath?: boolean, forceDelete?: boolean };
+export type CommandArgs = {
+  workspacePath: string;
+  isWorkspaceRepoPath?: boolean;
+  forceDelete?: boolean;
+};
 
 async function getFirstCodeComment(
   recordingId: RecordingId
@@ -117,7 +121,7 @@ export async function annotateExecutionPointsAction(
 
     // 7. Run annotation script.
     debug(`annotating repo with analysis results...`);
-    const annotatedLocations = await annotateExecutionPoints({
+    const { annotatedLocations, pointNames } = await annotateExecutionPoints({
       repository: repo.folderPath,
       results: analysisResults,
     });
@@ -134,6 +138,7 @@ export async function annotateExecutionPointsAction(
       annotatedRepo: repo.folderPath,
       annotatedLocations,
       startLocation: startLocationStr,
+      startName: pointNames.get(point),
     });
   } finally {
     session?.disconnect();

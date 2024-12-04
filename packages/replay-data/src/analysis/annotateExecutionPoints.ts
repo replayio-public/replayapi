@@ -47,11 +47,15 @@ function countLeadingSpaces(str: string) {
   return leadingSpaces ? leadingSpaces[0].length : 0;
 }
 
-export type AnnotateExecutionPointsResult = {
+export type AnnotatedLocation = {
   point: ProtocolExecutionPoint;
   file: string;
   line: number;
-}[];
+};
+export type AnnotateExecutionPointsResult = {
+  annotatedLocations: AnnotatedLocation[];
+  pointNames: Map<ProtocolExecutionPoint, string>;
+};
 
 export async function annotateExecutionPoints(
   spec: AnnotateExecutionDataSpec
@@ -59,7 +63,7 @@ export async function annotateExecutionPoints(
   let { results } = spec;
   const { points } = results;
 
-  const annotatedLocations: AnnotateExecutionPointsResult = [];
+  const annotatedLocations: AnnotatedLocation[] = [];
 
   // Write annotations to source files.
   const pointNames = new Map<ProtocolExecutionPoint, string>();
@@ -119,5 +123,5 @@ export async function annotateExecutionPoints(
   }
 
   sortBy(annotatedLocations, "point", "desc");
-  return annotatedLocations;
+  return { annotatedLocations, pointNames };
 }
