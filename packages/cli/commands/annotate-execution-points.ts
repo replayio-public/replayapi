@@ -12,7 +12,7 @@ import LocalGitRepo from "@replayio/data/src/gitUtil/LocalGitRepo";
 import { RecordingComment, getSourceCodeComments } from "@replayio/data/src/recordingData/comments";
 import ReplaySession from "@replayio/data/src/recordingData/ReplaySession";
 import { scanReplayUrl } from "@replayio/data/src/recordingData/replayStringUtil";
-import { ExecutionPoint, RecordingId } from "@replayio/protocol";
+import { RecordingId } from "@replayio/protocol";
 import { program } from "commander";
 
 import { printCommandResult } from "../commandsShared/print";
