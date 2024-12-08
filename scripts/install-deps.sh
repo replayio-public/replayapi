@@ -5,7 +5,7 @@ REPLAY_DIR="$(dirname "$0")/../.."
 
 # Clone devtools if not already present.
 if [ ! -d "$REPLAY_DIR/devtools" ]; then
-    git -C "$REPLAY_DIR/devtools" clone https://github.com/replayio/devtools.git
+    git clone https://github.com/replayio/devtools.git "$REPLAY_DIR/devtools"
 fi
 cd "$REPLAY_DIR/devtools"
 # nvm use
