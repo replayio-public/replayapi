@@ -35,7 +35,7 @@ export async function getSourceCodeComments(recordingId: RecordingId): Promise<R
 
     const commentData: RecordingComment = {
       author: c.user.name,
-      // TODO: Deal w/ markdown etc.
+      // TODO: Fully reconstruct the comment text. Deal w/ markdown etc.
       text: root.children[0].children[0].text,
       point: c.point,
       type: c.type as CommentType,

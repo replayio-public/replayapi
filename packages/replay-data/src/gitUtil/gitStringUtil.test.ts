@@ -29,6 +29,12 @@ describe("scanGitUrl", () => {
     expect(result.branch).toBeUndefined();
   });
 
+  test("parses issue URL", () => {
+    const result = scanGitUrl("https://github.com/replayio/bench-devtools-10609/issues/6")!;
+    expect(result.repoUrl).toBe("https://github.com/replayio/bench-devtools-10609");
+    expect(result.repo).toBe("bench-devtools-10609");
+  });
+
   test("parses SSH repository URL", () => {
     const result = scanGitUrl("git@github.com:user/repo.git:")!;
     expect(result.repoUrl).toBe("git@github.com:user/repo.git");

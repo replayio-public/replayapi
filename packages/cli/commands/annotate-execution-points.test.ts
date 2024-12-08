@@ -136,9 +136,14 @@ describe("addExecutionPointComments", () => {
 
     (runAnalysis as jest.MockedFunction<typeof runAnalysis>).mockResolvedValue(analysisResults);
 
+    // Mock annotatedLocations
+    const annotationResult = {
+      annotatedLocations: [{ point, file: "file1", line: 1 }],
+      pointNames: new Map(),
+    };
     (
       annotateExecutionPoints as jest.MockedFunction<typeof annotateExecutionPoints>
-    ).mockResolvedValue(undefined);
+    ).mockResolvedValue(annotationResult);
 
     // Go.
     await runAction(problemDescription, {
@@ -149,7 +154,7 @@ describe("addExecutionPointComments", () => {
     // Expect.
     // expect(LocalGitRepo).toHaveBeenCalledWith(workspacePath, false, repoUrl, undefined);
     // eslint-disable-next-line @typescript-eslint/unbound-method
-    expect(LocalGitRepo.prototype.init).toHaveBeenCalledWith();
+    expect(LocalGitRepo.prototype.init).toHaveBeenCalledWith(false);
     expect(runAnalysis).toHaveBeenCalledWith(
       /* ReplaySession */
       expect.toBeObject(),
@@ -168,9 +173,20 @@ describe("addExecutionPointComments", () => {
       repository: repoPath,
       results: analysisResults,
     });
+
+    const { annotatedLocations } = annotationResult;
+    const startLocation = annotatedLocations.find(l => l.point === point);
+    const startLocationStr = startLocation
+      ? `${startLocation.file}:${startLocation.line}`
+      : undefined;
     expect(printCommandResult).toHaveBeenCalledWith({
       status: "Success",
+      point,
+      commentText: mockComments[0].text,
       annotatedRepo: repoPath,
+      annotatedLocations,
+      startLocation: startLocationStr,
+      startName: annotationResult.pointNames.get(point),
     });
   });
 });

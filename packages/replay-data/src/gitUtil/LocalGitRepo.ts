@@ -33,13 +33,18 @@ export default class LocalGitRepo {
     }
   }
 
-  private async git(args: string[]): Promise<SpawnAsyncResult> {
+  private async git(args: string[], cwd = this.folderPath): Promise<SpawnAsyncResult> {
     return await spawnAsync("git", args, {
-      cwd: this.folderPath,
+      cwd,
     });
   }
 
-  async init(): Promise<void> {
+  async init(forceDelete: boolean): Promise<void> {
+    if (forceDelete) {
+      if (fs.existsSync(this.folderPath)) {
+        await fs.promises.rmdir(this.folderPath, { recursive: true });
+      }
+    }
     await this.clone();
     if (this.treeish) {
       await this.checkoutBranch(this.treeish);
@@ -56,7 +61,7 @@ export default class LocalGitRepo {
       if (!this.url) {
         throw new Error(`Cannot clone a repo without a URL: ${this.url}`);
       }
-      await this.git(["clone", this.url, this.folderPath]);
+      await this.git(["clone", this.url, this.folderPath], path.dirname(this.folderPath));
     }
   }
 
