@@ -1,3 +1,4 @@
 #!/bin/bash
+set -ex
 cd "$(dirname "$0")"/..
-npx --yes tsx main.ts $*
+exec npx --yes tsx main.ts $*
