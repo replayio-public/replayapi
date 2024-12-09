@@ -4,13 +4,7 @@ import { z } from "zod";
 import { AnalysisDefaultSpecSchema, URLLocation } from "../dependencyGraphShared";
 import { ExecutionPoint } from "@replayio/protocol";
 
-export const ExecutionPointSpecSchema = AnalysisDefaultSpecSchema.extend({
-  // Point whose execution data is being described.
-  point: z.string(),
-
-  // Depth of associated points to recursively describe.
-  depth: z.optional(z.number()),
-}).strict();
+export const ExecutionPointSpecSchema = AnalysisDefaultSpecSchema;
 export type ExecutionDataAnalysisSpec = z.infer<typeof ExecutionPointSpecSchema>;
 
 // A location within a recording and associated source contents.
@@ -48,4 +42,13 @@ export interface ExecutionDataPoint {
 export interface ExecutionDataAnalysisResult {
   // Points which were described.
   points: ExecutionDataPoint[];
+
+  // If no point was provided, the comments are used to determine what point to use.
+  point?: ExecutionPoint;
+
+  // Any comment text associated with the point.
+  commentText?: string;
+
+  // If the comment is on a React component, the name of the component.
+  reactComponentName?: string;
 }
