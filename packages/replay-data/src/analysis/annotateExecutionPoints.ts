@@ -108,7 +108,7 @@ export async function annotateExecutionPoints(
         found = true;
         const indent = " ".repeat(countLeadingSpaces(lines[i]));
         for (const line of annotationLines) {
-          lines[i] = `${indent}// ${line}\n${lines[i]}`;
+          lines[i] = `${indent}{/* ${line} */}\n${lines[i]}`;
         }
         break;
       }
