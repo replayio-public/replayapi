@@ -3,6 +3,7 @@
   "name": "@replayio/cli",
   "version": "0.0.0",
   "dependencies": {
-    "@replayio/data": "workspace:*"
+    "@replayio/data": "workspace:*",
+    "shared": "file:../../.yalc/shared"
   }
 }

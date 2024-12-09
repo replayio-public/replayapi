@@ -115,6 +115,7 @@
   ],
   "include": [
     "**/*.ts",
+    "**/*.d.ts",
     "tsconfig.json",
     "**/*.config.*js",
     "prettier.config.js",
