@@ -7,12 +7,12 @@ import { annotateExecutionPoints } from "@replayio/data/src/analysis/annotateExe
 import { AnalysisType } from "@replayio/data/src/analysis/dependencyGraphShared";
 import { AnalysisInput } from "@replayio/data/src/analysis/dgSpecs";
 import { runAnalysis } from "@replayio/data/src/analysis/runAnalysis";
+import { ExecutionDataAnalysisResult } from "@replayio/data/src/analysis/specs/executionPoint";
 import { scanGitUrl } from "@replayio/data/src/gitUtil/gitStringUtil";
 import LocalGitRepo from "@replayio/data/src/gitUtil/LocalGitRepo";
-import { RecordingComment, getSourceCodeComments } from "@replayio/data/src/recordingData/comments";
 import ReplaySession from "@replayio/data/src/recordingData/ReplaySession";
 import { scanReplayUrl } from "@replayio/data/src/recordingData/replayStringUtil";
-import { RecordingId } from "@replayio/protocol";
+import { assert } from "@replayio/data/src/util/assert";
 import { program } from "commander";
 
 import { printCommandResult } from "../commandsShared/print";
@@ -52,12 +52,6 @@ export type CommandArgs = {
   forceDelete?: boolean;
 };
 
-async function getFirstCodeComment(
-  recordingId: RecordingId
-): Promise<RecordingComment | undefined> {
-  return (await getSourceCodeComments(recordingId)).find(c => c.point);
-}
-
 export async function annotateExecutionPointsAction(
   problemDescriptionFile: string,
   { workspacePath, isWorkspaceRepoPath, forceDelete }: CommandArgs
@@ -73,21 +67,13 @@ export async function annotateExecutionPointsAction(
   const problemDescription = await readFile(problemDescriptionFile, "utf8");
 
   // Extract...
-  // 1a. recordingId and point from problemDescription.
-  let { recordingId, point } = scanReplayUrl(problemDescription);
+  // 1a. recordingId from problemDescription.
+  let { recordingId } = scanReplayUrl(problemDescription);
   // 1b. (optional) GitHub url from problemDescription.
   const { repoUrl, branch, commit, tag } = scanGitUrl(problemDescription) || {};
 
   if (!recordingId) {
     printCommandResult({ status: "NoRecordingId" });
-    return;
-  }
-
-  // 3. Get the first code comment, and use its point, if it exists.
-  const comment = await getFirstCodeComment(recordingId);
-  point ||= comment?.point;
-  if (!point) {
-    printCommandResult({ status: "NoPointAndNoSourceComments" });
     return;
   }
 
@@ -108,16 +94,16 @@ export async function annotateExecutionPointsAction(
     await session.initialize(recordingId);
     const analysisInput: AnalysisInput = {
       analysisType: AnalysisType.ExecutionPoint,
-      spec: {
-        recordingId,
-        point,
-        depth: 2,
-      },
+      spec: { recordingId },
     };
 
     // 6. Analyze recording.
     debug(`analyzing recording...`);
-    const analysisResults = await runAnalysis(session, analysisInput);
+    const analysisResults = await runAnalysis(session, analysisInput) as ExecutionDataAnalysisResult;
+
+    const { point, commentText, reactComponentName } = analysisResults;
+    assert(point, "No point found in analysis results");
+    assert(commentText, "No comment text found in analysis results");
 
     // 7. Run annotation script.
     debug(`annotating repo with analysis results...`);
@@ -134,7 +120,8 @@ export async function annotateExecutionPointsAction(
     printCommandResult({
       status: "Success",
       point,
-      commentText: comment?.text,
+      commentText,
+      reactComponentName,
       annotatedRepo: repo.folderPath,
       annotatedLocations,
       startLocation: startLocationStr,
