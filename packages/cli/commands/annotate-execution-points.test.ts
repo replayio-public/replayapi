@@ -164,8 +164,6 @@ describe("addExecutionPointComments", () => {
         analysisType: AnalysisType.ExecutionPoint,
         spec: {
           recordingId,
-          point,
-          depth: 2,
         },
       }
     );

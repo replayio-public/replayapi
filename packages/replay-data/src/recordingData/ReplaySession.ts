@@ -2,9 +2,8 @@
 
 import "../bootstrap";
 
-import { debuglog } from "util";
-
 import { ExecutionPoint, RecordingId, SessionId } from "@replayio/protocol";
+import createDebug from "debug";
 import { sendMessage } from "protocol/socket";
 import { assert } from "protocol/utils";
 import { pauseIdCache } from "replay-next/src/suspense/PauseCache";
@@ -15,7 +14,7 @@ import { STATUS_PENDING } from "suspense";
 import PointQueries from "./PointQueries";
 import ReplaySources from "./ReplaySources";
 
-const debug = debuglog("replay:ReplaySession");
+const debug = createDebug("replay:ReplaySession");
 
 /**
  * The devtools require a `time` value for managing pauses, but it is not necessary.
@@ -131,19 +130,22 @@ export default class ReplaySession extends ReplayClient {
   }
 }
 
-let replaySession: ReplaySession | null = null;
+let replaySessionPromise: Promise<ReplaySession> | null = null;
 
-export async function createReplaySession(recordingId: RecordingId): Promise<ReplaySession> {
-  if (replaySession) {
-    // This is a restriction on the devtools side.
-    throw new Error(
-      `A Replay session already existed for a different recordingId. The Replay API client currently only supports one session per process.`
+export async function getOrCreateReplaySession(recordingId: string): Promise<ReplaySession> {
+  if (!replaySessionPromise) {
+    const session = new ReplaySession();
+    await (replaySessionPromise = session.initialize(recordingId).then(() => session));
+    return session;
+  } else {
+    const session = await replaySessionPromise;
+
+    // NOTE: We cannot currently have multiple sessions for different recordings in the same process, since
+    // the client, as well as all cached data are globals.
+    assert(
+      session.getRecordingId() === recordingId,
+      "Cannot create multiple sessions for different recordings."
     );
+    return session;
   }
-  replaySession = new ReplaySession();
-  if (!recordingId) {
-    throw new Error(`recordingId not provided and session did not exist.`);
-  }
-  await replaySession.initialize(recordingId);
-  return replaySession;
 }

@@ -53,9 +53,6 @@
       "@replayio/data/*": [
         "packages/replay-data/*"
       ],
-      "@replayio/tools/*": [
-        "packages/replay-ai-tools/*"
-      ],
       "@replayio/source-parser/*": [
         "packages/source-parser/*"
       ],

@@ -1,7 +1,7 @@
 /* Copyright 2020-2024 Record Replay Inc. */
 
 import { readFile } from "fs/promises";
-import { debuglog } from "util";
+import createDebug from 'debug';
 
 import { annotateExecutionPoints } from "@replayio/data/src/analysis/annotateExecutionPoints";
 import { AnalysisType } from "@replayio/data/src/analysis/dependencyGraphShared";
@@ -10,14 +10,14 @@ import { runAnalysis } from "@replayio/data/src/analysis/runAnalysis";
 import { ExecutionDataAnalysisResult } from "@replayio/data/src/analysis/specs/executionPoint";
 import { scanGitUrl } from "@replayio/data/src/gitUtil/gitStringUtil";
 import LocalGitRepo from "@replayio/data/src/gitUtil/LocalGitRepo";
-import ReplaySession from "@replayio/data/src/recordingData/ReplaySession";
+import ReplaySession, { getOrCreateReplaySession } from "@replayio/data/src/recordingData/ReplaySession";
 import { scanReplayUrl } from "@replayio/data/src/recordingData/replayStringUtil";
 import { assert } from "@replayio/data/src/util/assert";
 import { program } from "commander";
 
 import { printCommandResult } from "../commandsShared/print";
 
-const debug = debuglog("replay:annotateExecutionPoints");
+const debug = createDebug("replay:annotate-execution-points");
 
 /**
  * @see https://linear.app/replay/issue/PRO-904/3-let-oh-fix-the-github-issue-using-brians-10609-solution
@@ -77,7 +77,7 @@ export async function annotateExecutionPointsAction(
     return;
   }
 
-  const session = new ReplaySession();
+  let session: ReplaySession | undefined;
   try {
     const treeish = branch || commit || tag;
     const repo = new LocalGitRepo(workspacePath, !!isWorkspaceRepoPath, repoUrl, treeish);
@@ -91,7 +91,7 @@ export async function annotateExecutionPointsAction(
 
     // 5. Initialize session.
     debug(`connecting to Replay server...`);
-    await session.initialize(recordingId);
+    const session = await getOrCreateReplaySession(recordingId);
     const analysisInput: AnalysisInput = {
       analysisType: AnalysisType.ExecutionPoint,
       spec: { recordingId },

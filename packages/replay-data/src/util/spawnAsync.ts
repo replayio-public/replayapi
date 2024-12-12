@@ -4,11 +4,11 @@
 
 import { ChildProcess, SpawnOptions, spawn } from "child_process";
 import { Readable } from "stream";
-import { debuglog } from "util";
+import createDebug from 'debug';
 
 import NestedError from "./NestedError";
 
-const debug = debuglog("replay:spawn");
+const debug = createDebug("replay:spawn");
 
 export type SpawnAsyncOptions = SpawnOptions;
 

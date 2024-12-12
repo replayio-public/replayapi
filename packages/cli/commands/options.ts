@@ -1,3 +1,4 @@
+import { ExecutionPoint } from "@replayio/protocol";
 import { Command, Option } from "commander";
 
 export interface RecordingOption {
@@ -30,5 +31,14 @@ export interface SessionOption {
 export function requiresSession(command: Command): void {
   const option = new Option("-s, --session <SESSION_ID>", "Session ID").makeOptionMandatory(true);
 
+  command.addOption(option);
+}
+
+export interface PointOption {
+  point: ExecutionPoint;
+}
+
+export function requiresPoint(command: Command): void {
+  const option = new Option("-p, --point <point>", "Execution point within a recording.");
   command.addOption(option);
 }

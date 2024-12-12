@@ -71,10 +71,10 @@ export default class DependencyChain {
   }
 
   /**
-   * The "rich stack" is composed of the synchronous call stack interleaved with async events,
-   * possibly including high-level framework (e.g. React) events.
+   * The "rich stack" is not really a stack, but rather a mix of the synchronous call stack, interleaved with async events,
+   * including high-level framework (e.g. React) events, order by time (latest first).
    */
-  async getNormalizedRichStackAtPoint(pointQueries: PointQueries): Promise<RichStackFrame[]> {
+  async getNormalizedStackAndEventsAtPoint(pointQueries: PointQueries): Promise<RichStackFrame[]> {
     const [frames, dgChain] = await Promise.all([
       pointQueries.getStackFramesWithPoint(),
       this.getDependencyChain(pointQueries.point),

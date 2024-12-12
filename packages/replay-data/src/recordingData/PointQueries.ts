@@ -149,8 +149,8 @@ export default class PointQueries {
     return parser.getFunctionInfoAt(thisLocation);
   }
 
-  async queryRichStack(): Promise<RichStackFrame[]> {
-    return await this.dg.getNormalizedRichStackAtPoint(this);
+  async queryStackAndEvents(): Promise<RichStackFrame[]> {
+    return await this.dg.getNormalizedStackAndEventsAtPoint(this);
   }
 
   // async queryInputDependencies() {
