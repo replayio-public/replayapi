@@ -98,7 +98,7 @@ export default class DependencyChain {
     const richFrames = await Promise.all(
       rawFrames.map(async f => {
         const p = await this.session.queryPoint(f.point);
-        const code = await p.queryStatement();
+        const code = await p.queryCodeAndLocation();
         const functionInfo = await p.queryFunctionInfo();
         // TODO: add functionInfo
         return {

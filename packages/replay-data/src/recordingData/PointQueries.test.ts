@@ -86,7 +86,7 @@ describe("PointQueries", () => {
     async (point, expected) => {
       const result = await session.queryPoint(point);
 
-      const statement = await result.queryStatement();
+      const statement = await result.queryCodeAndLocation();
       expect({ ...statement }).toStrictEqual(expected.statement);
 
       // const richStack = await result.queryRichStack();

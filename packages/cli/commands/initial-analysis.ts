@@ -1,13 +1,12 @@
 /* Copyright 2020-2024 Record Replay Inc. */
 
-import createDebug from 'debug';
-
 import { AnalysisType } from "@replayio/data/src/analysis/dependencyGraphShared";
 import { AnalysisInput } from "@replayio/data/src/analysis/dgSpecs";
 import { runAnalysis } from "@replayio/data/src/analysis/runAnalysis";
 import { ExecutionDataAnalysisResult } from "@replayio/data/src/analysis/specs/executionPoint";
 import { getOrCreateReplaySession } from "@replayio/data/src/recordingData/ReplaySession";
 import { program } from "commander";
+import createDebug from "debug";
 
 import { printCommandResult } from "../commandsShared/print";
 import { RecordingOption, requiresAPIKey } from "./options";
@@ -32,7 +31,7 @@ export async function initialAnalysisAction({
   recording: recordingId = "011f1663-6205-4484-b468-5ec471dc5a31",
 }: RecordingOption): Promise<void> {
   // Start...
-  debug(`starting w/ inspectPointAction...`);
+  debug(`starting inspectPointAction...`);
 
   if (!recordingId) {
     printCommandResult({ status: "NoRecordingId" });
@@ -45,36 +44,35 @@ export async function initialAnalysisAction({
 
   try {
     // 2. Find point and run analysis on that point.
+    debug(`run ExecutionPoint analysis...`);
     const analysisInput: AnalysisInput = {
       analysisType: AnalysisType.ExecutionPoint,
       spec: { recordingId },
     };
-    debug(`analyzing point at recording...`);
     const analysisResults = (await runAnalysis(
       session,
       analysisInput
     )) as ExecutionDataAnalysisResult;
-
     const { point, commentText: userComment, reactComponentName } = analysisResults;
     if (!point || !userComment) {
       printCommandResult({ status: "NoVisualComment" });
       return;
     }
 
-    const pointQueries = await session.queryPoint(point);
-    const stackAndEvents = await pointQueries.queryStackAndEvents();
+    const p = await session.queryPoint(point);
+    const pointInfo = await p.inspectPoint();
 
-    printCommandResult({
+    const result = {
       status: "Success",
-      thisPoint: point,
-      userComment,
-      // location,
-      // function,
-      reactComponentName,
-      // inputDependencies,
-      // directControlDependencies,
-      stackAndEvents,
-    });
+      result: {
+        thisPoint: point,
+        userComment,
+        reactComponentName,
+        ...pointInfo,
+      },
+    };
+
+    printCommandResult(result);
   } finally {
     session?.disconnect();
   }

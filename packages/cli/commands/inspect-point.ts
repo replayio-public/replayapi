@@ -1,14 +1,8 @@
 /* Copyright 2020-2024 Record Replay Inc. */
 
-import createDebug from 'debug';
-
-import { AnalysisType } from "@replayio/data/src/analysis/dependencyGraphShared";
-import { AnalysisInput } from "@replayio/data/src/analysis/dgSpecs";
-import { runAnalysis } from "@replayio/data/src/analysis/runAnalysis";
-import { ExecutionDataAnalysisResult } from "@replayio/data/src/analysis/specs/executionPoint";
 import { getOrCreateReplaySession } from "@replayio/data/src/recordingData/ReplaySession";
-import { assert } from "@replayio/data/src/util/assert";
 import { program } from "commander";
+import createDebug from "debug";
 
 import { printCommandResult } from "../commandsShared/print";
 import {
@@ -39,7 +33,7 @@ export async function inspectPointAction({
   point,
 }: RecordingOption & PointOption): Promise<void> {
   // Start...
-  debug(`starting w/ inspectPointAction...`);
+  debug(`starting inspectPointAction...`);
 
   if (!recordingId) {
     printCommandResult({ status: "NoRecordingId" });
@@ -55,27 +49,15 @@ export async function inspectPointAction({
   const session = await getOrCreateReplaySession(recordingId);
 
   try {
-    // 2. Run data flow analysis at point.
-    const analysisInput: AnalysisInput = {
-      analysisType: AnalysisType.ExecutionPoint,
-      spec: { recordingId },
-    };
-    debug(`analyzing point at recording...`);
-    const analysisResults = (await runAnalysis(
-      session,
-      analysisInput
-    )) as ExecutionDataAnalysisResult;
-
-    const {
-      // TODO: `commentText` is misleading. The analysis does not return the comment text at given point.
-      // commentText,
-      reactComponentName,
-    } = analysisResults;
+    const p = await session.queryPoint(point);
+    const inspectResult = await p.inspectPoint();
 
     printCommandResult({
       status: "Success",
-      point,
-      reactComponentName,
+      result: {
+        thisPoint: point,
+        ...inspectResult,
+      },
     });
   } finally {
     session?.disconnect();

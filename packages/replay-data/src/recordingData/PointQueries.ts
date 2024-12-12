@@ -1,12 +1,19 @@
 /* Copyright 2020-2024 Record Replay Inc. */
 
+import { ExecutionPoint, Frame, PauseId } from "@replayio/protocol";
 import StaticScope from "@replayio/source-parser/src/bindings/StaticScope";
 import SourceParser from "@replayio/source-parser/src/SourceParser";
-import { ExecutionPoint, Frame, PauseId } from "@replayio/protocol";
+import createDebug from "debug";
+import { sortBy } from "lodash";
+import groupBy from "lodash/groupBy";
 import { framesCache } from "replay-next/src/suspense/FrameCache";
 import { pointStackCache } from "replay-next/src/suspense/PointStackCache";
 import { FrameScopes, frameScopesCache } from "replay-next/src/suspense/ScopeCache";
 
+import { AnalysisType } from "../analysis/dependencyGraphShared";
+import { AnalysisInput } from "../analysis/dgSpecs";
+import { runAnalysis } from "../analysis/runAnalysis";
+import { ExecutionDataAnalysisResult, ExecutionDataEntry } from "../analysis/specs/executionPoint";
 import { BigIntToPoint, ExecutionPointInfo } from "../util/points";
 import DynamicScope from "./bindings/DynamicScope";
 import DependencyChain, { RichStackFrame } from "./DependencyChain";
@@ -19,7 +26,34 @@ import {
   PointFunctionInfo,
 } from "./types";
 
+const debug = createDebug("replay:PointQueries");
+
 const POINT_ANNOTATION = "/*BREAK*/";
+
+export interface DataFlowAnalysisResult {
+  variablePointsByName: Record<string, ExecutionDataEntry[]>;
+}
+
+export interface InputDependency extends ExpressionAnalysisResult {
+  expression: string;
+}
+
+export interface ExpressionAnalysisResult {
+  value: unknown; // From makeValuePreview(TODO)
+  origins: {
+    point: ExecutionPoint | undefined;
+    location: CodeAtPoint | null;
+  }[];
+}
+
+export interface InspectPointResult {
+  location: CodeAtPoint;
+  function: PointFunctionInfo | null;
+  inputDependencies: any; // TODO: Replace with proper type once implemented
+  stackAndEvents: RichStackFrame[];
+}
+
+export type InspectDataResult = InspectPointResult & ExpressionAnalysisResult;
 
 export default class PointQueries {
   readonly session: ReplaySession;
@@ -28,7 +62,7 @@ export default class PointQueries {
   readonly pauseId: PauseId;
   readonly dg: DependencyChain;
 
-  private parser: Promise<SourceParser> | null = null;
+  private parserPromise: Promise<SourceParser> | null = null;
 
   constructor(session: ReplaySession, point: ExecutionPoint, pauseId: PauseId) {
     this.session = session;
@@ -99,15 +133,17 @@ export default class PointQueries {
   }
 
   async parseSource(): Promise<SourceParser> {
-    if (!this.parser) {
+    if (!this.parserPromise) {
       const [thisLocation, allSources] = await Promise.all([
         this.getSourceLocation(),
         this.session.getSources(),
       ]);
 
-      this.parser = allSources.parseContents(thisLocation.sourceId);
+      if (!this.parserPromise) {
+        this.parserPromise = allSources.parseContents(thisLocation.sourceId);
+      }
     }
-    return await this.parser;
+    return await this.parserPromise;
   }
 
   /** ###########################################################################
@@ -117,7 +153,7 @@ export default class PointQueries {
   /**
    * Get data for the statement at `point`.
    */
-  async queryStatement(): Promise<CodeAtPoint> {
+  async queryCodeAndLocation(): Promise<CodeAtPoint> {
     const [thisLocation, parser] = await Promise.all([
       this.getSourceLocation(),
       this.parseSource(),
@@ -153,17 +189,75 @@ export default class PointQueries {
     return await this.dg.getNormalizedStackAndEventsAtPoint(this);
   }
 
-  // async queryInputDependencies() {
-  //   const [thisLocation, parser] = await Promise.all([
-  //     this.getSourceLocation(),
-  //     this.parseSource(),
-  //   ]);
+  private async queryExpressionInfo(
+    expression: string,
+    dataFlowResult: DataFlowAnalysisResult
+  ): Promise<ExpressionAnalysisResult> {
+    const points = sortBy(
+      dataFlowResult.variablePointsByName[expression],
+      v => v.associatedPoint,
+      "desc"
+    );
 
-  //   const deps = parser.getInterestingInputDependencies(thisLocation);
+    return {
+      value: makeValuePreview(TODO),
+      origins: await Promise.all(
+        points.map(async dataFlowPoint => {
+          const { associatedPoint } = dataFlowPoint;
+          let location: CodeAtPoint | null = null;
+          if (associatedPoint) {
+            const p = await this.session.queryPoint(associatedPoint);
+            location = await p.queryCodeAndLocation();
+          }
+          return {
+            point: associatedPoint,
+            location,
+          };
+        })
+      ),
+    };
+  }
 
-  //   // TODO: Also find bindings for each dep.
-  //   // TODO: Add relevant context for each dep.
-  // }
+  async runExecutionPointAnalysis(): Promise<ExecutionDataAnalysisResult> {
+    debug(`run ExecutionPoint analysis...`);
+    const analysisInput: AnalysisInput = {
+      analysisType: AnalysisType.ExecutionPoint,
+      spec: { recordingId: this.session.getRecordingId()! },
+    };
+
+    return (await runAnalysis(this.session, analysisInput)) as ExecutionDataAnalysisResult;
+  }
+
+  async runDataFlowAnalysis(): Promise<DataFlowAnalysisResult> {
+    const analysisResults = await this.runExecutionPointAnalysis();
+    const { points } = analysisResults;
+    return {
+      variablePointsByName: groupBy<ExecutionDataEntry>(
+        points.flatMap(p => p.entries),
+        "value"
+      ),
+    };
+  }
+
+  async queryInputDependencies(): Promise<InputDependency[]> {
+    const [thisLocation, parser] = await Promise.all([
+      this.getSourceLocation(),
+      this.parseSource(),
+    ]);
+
+    const deps = parser.getInterestingInputDependencies(thisLocation);
+    const dataFlowResult = await this.runDataFlowAnalysis();
+    return Promise.all(
+      deps.map(async dep => {
+        const expression = dep.text;
+        const info = await this.queryExpressionInfo(expression, dataFlowResult);
+        return {
+          expression,
+          ...info,
+        };
+      })
+    );
+  }
 
   async queryDynamicScopes(): Promise<DynamicScope[]> {
     const [thisLocation, frameScopes, parser] = await Promise.all([
@@ -199,6 +293,37 @@ export default class PointQueries {
     }
 
     return scopes;
+  }
+
+  /** ###########################################################################
+   * Inspection queries.
+   * ##########################################################################*/
+
+  async inspectPoint(): Promise<InspectPointResult> {
+    const location = await this.queryCodeAndLocation();
+    const functionInfo = await this.queryFunctionInfo();
+    const inputDependencies = await this.queryInputDependencies();
+    const stackAndEvents = await this.queryStackAndEvents();
+
+    return {
+      location,
+      function: functionInfo,
+      inputDependencies,
+      // TODO
+      // directControlDependencies,
+      stackAndEvents,
+    };
+  }
+
+  async inspectData(expression: string): Promise<InspectDataResult> {
+    const pointData = await this.inspectPoint();
+    const dataFlowResult = await this.runDataFlowAnalysis();
+    const expressionInfo = await this.queryExpressionInfo(expression, dataFlowResult);
+
+    return {
+      ...expressionInfo,
+      ...pointData,
+    };
   }
 
   // /**
