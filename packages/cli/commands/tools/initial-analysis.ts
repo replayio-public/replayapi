@@ -8,8 +8,8 @@ import { getOrCreateReplaySession } from "@replayio/data/src/recordingData/Repla
 import { program } from "commander";
 import createDebug from "debug";
 
-import { printCommandResult } from "../commandsShared/print";
-import { RecordingOption, requiresAPIKey } from "./options";
+import { printCommandResult } from "../../commandsShared/print";
+import { RecordingOption, requiresAPIKey } from "../options";
 
 const debug = createDebug("replay:initial-analysis");
 

@@ -6,6 +6,7 @@ import SourceParser from "@replayio/source-parser/src/SourceParser";
 import createDebug from "debug";
 import { sortBy } from "lodash";
 import groupBy from "lodash/groupBy";
+import protocolValueToText from "replay-next/components/inspector/protocolValueToText";
 import { framesCache } from "replay-next/src/suspense/FrameCache";
 import { pointStackCache } from "replay-next/src/suspense/PointStackCache";
 import { FrameScopes, frameScopesCache } from "replay-next/src/suspense/ScopeCache";
@@ -19,12 +20,13 @@ import DynamicScope from "./bindings/DynamicScope";
 import DependencyChain, { RichStackFrame } from "./DependencyChain";
 import ReplaySession from "./ReplaySession";
 import {
-  CodeAtPoint,
+  CodeAtLocation,
   FrameWithPoint,
   IndexedPointStackFrame,
   LocationWithUrl,
   PointFunctionInfo,
 } from "./types";
+import { compileGetTypeName } from "./values/previewValueUtil";
 
 const debug = createDebug("replay:PointQueries");
 
@@ -38,16 +40,21 @@ export interface InputDependency extends ExpressionAnalysisResult {
   expression: string;
 }
 
-export interface ExpressionAnalysisResult {
-  value: unknown; // From makeValuePreview(TODO)
-  origins: {
-    point: ExecutionPoint | undefined;
-    location: CodeAtPoint | null;
-  }[];
+export interface CodeAtPoint extends CodeAtLocation {
+  point: ExecutionPoint;
+};
+
+export interface SimpleValuePreview {
+  value?: string;
+  type?: string;
+}
+
+export interface ExpressionAnalysisResult extends SimpleValuePreview {
+  origins: CodeAtPoint[];
 }
 
 export interface InspectPointResult {
-  location: CodeAtPoint;
+  location: CodeAtLocation;
   function: PointFunctionInfo | null;
   inputDependencies: any; // TODO: Replace with proper type once implemented
   stackAndEvents: RichStackFrame[];
@@ -153,13 +160,14 @@ export default class PointQueries {
   /**
    * Get data for the statement at `point`.
    */
-  async queryCodeAndLocation(): Promise<CodeAtPoint> {
+  async queryCodeAndLocation(): Promise<CodeAtLocation> {
     const [thisLocation, parser] = await Promise.all([
       this.getSourceLocation(),
       this.parseSource(),
     ]);
 
     const statementCode = parser.getAnnotatedNodeTextAt(thisLocation, POINT_ANNOTATION) || "";
+    const functionInfo = parser.getFunctionInfoAt(thisLocation);
 
     if (!thisLocation.url) {
       console.warn(`[PointQueries] No source url found at point ${this.point}`);
@@ -168,12 +176,11 @@ export default class PointQueries {
       console.warn(`[PointQueries] No statement code found at point ${this.point}`);
     }
 
-    // TODO: Also provide hit index + hit count when necessary.
-
     return {
       line: thisLocation.line,
       url: thisLocation.url,
       code: statementCode,
+      functionName: functionInfo?.name || undefined,
     };
   }
 
@@ -189,6 +196,37 @@ export default class PointQueries {
     return await this.dg.getNormalizedStackAndEventsAtPoint(this);
   }
 
+  async makeValuePreview(expression: string): Promise<SimpleValuePreview> {
+    const pauseId = this.pauseId;
+    const valueEval = await this.session.evaluateExpression(pauseId, expression, null);
+    const { returned: value, exception } = valueEval;
+    let valuePreview: string | null = null;
+    let typePreview: string | null = null;
+    if (value) {
+      const typeEval = await this.session.evaluateExpression(
+        pauseId,
+        `${compileGetTypeName(expression)}`,
+        null
+      );
+      [valuePreview, typePreview] = await Promise.all([
+        protocolValueToText(this.session, value, pauseId),
+        (typeEval?.returned && protocolValueToText(this.session, typeEval.returned, pauseId)) ||
+          null,
+      ]);
+    } else if (exception) {
+      valuePreview = `(COULD NOT EVALUATE: ${await protocolValueToText(this.session, exception, pauseId)})`;
+    } else {
+      valuePreview = "(COULD NOT EVALUATE)";
+    }
+    return {
+      value: valuePreview || undefined,
+      type: typePreview || undefined,
+    };
+  }
+
+  /**
+   * Preview and trace the data flow of the value held by `expression`.
+   */
   private async queryExpressionInfo(
     expression: string,
     dataFlowResult: DataFlowAnalysisResult
@@ -199,22 +237,30 @@ export default class PointQueries {
       "desc"
     );
 
-    return {
-      value: makeValuePreview(TODO),
-      origins: await Promise.all(
-        points.map(async dataFlowPoint => {
+    const [valuePreview, ...origins]: [SimpleValuePreview, ...(CodeAtPoint | undefined)[]] =
+      await Promise.all([
+        this.makeValuePreview(expression),
+        ...points.map<Promise<CodeAtPoint | undefined>>(async dataFlowPoint => {
           const { associatedPoint } = dataFlowPoint;
-          let location: CodeAtPoint | null = null;
-          if (associatedPoint) {
-            const p = await this.session.queryPoint(associatedPoint);
-            location = await p.queryCodeAndLocation();
+          let location: CodeAtLocation | null = null;
+          if (!associatedPoint) {
+            return undefined;
           }
+          const p = await this.session.queryPoint(associatedPoint);
+          location = await p.queryCodeAndLocation();
           return {
             point: associatedPoint,
-            location,
+            ...location,
           };
-        })
-      ),
+        }),
+      ]);
+    const { value, type } = valuePreview;
+
+    return {
+      // Test at https://app.replay.io/recording/localhost8080--011f1663-6205-4484-b468-5ec471dc5a31?commentId=&focusWindow=eyJiZWdpbiI6eyJwb2ludCI6IjAiLCJ0aW1lIjowfSwiZW5kIjp7InBvaW50IjoiOTQxMTAzODA1NjY1MDg4NDQwNzA4NTU3NjEzNzEwNzA0NjQiLCJ0aW1lIjo0MzA2M319&point=78858008544035673353062034033344524&primaryPanel=comments&secondaryPanel=console&time=35130.18987398943&viewMode=dev
+      value,
+      type,
+      origins: origins.filter(o => !!o),
     };
   }
 

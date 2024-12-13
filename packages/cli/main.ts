@@ -1,43 +1,23 @@
-import "./commands/fetch-comments";
-import "./commands/session";
-//import "./commands/sources";
-import "./commands/version";
-import "./commands/annotate-execution-points";
+import { createRequire } from "module";
 
-import { program } from "commander";
+const require = createRequire(import.meta.url);
+const Module = require("module");
 
-// commands auto-register themselves when imported
-import { printCommandError } from "./commandsShared/print";
-
-program.configureHelp({
-  sortOptions: true,
-  sortSubcommands: true,
-});
-program.helpCommand("help [command]", "Display help for command");
-program.helpOption("-h, --help", "Display help for command");
-
-function handleError(err: any) {
-  const message = `Failed to execute command: ${err.message}`;
-  const causedBy = err.cause ? `\n\n  [CAUSED BY] ${(err.cause as any).stack || err.cause}` : "";
-  printCommandError(message, `${err.stack}${causedBy}`);
-  process.exit(err.exitCode);
+function ignoreMultiMediaImports() {
+  const originalJsHandler = Module._extensions[".js"];
+  Module._extensions[".js"] = function (module: any, filename: string) {
+    // console.log(`Custom handler for: ${filename}`);
+    if (filename.match(/\.(css|scss|svg)$/)) {
+      // noop
+    } else {
+      // Call the original handler
+      originalJsHandler(module, filename);
+    }
+  };
 }
 
-// Add a custom error handler.
-program.exitOverride(err => {
-  if (err.exitCode && err.code !== "commander.help") {
-    handleError(err);
-  }
-});
-
-program.on("error", err => {
-  handleError(err);
-});
-
 (async function main() {
-  try {
-    await program.parseAsync();
-  } catch (err: any) {
-    handleError(err);
-  }
+  ignoreMultiMediaImports();
+
+  await import("./_main_impl_");
 })();

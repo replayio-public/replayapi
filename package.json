@@ -28,6 +28,7 @@
     "@replayio/protocol": "^0.76.0",
     "commander": "^12.1.0",
     "graphql": "^16.9.0",
+    "ignore-styles": "^5.0.1",
     "lodash": "^4.17.21",
     "ws": "^8.18.0"
   },
@@ -35,6 +36,7 @@
     "@eslint/js": "^9.15.0",
     "@tsconfig/node22": "^22.0.0",
     "@types/eslint__js": "^8.42.3",
+    "@types/ignore-styles": "^5",
     "@types/jest": "^29.5.14",
     "@types/lodash": "^4.17.13",
     "@types/node": "^22.10.0",

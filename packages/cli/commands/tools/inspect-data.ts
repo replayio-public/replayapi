@@ -4,14 +4,14 @@ import { getOrCreateReplaySession } from "@replayio/data/src/recordingData/Repla
 import { program } from "commander";
 import createDebug from "debug";
 
-import { printCommandResult } from "../commandsShared/print";
+import { printCommandResult } from "../../commandsShared/print";
 import {
   PointOption,
   RecordingOption,
   requiresAPIKey,
   requiresPoint,
   requiresRecording,
-} from "./options";
+} from "../options";
 
 const debug = createDebug("replay:inspect-data");
 

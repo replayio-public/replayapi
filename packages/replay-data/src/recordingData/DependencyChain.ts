@@ -13,7 +13,7 @@ import { runAnalysis } from "../analysis/runAnalysis";
 import { AnalyzeDependenciesResult } from "../analysis/specs/analyzeDependencies";
 import PointQueries from "./PointQueries";
 import ReplaySession from "./ReplaySession";
-import { CodeAtPoint, FrameWithPoint } from "./types";
+import { CodeAtLocation, FrameWithPoint } from "./types";
 
 const TargetDGEventCodes = ["ReactCreateElement", "PromiseSettled"] as const;
 export type RichStackFrameKind = "sync" | (typeof TargetDGEventCodes)[number];
@@ -24,7 +24,7 @@ export type RawRichStackFrame = {
   functionName?: string;
 };
 
-export type RichStackFrame = CodeAtPoint & RawRichStackFrame;
+export type RichStackFrame = CodeAtLocation & RawRichStackFrame;
 
 /**
  * This wraps our DG analysis code (which for now primarily resides in the backend).

@@ -8,6 +8,10 @@ export default tseslint.config(
   ...tseslint.configs.recommendedTypeChecked,
   ...tseslint.configs.stylisticTypeChecked,
   {
+    env: {
+      node: true,
+      es6: true,
+    },
     rules: {
       "@typescript-eslint/explicit-module-boundary-types": "error",
       // begin block of things we're either entirely ignoring or switching to warnings.

@@ -9,7 +9,9 @@ import { runAnalysis } from "@replayio/data/src/analysis/runAnalysis";
 import { ExecutionDataAnalysisResult } from "@replayio/data/src/analysis/specs/executionPoint";
 import { scanGitUrl } from "@replayio/data/src/gitUtil/gitStringUtil";
 import LocalGitRepo from "@replayio/data/src/gitUtil/LocalGitRepo";
-import ReplaySession from "@replayio/data/src/recordingData/ReplaySession";
+import ReplaySession, {
+  getOrCreateReplaySession,
+} from "@replayio/data/src/recordingData/ReplaySession";
 import {
   scanAnnotationDataUrl,
   scanReplayUrl,
@@ -111,7 +113,7 @@ export async function annotateExecutionPointsAction(
     return;
   }
 
-  let session: ReplaySession | undefined;
+  const session = await getOrCreateReplaySession(recordingId);
   try {
     const treeish = branch || commit || tag;
     const repo = new LocalGitRepo(workspacePath, !!isWorkspaceRepoPath, repoUrl, treeish);
