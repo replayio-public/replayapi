@@ -1,5 +1,6 @@
 import { createRequire } from "module";
 
+// @ts-expect-error - import.meta is handled by build tooling
 const require = createRequire(import.meta.url);
 const Module = require("module");
 
@@ -19,5 +20,5 @@ function ignoreMultiMediaImports() {
 (async function main() {
   ignoreMultiMediaImports();
 
-  await import("./_main_impl_");
+  await import("./_main_impl_.ts");
 })();
