@@ -26,3 +26,10 @@ export function scanReplayUrl(text: string): {
   return { recordingId, point };
 }
 
+export function scanAnnotationDataUrl(text: string): string | undefined {
+  const match = /https:\/\/static\.replay\.io\/annotate-execution\/.*?.json/.exec(text);
+  if (match) {
+    return match[0];
+  }
+  return undefined;
+}
