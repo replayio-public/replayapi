@@ -52,8 +52,8 @@ export type CommandArgs = {
   forceDelete?: boolean;
 };
 
-async function getAnalysisResults(session: ReplaySession, recordingId: string, annotationData: string | undefined): Promise<ExecutionDataAnalysisResult> {
-  if (!annotationData) {
+async function getAnalysisResults(session: ReplaySession, recordingId: string, annotationDataUrl: string | undefined): Promise<ExecutionDataAnalysisResult> {
+  if (!annotationDataUrl) {
     // Initialize session.
     debug(`connecting to Replay server...`);
     await session.initialize(recordingId);
@@ -68,7 +68,7 @@ async function getAnalysisResults(session: ReplaySession, recordingId: string, a
   }
 
   // Download from URL.
-  const response = await fetch(annotationData);
+  const response = await fetch(annotationDataUrl);
   const data = await response.json() as ExecutionDataAnalysisResult;
 
   // Sanity check.
@@ -97,7 +97,7 @@ export async function annotateExecutionPointsAction(
   // 1b. (optional) GitHub url from problemDescription.
   const { repoUrl, branch, commit, tag } = scanGitUrl(problemDescription) || {};
   // 1c. (optional) annotation data from problemDescription.
-  const annotationData = scanAnnotationDataUrl(problemDescription);
+  const annotationDataUrl = scanAnnotationDataUrl(problemDescription);
 
   if (!recordingId) {
     printCommandResult({ status: "NoRecordingId" });
@@ -116,7 +116,7 @@ export async function annotateExecutionPointsAction(
     //   NOTE: We should not hard-reset without user consent; but without it we run the risk of getting stuck.
     await repo.hardReset();
 
-    const analysisResults = await getAnalysisResults(session, recordingId, annotationData);
+    const analysisResults = await getAnalysisResults(session, recordingId, annotationDataUrl);
 
     const { point, commentText, reactComponentName } = analysisResults;
     assert(point, "No point found in analysis results");
