@@ -1,7 +1,6 @@
 /* Copyright 2020-2024 Record Replay Inc. */
 
 import { readFile } from "fs/promises";
-import createDebug from 'debug';
 
 import { annotateExecutionPoints } from "@replayio/data/src/analysis/annotateExecutionPoints";
 import { AnalysisType } from "@replayio/data/src/analysis/dependencyGraphShared";
@@ -10,10 +9,14 @@ import { runAnalysis } from "@replayio/data/src/analysis/runAnalysis";
 import { ExecutionDataAnalysisResult } from "@replayio/data/src/analysis/specs/executionPoint";
 import { scanGitUrl } from "@replayio/data/src/gitUtil/gitStringUtil";
 import LocalGitRepo from "@replayio/data/src/gitUtil/LocalGitRepo";
-import ReplaySession, { getOrCreateReplaySession } from "@replayio/data/src/recordingData/ReplaySession";
-import { scanReplayUrl } from "@replayio/data/src/recordingData/replayStringUtil";
+import ReplaySession from "@replayio/data/src/recordingData/ReplaySession";
+import {
+  scanAnnotationDataUrl,
+  scanReplayUrl,
+} from "@replayio/data/src/recordingData/replayStringUtil";
 import { assert } from "@replayio/data/src/util/assert";
 import { program } from "commander";
+import createDebug from "debug";
 
 import { printCommandResult } from "../commandsShared/print";
 
@@ -52,6 +55,35 @@ export type CommandArgs = {
   forceDelete?: boolean;
 };
 
+async function getAnalysisResults(
+  session: ReplaySession,
+  recordingId: string,
+  annotationDataUrl: string | undefined
+): Promise<ExecutionDataAnalysisResult> {
+  if (!annotationDataUrl) {
+    // Initialize session.
+    debug(`connecting to Replay server...`);
+    await session.initialize(recordingId);
+    const analysisInput: AnalysisInput = {
+      analysisType: AnalysisType.ExecutionPoint,
+      spec: { recordingId },
+    };
+
+    // Analyze recording.
+    debug(`analyzing recording...`);
+    return runAnalysis(session, analysisInput);
+  }
+
+  // Download from URL.
+  const response = await fetch(annotationDataUrl);
+  const data = (await response.json()) as ExecutionDataAnalysisResult;
+
+  // Sanity check.
+  assert(data.points, "No points found in annotation data");
+
+  return data;
+}
+
 export async function annotateExecutionPointsAction(
   problemDescriptionFile: string,
   { workspacePath, isWorkspaceRepoPath, forceDelete }: CommandArgs
@@ -68,9 +100,11 @@ export async function annotateExecutionPointsAction(
 
   // Extract...
   // 1a. recordingId from problemDescription.
-  let { recordingId } = scanReplayUrl(problemDescription);
+  const { recordingId } = scanReplayUrl(problemDescription);
   // 1b. (optional) GitHub url from problemDescription.
   const { repoUrl, branch, commit, tag } = scanGitUrl(problemDescription) || {};
+  // 1c. (optional) annotation data from problemDescription.
+  const annotationDataUrl = scanAnnotationDataUrl(problemDescription);
 
   if (!recordingId) {
     printCommandResult({ status: "NoRecordingId" });
@@ -82,30 +116,20 @@ export async function annotateExecutionPointsAction(
     const treeish = branch || commit || tag;
     const repo = new LocalGitRepo(workspacePath, !!isWorkspaceRepoPath, repoUrl, treeish);
 
-    // 4. Clone + checkout branch if necessary.
+    // Clone + checkout branch if necessary.
     await repo.init(!!forceDelete);
 
-    // 4b. Hard reset.
-    //     NOTE: We should not hard-reset without user consent; but without it we run the risk of getting stuck.
+    // Hard reset.
+    //   NOTE: We should not hard-reset without user consent; but without it we run the risk of getting stuck.
     await repo.hardReset();
 
-    // 5. Initialize session.
-    debug(`connecting to Replay server...`);
-    const session = await getOrCreateReplaySession(recordingId);
-    const analysisInput: AnalysisInput = {
-      analysisType: AnalysisType.ExecutionPoint,
-      spec: { recordingId },
-    };
-
-    // 6. Analyze recording.
-    debug(`analyzing recording...`);
-    const analysisResults = await runAnalysis(session, analysisInput) as ExecutionDataAnalysisResult;
+    const analysisResults = await getAnalysisResults(session, recordingId, annotationDataUrl);
 
     const { point, commentText, reactComponentName } = analysisResults;
     assert(point, "No point found in analysis results");
-    assert(commentText, "No comment text found in analysis results");
+    assert(typeof commentText == "string", "No comment text found in analysis results");
 
-    // 7. Run annotation script.
+    // Run annotation script.
     debug(`annotating repo with analysis results...`);
     const { annotatedLocations, pointNames } = await annotateExecutionPoints({
       repository: repo.folderPath,
