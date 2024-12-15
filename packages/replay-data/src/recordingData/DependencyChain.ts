@@ -15,6 +15,8 @@ import PointQueries from "./PointQueries";
 import ReplaySession from "./ReplaySession";
 import { CodeAtLocation, FrameWithPoint } from "./types";
 
+export const MaxEventChainLength = 10;
+
 const TargetDGEventCodes = ["ReactCreateElement", "PromiseSettled"] as const;
 export type RichStackFrameKind = "sync" | (typeof TargetDGEventCodes)[number];
 
@@ -98,8 +100,13 @@ export default class DependencyChain {
     const richFrames = await Promise.all(
       rawFrames.map(async f => {
         const p = await this.session.queryPoint(f.point);
-        const code = await p.queryCodeAndLocation();
-        const functionInfo = await p.queryFunctionInfo();
+        if (!await p.shouldIncludeThisPoint()) {
+          return null;
+        }
+        const [code, functionInfo] = await Promise.all([
+          p.queryCodeAndLocation(),
+          p.queryFunctionInfo(),
+        ]);
         // TODO: add functionInfo
         return {
           ...f,
@@ -107,7 +114,7 @@ export default class DependencyChain {
         } as RichStackFrame;
       })
     );
-    return richFrames.filter(shouldIncludeRichStackFrame);
+    return richFrames.filter(f => !!f).slice(0, MaxEventChainLength);
   }
 }
 
@@ -122,13 +129,4 @@ export default class DependencyChain {
 function shouldIncludeRawRichStackFrame(frame: RawRichStackFrame) {
   const includedEventCodes: readonly RichStackFrameKind[] = TargetDGEventCodes;
   return includedEventCodes.includes(frame.kind);
-}
-/**
- * Cull after getting extra data.
- */
-function shouldIncludeRichStackFrame(frame: RichStackFrame) {
-  if (frame.url.includes("node_modules")) {
-    return false;
-  }
-  return true;
 }

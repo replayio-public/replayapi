@@ -1,8 +1,15 @@
+/* Copyright 2020-2024 Record Replay Inc. */
+
+/**
+ * @file This file works like `main`, but takes a JSON input from file.
+ */
+
 import "tsconfig-paths/register";
 
-import { spawn } from "child_process";
-import { readFileSync } from "fs";
+import { mkdirSync, readFileSync, writeFileSync } from "fs";
 import path, { join } from "path";
+
+import { spawnAsync } from "@replayio/data/src/util/spawnAsync";
 
 const ROOT_DIR = "/tmp/cli-specs";
 const thisDir = __dirname;
@@ -24,43 +31,39 @@ function getSortedValues(obj: Record<string, any>): string[] {
   return [...topValues, ...nestedValues];
 }
 
-// Read and parse input file
-try {
-  const inputPath = join(thisDir, 'input.json');
-  const inputData = readFileSync(inputPath, 'utf8');
-  const input = JSON.parse(inputData);
+(async function main() {
+  // Read and parse input file
+  try {
+    const inputPath = join(thisDir, "input.json");
+    const inputData = readFileSync(inputPath, "utf8");
+    const input = JSON.parse(inputData);
 
-  if (!input.tool) {
-    console.error("Tool missing in spec");
-    process.exit(1);
-  }
-
-  const outputName = getSortedValues(input).join("-");
-  const outputPath = `${ROOT_DIR}/result-${outputName}.json`;
-
-  const params = Object.entries(input.params)
-    .map(([key, value]) => `--${key} ${value}`)
-    .join(" ");
-
-  // Change to script directory and run command
-  // 011f1663-6205-4484-b468-5ec471dc5a31
-  // 78858008544006974830969978873708558n
-  spawn(`tsx -r tsconfig-paths/register "${path.join(thisDir, "main.ts")}" ${input.tool} ${params}`, {
-    shell: true,
-    stdio: "inherit",
-  }).on("close", (error, signal) => {
-    if (error || signal) {
-      console.error(`Error running command: error=${error} signal=${signal}`);
+    if (!input.tool) {
+      console.error("Tool missing in spec");
       process.exit(1);
     }
-    console.log(`Done. Result: ${outputPath}`);
-  });
+    const recordingId = "011f1663-6205-4484-b468-5ec471dc5a31";
+    input.params["recordingId"] = recordingId;
 
-} catch (error) {
-  if (error instanceof Error) {
-    console.error(`Error reading or parsing input file: ${error.message}`);
-  } else {
-    console.error('An unknown error occurred');
+    const outputName = getSortedValues(input).join("-");
+    const outputPath = `${ROOT_DIR}/result/${recordingId}/${outputName}.json`;
+    mkdirSync(path.dirname(outputPath), { recursive: true });
+
+    const params = Object.entries(input.params).flatMap(([key, value]) => [`--${key}`, value]);
+
+    // Change to script directory and run command
+    // 78858008544006974830969978873708558n
+    const result = await spawnAsync(
+      "tsx",
+      ["-r", "tsconfig-paths/register", path.join(thisDir, "main.ts"), input.tool, ...params],
+      {
+        stdio: "inherit",
+      }
+    );
+    writeFileSync(outputPath, result.stdout);
+    console.log(`Done. Result: ${outputPath}`);
+  } catch (error: any) {
+    console.error(`Error reading or parsing input file: ${error?.stack || error}`);
+    process.exit(1);
   }
-  process.exit(1);
-}
+})();

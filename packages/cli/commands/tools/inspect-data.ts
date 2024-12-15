@@ -18,24 +18,19 @@ const debug = createDebug("replay:inspect-data");
 const command = program
   .command("inspect-data")
   .description("Explains dynamic control flow and data flow dependencies of the code at `point`.")
-  .argument(
-    "<problemDescriptionFile>",
-    "Path to a file that contains the description of the issue to fix."
-  )
-  .option("-e --expression <expression>", "Expression of interest at point.")
+  .option("-e, --expression <expression>", "Expression of interest at point.")
   .action(inspectDataAction);
 
 requiresAPIKey(command);
 requiresRecording(command);
 requiresPoint(command);
 
-export async function inspectDataAction({
-  recording: recordingId,
-  point,
-  expression,
-}: RecordingOption & PointOption & { expression: string }): Promise<void> {
+export async function inspectDataAction(
+  options: RecordingOption & PointOption & { expression: string }
+): Promise<void> {
   // Start...
-  debug(`starting inspectDataAction...`);
+  debug(`starting inspectDataAction...`, options);
+  const { recordingId, point, expression } = options;
 
   if (!recordingId) {
     printCommandResult({ status: "NoRecordingId" });

@@ -18,17 +18,13 @@ const command = program
   .description(
     "Looks for an initial comment. Returns the comment text, as well as dynamic control flow and data flow dependencies of the code at comment's `point`."
   )
-  .argument(
-    "<problemDescriptionFile>",
-    "Path to a file that contains the description of the issue to fix."
-  )
   .action(initialAnalysisAction);
 
 requiresAPIKey(command);
 // requiresRecording(command);
 
 export async function initialAnalysisAction({
-  recording: recordingId = "011f1663-6205-4484-b468-5ec471dc5a31",
+  recordingId,
 }: RecordingOption): Promise<void> {
   // Start...
   debug(`starting inspectPointAction...`);

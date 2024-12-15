@@ -6,7 +6,7 @@ describe("initialAnalysisAction integration", () => {
 
   it("should analyze an existing recording and return results", async () => {
     const result = await initialAnalysisAction({
-      recording: testRecordingId,
+      recordingId: testRecordingId,
     });
 
     expect(result).toEqual({

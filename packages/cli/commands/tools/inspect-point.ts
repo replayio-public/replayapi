@@ -29,7 +29,7 @@ requiresRecording(command);
 requiresPoint(command);
 
 export async function inspectPointAction({
-  recording: recordingId,
+  recordingId,
   point,
 }: RecordingOption & PointOption): Promise<void> {
   // Start...

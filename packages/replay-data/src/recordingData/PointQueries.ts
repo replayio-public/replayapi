@@ -4,7 +4,7 @@ import { ExecutionPoint, Frame, PauseId } from "@replayio/protocol";
 import StaticScope from "@replayio/source-parser/src/bindings/StaticScope";
 import SourceParser from "@replayio/source-parser/src/SourceParser";
 import createDebug from "debug";
-import { sortBy } from "lodash";
+import { sortBy, truncate } from "lodash";
 import groupBy from "lodash/groupBy";
 import protocolValueToText from "replay-next/components/inspector/protocolValueToText";
 import { framesCache } from "replay-next/src/suspense/FrameCache";
@@ -42,7 +42,7 @@ export interface InputDependency extends ExpressionAnalysisResult {
 
 export interface CodeAtPoint extends CodeAtLocation {
   point: ExecutionPoint;
-};
+}
 
 export interface SimpleValuePreview {
   value?: string;
@@ -157,6 +157,11 @@ export default class PointQueries {
    * High-level Queries.
    * ##########################################################################*/
 
+  async shouldIncludeThisPoint() {
+    const thisLocation = await this.getSourceLocation();
+    return shouldSourceBeIncluded(thisLocation.url);
+  }
+
   /**
    * Get data for the statement at `point`.
    */
@@ -173,7 +178,9 @@ export default class PointQueries {
       console.warn(`[PointQueries] No source url found at point ${this.point}`);
     }
     if (!statementCode) {
-      console.warn(`[PointQueries] No statement code found at point ${this.point}`);
+      console.warn(
+        `[PointQueries] No statement code found at point ${this.point}, at:${JSON.stringify(thisLocation, null, 2)}`
+      );
     }
 
     return {
@@ -196,6 +203,20 @@ export default class PointQueries {
     return await this.dg.getNormalizedStackAndEventsAtPoint(this);
   }
 
+  async protocolValueToText(value: any): Promise<string | null> {
+    try {
+      return await protocolValueToText(this.session, value, this.pauseId);
+    } catch (err: any) {
+      // TODO: There is an error from `.yalc/shared/client/ReplayClient.ts`
+      //   1. `getObjectWithPreview` calls `client.Pause.getObjectPreview` with `level = "none"` and gets an empty data object.
+      //   2. When changing it to `level` = "canOverflow", it throws with "Message params not an object, null, or undefined" instead.
+      console.error(
+        `protocolValueToText ERROR: "${truncate(JSON.stringify(value), { length: 100 })}" → ${err.stack}`
+      );
+      return null;
+    }
+  }
+
   async makeValuePreview(expression: string): Promise<SimpleValuePreview> {
     const pauseId = this.pauseId;
     const valueEval = await this.session.evaluateExpression(pauseId, expression, null);
@@ -209,12 +230,13 @@ export default class PointQueries {
         null
       );
       [valuePreview, typePreview] = await Promise.all([
-        protocolValueToText(this.session, value, pauseId),
+        this.protocolValueToText(value),
+        // Promise.resolve(null),
         (typeEval?.returned && protocolValueToText(this.session, typeEval.returned, pauseId)) ||
           null,
       ]);
     } else if (exception) {
-      valuePreview = `(COULD NOT EVALUATE: ${await protocolValueToText(this.session, exception, pauseId)})`;
+      valuePreview = `(COULD NOT EVALUATE: ${await this.protocolValueToText(exception)})`;
     } else {
       valuePreview = "(COULD NOT EVALUATE)";
     }
@@ -246,6 +268,7 @@ export default class PointQueries {
           if (!associatedPoint) {
             return undefined;
           }
+
           const p = await this.session.queryPoint(associatedPoint);
           location = await p.queryCodeAndLocation();
           return {
@@ -264,18 +287,21 @@ export default class PointQueries {
     };
   }
 
-  async runExecutionPointAnalysis(): Promise<ExecutionDataAnalysisResult> {
+  async runExecutionPointAnalysis(depth?: number): Promise<ExecutionDataAnalysisResult> {
     debug(`run ExecutionPoint analysis...`);
     const analysisInput: AnalysisInput = {
       analysisType: AnalysisType.ExecutionPoint,
-      spec: { recordingId: this.session.getRecordingId()! },
+      spec: { recordingId: this.session.getRecordingId()!, point: this.point },
     };
+    if (depth !== undefined) {
+      analysisInput.spec.depth = depth;
+    }
 
     return (await runAnalysis(this.session, analysisInput)) as ExecutionDataAnalysisResult;
   }
 
   async runDataFlowAnalysis(): Promise<DataFlowAnalysisResult> {
-    const analysisResults = await this.runExecutionPointAnalysis();
+    const analysisResults = await this.runExecutionPointAnalysis(0);
     const { points } = analysisResults;
     return {
       variablePointsByName: groupBy<ExecutionDataEntry>(
@@ -386,4 +412,14 @@ export default class PointQueries {
   // async valuePreview(expression: string) {
   //   // TODO
   // }
+}
+
+/**
+ * Cull node_modules for now.
+ */
+function shouldSourceBeIncluded(url: string) {
+  if (url.includes("node_modules")) {
+    return false;
+  }
+  return true;
 }

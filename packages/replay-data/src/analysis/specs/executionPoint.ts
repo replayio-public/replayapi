@@ -1,10 +1,17 @@
 /* Copyright 2020-2024 Record Replay Inc. */
 
-import { z } from "zod";
-import { AnalysisDefaultSpecSchema, URLLocation } from "../dependencyGraphShared";
 import { ExecutionPoint } from "@replayio/protocol";
+import { z } from "zod";
 
-export const ExecutionPointSpecSchema = AnalysisDefaultSpecSchema;
+import { AnalysisDefaultSpecSchema, URLLocation } from "../dependencyGraphShared";
+
+export const ExecutionPointSpecSchema = AnalysisDefaultSpecSchema.extend({
+  // Point whose execution data is being described.
+  point: z.optional(z.string()),
+
+  // Depth of associated points to recursively describe.
+  depth: z.optional(z.number()),
+}).strict();
 export type ExecutionDataAnalysisSpec = z.infer<typeof ExecutionPointSpecSchema>;
 
 // A location within a recording and associated source contents.
@@ -38,7 +45,6 @@ export interface ExecutionDataPoint {
   // Entries describing the point.
   entries: ExecutionDataEntry[];
 }
-
 
 // A location within a recording and associated source contents.
 export interface URLLocationWithSource extends URLLocation {
@@ -85,4 +91,3 @@ export interface ExecutionDataAnalysisResult {
   // If the comment is on a React component, the name of the component.
   reactComponentName?: string;
 }
-

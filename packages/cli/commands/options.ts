@@ -2,11 +2,11 @@ import { ExecutionPoint } from "@replayio/protocol";
 import { Command, Option } from "commander";
 
 export interface RecordingOption {
-  recording: string;
+  recordingId: string;
 }
 
 export function requiresRecording(command: Command): void {
-  const option = new Option("-r, --recordingId <RECORDING>", "Recording ID or URL")
+  const option = new Option("-r, --recordingId <recordingId>", "Recording ID or URL")
     .env("REPLAY_RECORDING")
     .makeOptionMandatory(true);
   command.addOption(option);
@@ -39,6 +39,11 @@ export interface PointOption {
 }
 
 export function requiresPoint(command: Command): void {
-  const option = new Option("-p, --point <point>", "Execution point within a recording.");
+  const option = new Option("-p, --point <point>", "Execution point within a recording.")
+    .argParser(
+      // Strip `n` if given (since BigInt strings must not have an `n` in it).
+      p => (p?.endsWith("n") ? p.slice(0, -1) : p)
+    )
+    .makeOptionMandatory(true);
   command.addOption(option);
 }

@@ -125,6 +125,7 @@ export default class ReplaySession extends ReplayClient {
    * ##########################################################################*/
 
   async queryPoint(point: ExecutionPoint): Promise<PointQueries> {
+    debug(`queryPoint ${point}...`);
     const pauseId = await pauseIdCache.readAsync(this, point, DEFAULT_TIME);
     return new PointQueries(this, point, pauseId);
   }

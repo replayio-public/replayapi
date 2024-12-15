@@ -89,9 +89,6 @@ describe("PointQueries", () => {
       const statement = await result.queryCodeAndLocation();
       expect({ ...statement }).toStrictEqual(expected.statement);
 
-      // const richStack = await result.queryRichStack();
-      // console.log("DDBG Rich stack:", richStack.slice(0, 15));
-
       const scopes = await result.queryDynamicScopes();
       const allStaticBindings = [];
       const allMatchingDynamicBindings = [];

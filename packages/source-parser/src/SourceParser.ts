@@ -65,7 +65,26 @@ export default class SourceParser {
       return locOrNode;
     }
 
-    let node = this.tree.rootNode.descendantForPosition(sourceLocationToPoint(locOrNode));
+    // 1. Try exact position:
+    const treeSitterPoint = sourceLocationToPoint(locOrNode);
+    let node = this.tree.rootNode.descendantForPosition(treeSitterPoint);
+
+    if (!node) {
+      // 2. If no exact match, scan the line, starting from column:
+      let startPoint = { row: treeSitterPoint.row, column: treeSitterPoint.column };
+      let endPoint = { row: treeSitterPoint.row, column: Number.MAX_SAFE_INTEGER };
+      let nodesOnLine = this.tree.rootNode.descendantsOfType("*", startPoint, endPoint);
+      if (!nodesOnLine.length && treeSitterPoint.column) {
+        // 3. Scan before the column:
+        startPoint = { row: treeSitterPoint.row, column: 0 };
+        endPoint = { row: treeSitterPoint.row, column: treeSitterPoint.column + 1 };
+        nodesOnLine = this.tree.rootNode.descendantsOfType("*", startPoint, endPoint);
+      }
+      if (nodesOnLine) {
+        [node] = nodesOnLine;
+      }
+    }
+
     while (node) {
       if (!filter || filter(node)) {
         return node;
