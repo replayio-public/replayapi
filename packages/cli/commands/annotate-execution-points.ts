@@ -118,9 +118,8 @@ export async function annotateExecutionPointsAction(
 
     const analysisResults = await getAnalysisResults(session, recordingId, annotationDataUrl);
 
-    const { point, commentText, reactComponentName } = analysisResults;
+    const { point, commentText, reactComponentName, consoleError } = analysisResults;
     assert(point, "No point found in analysis results");
-    assert(typeof commentText == "string", "No comment text found in analysis results");
 
     // Run annotation script.
     debug(`annotating repo with analysis results...`);
@@ -139,6 +138,7 @@ export async function annotateExecutionPointsAction(
       point,
       commentText,
       reactComponentName,
+      consoleError,
       annotatedRepo: repo.folderPath,
       annotatedLocations,
       startLocation: startLocationStr,
