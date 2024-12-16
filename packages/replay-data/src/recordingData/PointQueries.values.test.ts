@@ -48,7 +48,15 @@ describe("PointQueries values", () => {
       expect(result).toEqual(expected.value);
 
       const dataFlow = await pq.runDataFlowAnalysis();
-      console.log(dataFlow.variablePointsByName["itemData"]);
+      // TODO: expect on dataFlow data
+      // expect(dataFlow.variablePointsByName["itemData"]).toEqual([
+      //   {
+      //     value: TODO,
+      //     contents: TODO,
+      //     associatedPoint: TODO,
+      //     associatedLocation: TODO,
+      //   },
+      // ]);
     }
   );
 });
