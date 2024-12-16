@@ -31,7 +31,14 @@ async function getHardcodeHandler(
   let result = _hardcodeHandlers.get(filePath);
   if (!result) {
     try {
-      result = (await import(filePath)).default;
+      const imported = await import(filePath);
+      if (
+        !imported?.default ||
+        (!(imported.default instanceof Function) && typeof imported.default !== "object")
+      ) {
+        throw new Error(`Invalid override file must default-export an object or a function: ${imported}`);
+      }
+      result = imported.default;
       debug(`✅ getHardcodedData ${filePath}`);
       _hardcodeHandlers.set(filePath, result);
     } catch (err: any) {
