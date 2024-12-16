@@ -76,7 +76,7 @@ const PointExpectations: Record<ExecutionPoint, PointExpectations> = {
   //   },
 };
 
-describe("PointQueries", () => {
+describe("PointQueries basics", () => {
   let session: ReplaySession;
   beforeAll(async () => {
     session = await getReplaySessionForTest(RecordingId);

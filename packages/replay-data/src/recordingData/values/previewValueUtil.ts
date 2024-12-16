@@ -253,7 +253,7 @@ function makePreviews(inputs: string[]): Record<string, ValuePreview> {
 
 export type CodeString = string;
 
-function compileCall<T>(func: Function, input: T): CodeString {
+function compileCall(func: Function, input: string): CodeString {
   // Convert utility functions to string declarations
   const utilityDeclarations = sharedUtilities.map(util => util.toString()).join("\n\n");
 
@@ -262,12 +262,12 @@ function compileCall<T>(func: Function, input: T): CodeString {
 (function() {
   ${utilityDeclarations}
   
-  return (${func.toString()})(${JSON.stringify(input)});
+  return (${func.toString()})(${input});
 })()`;
 }
 
 export function compileMakePreviewsCall(expressions: string[]): CodeString {
-  return compileCall(makePreviews, expressions);
+  return compileCall(makePreviews, `[${expressions.join(", ")}]`);
 }
 
 /**

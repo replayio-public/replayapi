@@ -1,6 +1,6 @@
 /* Copyright 2020-2024 Record Replay Inc. */
 
-import { ExecutionPoint, Frame, PauseId } from "@replayio/protocol";
+import { ExecutionPoint, Frame, FrameId, PauseId } from "@replayio/protocol";
 import StaticScope from "@replayio/source-parser/src/bindings/StaticScope";
 import SourceParser from "@replayio/source-parser/src/SourceParser";
 import createDebug from "debug";
@@ -218,9 +218,9 @@ export default class PointQueries {
     }
   }
 
-  async makeValuePreview(expression: string): Promise<SimpleValuePreview> {
+  async makeValuePreview(expression: string, frameId: FrameId | null): Promise<SimpleValuePreview> {
     const pauseId = this.pauseId;
-    const valueEval = await this.session.evaluateExpression(pauseId, expression, null);
+    const valueEval = await this.session.evaluateExpression(pauseId, expression, frameId);
     const { returned: value, exception } = valueEval;
     let valuePreview: string | null = null;
     let typePreview: string | null = null;
@@ -228,11 +228,10 @@ export default class PointQueries {
       const typeEval = await this.session.evaluateExpression(
         pauseId,
         `${compileGetTypeName(expression)}`,
-        null
+        frameId
       );
       [valuePreview, typePreview] = await Promise.all([
         this.protocolValueToText(value),
-        // Promise.resolve(null),
         (typeEval?.returned && protocolValueToText(this.session, typeEval.returned, pauseId)) ||
           null,
       ]);
@@ -259,10 +258,11 @@ export default class PointQueries {
       v => v.associatedPoint,
       "desc"
     );
+    const frame = await this.thisFrame();
 
     const [valuePreview, ...origins]: [SimpleValuePreview, ...(CodeAtPoint | undefined)[]] =
       await Promise.all([
-        this.makeValuePreview(expression),
+        this.makeValuePreview(expression, frame.frameId),
         ...points.map<Promise<CodeAtPoint | undefined>>(async dataFlowPoint => {
           const { associatedPoint } = dataFlowPoint;
           let location: CodeAtLocation | null = null;

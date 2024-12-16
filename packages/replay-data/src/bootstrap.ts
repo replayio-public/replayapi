@@ -30,4 +30,9 @@ import WebSocket from "ws";
 
   /* @ts-ignore */
   globalThis.WebSocket = WebSocket;
+
+  /* @ts-ignore */
+  globalThis.Node = {
+    ELEMENT_NODE: 1,
+  };
 })();
