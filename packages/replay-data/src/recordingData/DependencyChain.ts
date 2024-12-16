@@ -76,7 +76,7 @@ export default class DependencyChain {
    * The "rich stack" is not really a stack, but rather a mix of the synchronous call stack, interleaved with async events,
    * including high-level framework (e.g. React) events, order by time (latest first).
    */
-  async getNormalizedStackAndEventsAtPoint(pointQueries: PointQueries): Promise<RichStackFrame[]> {
+  async getNormalizedStackAndEventsAtPoint(pointQueries: PointQueries): Promise<[boolean, RichStackFrame[]]> {
     const [frames, dgChain] = await Promise.all([
       pointQueries.getStackFramesWithPoint(),
       this.getDependencyChain(pointQueries.point),
@@ -100,7 +100,7 @@ export default class DependencyChain {
     const richFrames = await Promise.all(
       rawFrames.map(async f => {
         const p = await this.session.queryPoint(f.point);
-        if (!await p.shouldIncludeThisPoint()) {
+        if (!(await p.shouldIncludeThisPoint())) {
           return null;
         }
         const [code, functionInfo] = await Promise.all([
@@ -114,7 +114,12 @@ export default class DependencyChain {
         } as RichStackFrame;
       })
     );
-    return richFrames.filter(f => !!f).slice(0, MaxEventChainLength);
+
+    const result = richFrames.filter(f => !!f);
+    if (result.length > MaxEventChainLength) {
+      return [true, result.slice(0, MaxEventChainLength)];
+    }
+    return [false, result];
   }
 }
 

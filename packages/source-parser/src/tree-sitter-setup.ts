@@ -14,13 +14,13 @@ import { Language } from "./tree-sitter-types";
 const LANGUAGE_EXTENSIONS = {
   javascript: ["js", "jsx", "mjs", "cjs"],
   html: ["html", "htm"],
+  tsx: ["ts", "tsx", "mts", "cts"]
 } as const;
 
 const LanguagesByFileExtension = new Map<string, Language>([
   ...LANGUAGE_EXTENSIONS.javascript.map(ext => [ext, JavaScript] as const),
-  ...["ts"].map(ext => [ext, TypeScript.typescript] as const),
-  ...["tsx", "mts", "cts"].map(ext => [ext, TypeScript.tsx] as const),
   ...LANGUAGE_EXTENSIONS.html.map(ext => [ext, HTML] as const),
+  ...LANGUAGE_EXTENSIONS.tsx.map(ext => [ext, TypeScript.tsx] as const),
 ]);
 
 function getFileExtension(uri: string): string {

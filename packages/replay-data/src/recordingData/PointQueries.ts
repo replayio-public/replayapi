@@ -58,6 +58,7 @@ export interface InspectPointResult {
   function: PointFunctionInfo | null;
   inputDependencies: any; // TODO: Replace with proper type once implemented
   stackAndEvents: RichStackFrame[];
+  stackAndEventsTruncated?: boolean;
 }
 
 export type InspectDataResult = InspectPointResult & ExpressionAnalysisResult;
@@ -199,7 +200,7 @@ export default class PointQueries {
     return parser.getFunctionInfoAt(thisLocation);
   }
 
-  async queryStackAndEvents(): Promise<RichStackFrame[]> {
+  async queryStackAndEvents(): Promise<[boolean, RichStackFrame[]]> {
     return await this.dg.getNormalizedStackAndEventsAtPoint(this);
   }
 
@@ -375,7 +376,7 @@ export default class PointQueries {
     const location = await this.queryCodeAndLocation();
     const functionInfo = await this.queryFunctionInfo();
     const inputDependencies = await this.queryInputDependencies();
-    const stackAndEvents = await this.queryStackAndEvents();
+    // const [stackTruncated, stackAndEvents] = await this.queryStackAndEvents();
 
     return {
       location,
@@ -383,7 +384,9 @@ export default class PointQueries {
       inputDependencies,
       // TODO
       // directControlDependencies,
-      stackAndEvents,
+      // stackAndEvents,
+      // stackAndEventsTruncated: stackTruncated,
+      stackAndEvents: [],
     };
   }
 

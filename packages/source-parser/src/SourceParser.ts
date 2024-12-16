@@ -105,23 +105,23 @@ export default class SourceParser {
     return this.getInnermostNodeAt(loc, this.language.function);
   }
 
-  getInnermostStatement(loc: SourceLocation): SyntaxNode | null {
+  getInnermostStatement(loc: SyntaxNode | SourceLocation): SyntaxNode | null {
     // NOTE: There is a `statement` supertype we can use for this instead.
     return this.getInnermostNodeAt(loc, this.language.statement);
   }
 
-  getOutermostExpression(position: SourceLocation): SyntaxNode | null {
+  getOutermostExpression(position: SyntaxNode | SourceLocation): SyntaxNode | null {
     return this.getOuterMostTypeNode(position, "expression");
   }
 
-  getRelevantContainingNodeAt(loc: SourceLocation): SyntaxNode | null {
+  getRelevantContainingNodeAt(loc: SyntaxNode | SourceLocation): SyntaxNode | null {
     const statement = this.getInnermostStatement(loc);
     const expression = this.getOutermostExpression(loc);
 
     return statement || expression;
   }
 
-  getOuterMostTypeNode(loc: SourceLocation, queryType: string): SyntaxNode | null {
+  getOuterMostTypeNode(loc: SyntaxNode | SourceLocation, queryType: string): SyntaxNode | null {
     const root = this.tree.rootNode;
     const positionNode = this.getNodeAt(loc);
     const query = `(${queryType}) @result`;
@@ -171,6 +171,21 @@ export default class SourceParser {
     return this.queryAll(query, root)
       .map(match => match.captures?.[0]?.node || null)
       .filter(Boolean);
+  }
+
+  queryExpressions(node = this.tree.rootNode): SyntaxNode[] {
+    // Actual expressions.
+    const expressions = this.queryAllNodes(`(expression) @e`, node);
+
+    // // The actual expression inside jsx_expression is the 2nd child.
+    // // const jsx_expressions = this.queryAllNodes(`(jsx_expression) @je`, node);
+
+    // // Combine and deduplicate.
+    // return uniqBy(
+    //   expressions.concat(jsx_expressions.map(n => n.firstChild!.nextSibling!)),
+    //   n => `${n.startIndex};;${n.endIndex}`
+    // );
+    return expressions;
   }
 
   /** ###########################################################################
@@ -223,16 +238,26 @@ export default class SourceParser {
    * @returns A list of nodes, but unique by text.
    */
   getInterestingInputDependencies(nodeOrLocation: SyntaxNode | SourceLocation): SyntaxNode[] {
-    const node = this.getNodeAt(nodeOrLocation);
+    const node = this.getOutermostExpression(nodeOrLocation) || this.getNodeAt(nodeOrLocation);
+    if (!node) {
+      return [];
+    }
 
     // Don't traverse inline functions as they create new scopes.
     const excludeSubtree = this.language.function;
 
-    // Ignore ArrayExpression and ObjectExpression nodes.
-    const excludeNode = this.language.typeCover(["array", "object"]);
+    // Ignore ArrayExpression, ObjectExpression, constants and some other noise.
+    const excludeNode = this.language.typeCover([
+      "array",
+      "object",
+      this.language.jsx,
+      "parenthesized_expression",
+      this.language.constant,
+    ]);
 
     // 1. Find all expressions.
-    let expressions = this.queryAllNodes("(expression) @expr", node);
+    //    NOTE: tsx parsing is immature at this point.
+    let expressions = this.queryExpressions(node);
     // 2. Only pick the top-level expressions, including unwanted sub-trees.
     expressions = Array.from(
       new Set(
