@@ -1,9 +1,6 @@
 /* Copyright 2020-2024 Record Replay Inc. */
 
-import { AnalysisType } from "@replayio/data/src/analysis/dependencyGraphShared";
-import { AnalysisInput } from "@replayio/data/src/analysis/dgSpecs";
-import { runAnalysis } from "@replayio/data/src/analysis/runAnalysis";
-import { ExecutionDataAnalysisResult } from "@replayio/data/src/analysis/specs/executionPoint";
+import { runInitialAnalysis } from "@replayio/data/src/analysis/runAnalysis";
 import { getOrCreateReplaySession } from "@replayio/data/src/recordingData/ReplaySession";
 import { program } from "commander";
 import createDebug from "debug";
@@ -38,16 +35,7 @@ export async function initialAnalysisAction({ recordingId }: RecordingOption): P
 
   try {
     // 2. Find point and run analysis on that point.
-    debug(`run ExecutionPoint analysis...`);
-    const analysisInput: AnalysisInput = {
-      analysisType: AnalysisType.ExecutionPoint,
-      spec: { recordingId },
-    };
-    const analysisResults = (await runAnalysis(
-      session,
-      analysisInput
-    )) as ExecutionDataAnalysisResult;
-    const { point, commentText: userComment, reactComponentName } = analysisResults;
+    const { point, userComment, reactComponentName } = await runInitialAnalysis(session);
     if (!point || !userComment) {
       printCommandResult({ status: "NoVisualComment" });
       return;

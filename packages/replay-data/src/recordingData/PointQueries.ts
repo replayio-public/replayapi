@@ -1,6 +1,12 @@
 /* Copyright 2020-2024 Record Replay Inc. */
 
-import { ExecutionPoint, Frame, FrameId, PauseId } from "@replayio/protocol";
+import {
+  ExecutionPoint,
+  Frame,
+  PauseId,
+  NamedValue as ProtocolNamedValue,
+  Value as ProtocolValue,
+} from "@replayio/protocol";
 import StaticScope from "@replayio/source-parser/src/bindings/StaticScope";
 import SourceParser from "@replayio/source-parser/src/SourceParser";
 import createDebug from "debug";
@@ -159,7 +165,7 @@ export default class PointQueries {
    * High-level Queries.
    * ##########################################################################*/
 
-  async shouldIncludeThisPoint() {
+  async shouldIncludeThisPoint(): Promise<boolean> {
     const thisLocation = await this.getSourceLocation();
     return shouldSourceBeIncluded(thisLocation.url);
   }
@@ -205,7 +211,7 @@ export default class PointQueries {
     return await this.dg.getNormalizedStackAndEventsAtPoint(this);
   }
 
-  async protocolValueToText(value: any): Promise<string | null> {
+  async protocolValueToText(value: ProtocolValue | ProtocolNamedValue): Promise<string | null> {
     try {
       return await protocolValueToText(this.session, value, this.pauseId);
     } catch (err: any) {
@@ -387,10 +393,13 @@ export default class PointQueries {
    * ##########################################################################*/
 
   async inspectPoint(): Promise<InspectPointResult> {
-    const location = await this.queryCodeAndLocation();
-    const functionInfo = await this.queryFunctionInfo();
-    const inputDependencies = await this.queryInputDependencies();
-    // const [stackTruncated, stackAndEvents] = await this.queryStackAndEvents();
+    const [location, functionInfo, inputDependencies, [stackTruncated, stackAndEvents]] =
+      await Promise.all([
+        this.queryCodeAndLocation(),
+        this.queryFunctionInfo(),
+        this.queryInputDependencies(),
+        this.queryStackAndEvents(),
+      ]);
 
     return {
       location,
@@ -398,9 +407,9 @@ export default class PointQueries {
       inputDependencies,
       // TODO
       // directControlDependencies,
-      // stackAndEvents,
-      // stackAndEventsTruncated: stackTruncated,
-      stackAndEvents: [],
+      stackAndEvents,
+      stackAndEventsTruncated: stackTruncated,
+      // stackAndEvents: [],
     };
   }
 

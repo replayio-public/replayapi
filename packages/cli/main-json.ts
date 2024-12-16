@@ -10,26 +10,10 @@ import { mkdirSync, readFileSync, writeFileSync } from "fs";
 import path, { join } from "path";
 
 import { spawnAsync } from "@replayio/data/src/util/spawnAsync";
+import { deterministicObjectHash } from "@replayio/data/src/util/objectUtil";
 
 const DATA_ROOT_DIR = "/tmp/cli-specs";
 const thisDir = __dirname;
-
-// Get sorted values from an object, handling nested objects
-function getSortedValues(obj: Record<string, any>): string[] {
-  // Get top-level values first
-  const topValues = Object.keys(obj)
-    .sort()
-    .filter(key => typeof obj[key] !== "object" || obj[key] === null)
-    .map(key => String(obj[key]));
-
-  // Then get nested values
-  const nestedValues = Object.keys(obj)
-    .sort()
-    .filter(key => typeof obj[key] === "object" && obj[key] !== null)
-    .flatMap(key => getSortedValues(obj[key]));
-
-  return [...topValues, ...nestedValues];
-}
 
 (async function main() {
   // Read and parse input file
@@ -45,7 +29,7 @@ function getSortedValues(obj: Record<string, any>): string[] {
     const recordingId = "011f1663-6205-4484-b468-5ec471dc5a31";
     input.params["recordingId"] = recordingId;
 
-    const outputName = getSortedValues(input).join("-");
+    const outputName = deterministicObjectHash(input);
     const outputPath = `${DATA_ROOT_DIR}/result/${recordingId}/${outputName}.json`;
     mkdirSync(path.dirname(outputPath), { recursive: true });
     const params = Object.entries(input.params).flatMap(([key, value]) => [`--${key}`, value]);
