@@ -6,7 +6,7 @@ export interface RecordingOption {
 }
 
 export function requiresRecording(command: Command): void {
-  const option = new Option("-r, --recordingId <recordingId>", "Recording ID or URL")
+  const option = new Option("-r, --recordingId <recordingId>", "Recording ID")
     .env("REPLAY_RECORDING")
     .makeOptionMandatory(true);
   command.addOption(option);

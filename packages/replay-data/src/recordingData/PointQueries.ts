@@ -224,8 +224,9 @@ export default class PointQueries {
     if (!res) {
       this.valuelookupsByExpression.set(expression, (res = this._makeValuePreview(expression)));
     } else {
+      // TODO: Also stub out nested repeated expressions.
       return {
-        value: "(already previewed before)",
+        value: "(already previewed)",
       };
     }
     return res;

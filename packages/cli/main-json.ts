@@ -11,7 +11,7 @@ import path, { join } from "path";
 
 import { spawnAsync } from "@replayio/data/src/util/spawnAsync";
 
-const ROOT_DIR = "/tmp/cli-specs";
+const DATA_ROOT_DIR = "/tmp/cli-specs";
 const thisDir = __dirname;
 
 // Get sorted values from an object, handling nested objects
@@ -46,13 +46,9 @@ function getSortedValues(obj: Record<string, any>): string[] {
     input.params["recordingId"] = recordingId;
 
     const outputName = getSortedValues(input).join("-");
-    const outputPath = `${ROOT_DIR}/result/${recordingId}/${outputName}.json`;
+    const outputPath = `${DATA_ROOT_DIR}/result/${recordingId}/${outputName}.json`;
     mkdirSync(path.dirname(outputPath), { recursive: true });
-
     const params = Object.entries(input.params).flatMap(([key, value]) => [`--${key}`, value]);
-
-    // Change to script directory and run command
-    // 78858008544006974830969978873708558n
     const result = await spawnAsync(
       "tsx",
       ["-r", "tsconfig-paths/register", path.join(thisDir, "main.ts"), input.tool, ...params],

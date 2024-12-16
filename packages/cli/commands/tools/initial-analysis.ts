@@ -9,7 +9,7 @@ import { program } from "commander";
 import createDebug from "debug";
 
 import { printCommandResult } from "../../commandsShared/print";
-import { RecordingOption, requiresAPIKey } from "../options";
+import { RecordingOption, requiresAPIKey, requiresRecording } from "../options";
 
 const debug = createDebug("replay:initial-analysis");
 
@@ -21,11 +21,9 @@ const command = program
   .action(initialAnalysisAction);
 
 requiresAPIKey(command);
-// requiresRecording(command);
+requiresRecording(command);
 
-export async function initialAnalysisAction({
-  recordingId,
-}: RecordingOption): Promise<void> {
+export async function initialAnalysisAction({ recordingId }: RecordingOption): Promise<void> {
   // Start...
   debug(`starting inspectPointAction...`);
 

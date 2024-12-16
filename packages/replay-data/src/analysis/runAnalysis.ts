@@ -75,8 +75,12 @@ export async function runAnalysis(
   session: ReplaySession,
   input: AnalysisInput
 ): Promise<AnalysisResult> {
-  return session.experimentalCommand(
-    analysisExperimentalCommandMapInverted[input.analysisType],
-    input.spec
-  );
+  try {
+    return await session.experimentalCommand(
+      analysisExperimentalCommandMapInverted[input.analysisType],
+      input.spec
+    );
+  } catch (err: any) {
+    console.error(`Failed to run analysis ${JSON.stringify(input)}:\n  ${err.stack}`);
+  }
 }

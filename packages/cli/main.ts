@@ -1,24 +1,50 @@
-import { createRequire } from "module";
+import "./commands/fetch-comments";
+import "./commands/session";
+//import "./commands/sources";
+import "./commands/version";
+import "./commands/annotate-execution-points";
+import "./commands/tools";
 
-// @ts-expect-error - import.meta is handled by build tooling
-const require = createRequire(import.meta.url);
-const Module = require("module");
+import path from "path";
 
-function ignoreMultiMediaImports() {
-  const originalJsHandler = Module._extensions[".js"];
-  Module._extensions[".js"] = function (module: any, filename: string) {
-    // console.log(`Custom handler for: ${filename}`);
-    if (filename.match(/\.(css|scss|svg)$/)) {
-      // noop
-    } else {
-      // Call the original handler
-      originalJsHandler(module, filename);
-    }
-  };
+import { program } from "commander";
+import createDebug from "debug";
+
+// commands auto-register themselves when imported
+import { printCommandError } from "./commandsShared/print";
+
+const debug = createDebug("replay:_main_impl_");
+
+program.configureHelp({
+  sortOptions: true,
+  sortSubcommands: true,
+});
+program.helpCommand("help [command]", "Display help for command");
+program.helpOption("-h, --help", "Display help for command");
+
+function handleError(err: any) {
+  const message = `Failed to execute command: ${err.message}`;
+  const causedBy = err.cause ? `\n\n  [CAUSED BY] ${(err.cause as any).stack || err.cause}` : "";
+  printCommandError(message, `${err.stack}${causedBy}`);
+  process.exit(err.exitCode);
 }
 
-(async function main() {
-  ignoreMultiMediaImports();
+// Add a custom error handler.
+program.exitOverride(err => {
+  if (err.exitCode && err.code !== "commander.help") {
+    handleError(err);
+  }
+});
 
-  await import("./_main_impl_.ts");
+program.on("error", err => {
+  handleError(err);
+});
+
+(async function main() {
+  try {
+    debug(`"${path.relative(process.cwd(), __filename)}" ${process.argv.map(a => JSON.stringify(a)).join(",")}`);
+    await program.parseAsync();
+  } catch (err: any) {
+    handleError(err);
+  }
 })();
