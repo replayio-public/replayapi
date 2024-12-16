@@ -55,6 +55,8 @@ export interface SimpleValuePreview {
   type?: string;
 }
 
+export type SimpleValuePreviewResult = SimpleValuePreview | null;
+
 export interface ExpressionAnalysisResult extends SimpleValuePreview {
   origins: CodeAtPoint[];
 }
@@ -77,7 +79,7 @@ export default class PointQueries {
   readonly dg: DependencyChain;
 
   private parserPromise: Promise<SourceParser> | null = null;
-  private readonly valuelookupsByExpression = new Map<string, Promise<SimpleValuePreview>>();
+  private readonly valueLookupsByExpression = new Map<string, Promise<SimpleValuePreviewResult>>();
 
   constructor(session: ReplaySession, point: ExecutionPoint, pauseId: PauseId) {
     this.session = session;
@@ -225,10 +227,10 @@ export default class PointQueries {
     }
   }
 
-  async makeValuePreview(expression: string): Promise<SimpleValuePreview> {
-    let res = this.valuelookupsByExpression.get(expression);
+  async makeValuePreview(expression: string): Promise<SimpleValuePreviewResult> {
+    let res = this.valueLookupsByExpression.get(expression);
     if (!res) {
-      this.valuelookupsByExpression.set(expression, (res = this._makeValuePreview(expression)));
+      this.valueLookupsByExpression.set(expression, (res = this._makeValuePreview(expression)));
     } else {
       // TODO: Also stub out nested repeated expressions.
       return {
@@ -238,7 +240,7 @@ export default class PointQueries {
     return res;
   }
 
-  private async _makeValuePreview(expression: string): Promise<SimpleValuePreview> {
+  private async _makeValuePreview(expression: string): Promise<SimpleValuePreviewResult> {
     const frame = await this.thisFrame();
     const frameId = frame.frameId;
     const pauseId = this.pauseId;
@@ -254,11 +256,16 @@ export default class PointQueries {
       );
       [valuePreview, typePreview] = await Promise.all([
         this.protocolValueToText(value),
-        (typeEval?.returned && protocolValueToText(this.session, typeEval.returned, pauseId)) ||
+        (typeEval?.returned &&
+          ("value" in typeEval.returned
+            ? typeEval.returned.value // get value as-is
+            : this.protocolValueToText(typeEval.returned))) ||
           null,
       ]);
     } else if (exception) {
-      valuePreview = `(COULD NOT EVALUATE: ${await this.protocolValueToText(exception)})`;
+      // valuePreview = `(COULD NOT EVALUATE: ${await this.protocolValueToText(exception)})`;
+      // TODO: Better error handling.
+      return null;
     } else {
       valuePreview = "(COULD NOT EVALUATE)";
     }
@@ -280,7 +287,7 @@ export default class PointQueries {
       v => v.associatedPoint,
       "desc"
     );
-    const [valuePreview, ...origins]: [SimpleValuePreview, ...(CodeAtPoint | undefined)[]] =
+    const [valuePreview, ...origins]: [SimpleValuePreviewResult, ...(CodeAtPoint | undefined)[]] =
       await Promise.all([
         this.makeValuePreview(expression),
         ...points.map<Promise<CodeAtPoint | undefined>>(async dataFlowPoint => {
@@ -298,12 +305,11 @@ export default class PointQueries {
           };
         }),
       ]);
-    const { value, type } = valuePreview;
 
     return {
       // Test at https://app.replay.io/recording/localhost8080--011f1663-6205-4484-b468-5ec471dc5a31?commentId=&focusWindow=eyJiZWdpbiI6eyJwb2ludCI6IjAiLCJ0aW1lIjowfSwiZW5kIjp7InBvaW50IjoiOTQxMTAzODA1NjY1MDg4NDQwNzA4NTU3NjEzNzEwNzA0NjQiLCJ0aW1lIjo0MzA2M319&point=78858008544035673353062034033344524&primaryPanel=comments&secondaryPanel=console&time=35130.18987398943&viewMode=dev
-      value,
-      type,
+      value: valuePreview?.value || undefined,
+      type: valuePreview?.type || undefined,
       origins: origins.filter(o => !!o),
     };
   }
@@ -340,16 +346,21 @@ export default class PointQueries {
 
     const deps = parser.getInterestingInputDependencies(thisLocation);
     const dataFlowResult = await this.runDataFlowAnalysis();
-    return Promise.all(
-      deps.map(async dep => {
-        const expression = dep.text;
-        const info = await this.queryExpressionInfo(expression, dataFlowResult);
-        return {
-          expression,
-          ...info,
-        };
-      })
-    );
+    return (
+      await Promise.all(
+        deps.map(async dep => {
+          const expression = dep.text;
+          const info = await this.queryExpressionInfo(expression, dataFlowResult);
+          if (info.value === undefined) {
+            return null;
+          }
+          return {
+            expression,
+            ...info,
+          };
+        })
+      )
+    ).filter(x => !!x);
   }
 
   async queryDynamicScopes(): Promise<DynamicScope[]> {
@@ -405,11 +416,10 @@ export default class PointQueries {
       location,
       function: functionInfo,
       inputDependencies,
-      // TODO
+      // TODO: directControlDependencies
       // directControlDependencies,
       stackAndEvents,
       stackAndEventsTruncated: stackTruncated,
-      // stackAndEvents: [],
     };
   }
 

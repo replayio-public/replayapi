@@ -25,7 +25,7 @@ const PointExpectations: TestData[] = [
       get value() {
         return {
           // NOTE: The stringifier util calls JSON.stringify on string values.
-          type: '"object"',
+          type: 'object',
           value: expect.stringMatching(
             /rules.*?declarations.*?selector.*?getUniqueSelector.*?length/s
           ),
@@ -47,8 +47,8 @@ describe("PointQueries values", () => {
       const result = await pq.makeValuePreview(expression);
       expect(result).toEqual(expected.value);
 
-      const dataFlow = await pq.runDataFlowAnalysis();
       // TODO: expect on dataFlow data
+      // const dataFlow = await pq.runDataFlowAnalysis();
       // expect(dataFlow.variablePointsByName["itemData"]).toEqual([
       //   {
       //     value: TODO,
