@@ -44,11 +44,11 @@ describe("PointQueries values", () => {
     "queryStatement for point %s",
     async ({ query: { point, expression }, expected }) => {
       const pq = await session.queryPoint(point);
-      const frame = await pq.thisFrame();
-
-      const result = await pq.makeValuePreview(expression, frame.frameId);
-
+      const result = await pq.makeValuePreview(expression);
       expect(result).toEqual(expected.value);
+
+      const dataFlow = await pq.runDataFlowAnalysis();
+      console.log(dataFlow.variablePointsByName["itemData"]);
     }
   );
 });

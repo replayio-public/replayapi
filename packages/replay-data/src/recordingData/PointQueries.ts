@@ -71,6 +71,7 @@ export default class PointQueries {
   readonly dg: DependencyChain;
 
   private parserPromise: Promise<SourceParser> | null = null;
+  private readonly valuelookupsByExpression = new Map<string, Promise<SimpleValuePreview>>();
 
   constructor(session: ReplaySession, point: ExecutionPoint, pauseId: PauseId) {
     this.session = session;
@@ -218,7 +219,21 @@ export default class PointQueries {
     }
   }
 
-  async makeValuePreview(expression: string, frameId: FrameId | null): Promise<SimpleValuePreview> {
+  async makeValuePreview(expression: string): Promise<SimpleValuePreview> {
+    let res = this.valuelookupsByExpression.get(expression);
+    if (!res) {
+      this.valuelookupsByExpression.set(expression, (res = this._makeValuePreview(expression)));
+    } else {
+      return {
+        value: "(already previewed before)",
+      };
+    }
+    return res;
+  }
+
+  private async _makeValuePreview(expression: string): Promise<SimpleValuePreview> {
+    const frame = await this.thisFrame();
+    const frameId = frame.frameId;
     const pauseId = this.pauseId;
     const valueEval = await this.session.evaluateExpression(pauseId, expression, frameId);
     const { returned: value, exception } = valueEval;
@@ -258,11 +273,9 @@ export default class PointQueries {
       v => v.associatedPoint,
       "desc"
     );
-    const frame = await this.thisFrame();
-
     const [valuePreview, ...origins]: [SimpleValuePreview, ...(CodeAtPoint | undefined)[]] =
       await Promise.all([
-        this.makeValuePreview(expression, frame.frameId),
+        this.makeValuePreview(expression),
         ...points.map<Promise<CodeAtPoint | undefined>>(async dataFlowPoint => {
           const { associatedPoint } = dataFlowPoint;
           let location: CodeAtLocation | null = null;
