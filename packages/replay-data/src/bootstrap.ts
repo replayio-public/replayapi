@@ -2,21 +2,21 @@
 
 import { createRequire } from "module";
 import os from "os";
+import { pathToFileURL } from "url";
 
 import WebSocket from "ws";
-
-// @ts-expect-error - import.meta is handled by build tooling
-const require = createRequire(import.meta.url);
-const Module = require("module");
 
 /**
  * Hackfixy JS patching.
  */
 function ignoreMultiMediaImports() {
+  const fileUrl = pathToFileURL(__filename).toString();
+  const require = createRequire(fileUrl);
+  const Module = require("module");
   const originalJsHandler = Module._extensions[".js"];
   Module._extensions[".js"] = function (module: any, filename: string) {
     // console.log(`Custom handler for: ${filename}`);
-    if (filename.match(/\.(css|scss|svg)$/)) {
+    if (/\.(css|scss|svg)$/.exec(filename)) {
       // noop
     } else {
       // Call the original handler
