@@ -1,4 +1,5 @@
 #!/usr/bin/env tsx
+/* Copyright 2020-2024 Record Replay Inc. */
 
 import { spawnSync } from "child_process";
 
