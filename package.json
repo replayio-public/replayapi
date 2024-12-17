@@ -3,13 +3,14 @@
   "version": "0.0.1",
   "main": "index.js",
   "scripts": {
-    "typecheck": "tsc",
+    "typecheck": "tsx ./scripts/typescript-checker",
     "format": "prettier -w ./*.ts ./*.mjs packages",
     "lint": "eslint .",
     "publish-devtools": "cd $REPLAY_DIR/devtools && cd packages/shared && npx --yes yalc publish --private && cd ../../packages/protocol && npx yalc publish --private && cd ../../packages/replay-next && npx yalc publish --private",
     "link-devtools": "npx yalc link shared && npx yalc link protocol && npx yalc link replay-next",
     "yalc-devtools": "yarn publish-devtools && yarn link-devtools",
-    "yalc-all": "yarn yalc-devtools"
+    "yalc-all": "yarn yalc-devtools",
+    "checks": "yarn typecheck && yarn lint"
   },
   "author": "",
   "license": "ISC",

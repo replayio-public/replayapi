@@ -13,9 +13,9 @@ requiresAPIKey(startSessionCommand);
 type StartSessionOptions = RecordingOption & APIKeyOption;
 
 async function startSession(opts: StartSessionOptions) {
-  console.log(`Starting session for recording '${opts.recording}'...`);
+  console.log(`Starting session for recording '${opts.recordingId}'...`);
   try {
-    const serverInfoDeferred = startServer(opts.apiKey, opts.recording);
+    const serverInfoDeferred = startServer(opts.apiKey, opts.recordingId);
     const serverInfo = await serverInfoDeferred.promise;
     console.log(`Session ID: ${serverInfo.sessionId}`);
   } catch (e) {
