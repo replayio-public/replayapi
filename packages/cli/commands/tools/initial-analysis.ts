@@ -138,7 +138,7 @@ async function annotateExecutionPointsAction({
       recordingId,
       annotationDataUrl
     );
-    const { point, commentText, reactComponentName } = analysisResults;
+    const { point, commentText, reactComponentName, consoleError } = analysisResults;
     assert(point, "No point found in analysis results");
     assert(typeof commentText == "string", "No comment text found in analysis results");
 
@@ -159,6 +159,7 @@ async function annotateExecutionPointsAction({
         thisPoint: point,
         commentText,
         reactComponentName,
+        consoleError,
         annotatedRepo: repo.folderPath,
         annotatedLocations,
         startLocation: startLocationStr,
@@ -186,7 +187,7 @@ export async function initialAnalysisAction({
   const session = await getOrCreateReplaySession(recordingId);
 
   try {
-    const { point, userComment, reactComponentName } = await session.findInitialPoint();
+    const { point, userComment, reactComponentName, consoleError } = await session.findInitialPoint();
     if (!point) {
       printCommandResult({ status: "CouldNotFindInitialPoint" });
       return;
@@ -204,6 +205,7 @@ export async function initialAnalysisAction({
       result: {
         thisPoint: point,
         userComment,
+        consoleError,
         reactComponentName,
         ...pointInfo,
       },

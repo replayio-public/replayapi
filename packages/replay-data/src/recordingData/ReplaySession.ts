@@ -25,6 +25,7 @@ export type FindInitialPointResult = {
   point?: ExecutionPoint;
   userComment?: string;
   reactComponentName?: string;
+  consoleError?: string;
 };
 
 /**
@@ -143,8 +144,8 @@ export default class ReplaySession extends ReplayClient {
     };
     return await wrapAsyncWithHardcodedData(recordingId, "findInitialPoint", async () => {
       const analysisResults = await runAnalysis<ExecutionDataAnalysisResult>(this, analysisInput);
-      const { point, commentText: userComment, reactComponentName } = analysisResults;
-      return { point, userComment, reactComponentName };
+      const { point, commentText: userComment, consoleError, reactComponentName } = analysisResults;
+      return { point, userComment, consoleError, reactComponentName };
     });
   }
 
