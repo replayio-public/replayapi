@@ -4,16 +4,31 @@
 const MarkerStart = "MARKER-gJNVWbR2W1FRxa5zkvVZtXcrep2DFHjUUNjQJErE-START";
 const MarkerEnd = "MARKER-gJNVWbR2W1FRxa5zkvVZtXcrep2DFHjUUNjQJErE-END";
 
-export type CommandOutputResult = Record<string, any>;
+export type CommandOutputSuccess = {
+  status: "Success";
+  result: Record<string, any>;
+};
+
+export type CommandOutputError = {
+  status: "Error";
+  error?: string;
+  errorDetails?: string;
+};
+
+export type CommandOutputOther = {
+  status: string;
+};
+
+export type CommandOutputResult = CommandOutputSuccess | CommandOutputError | CommandOutputOther;
 
 let result: CommandOutputResult | null = null;
 
 export function printCommandResult(result: CommandOutputResult): void {
-  printResult({ result });
+  printResult(result);
 }
 
 export function printCommandError(errorMessage: string, errorDetails?: string): void {
-  printResult({ error: errorMessage, errorDetails });
+  printResult({ status: "Error", error: errorMessage, errorDetails });
 }
 
 function printResult(obj: CommandOutputResult) {

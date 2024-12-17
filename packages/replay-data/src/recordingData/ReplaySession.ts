@@ -169,7 +169,7 @@ export async function getOrCreateReplaySession(recordingId: string): Promise<Rep
     // the client, as well as all cached data are globals.
     assert(
       session.getRecordingId() === recordingId,
-      "Cannot create multiple sessions for different recordings."
+      `Cannot create multiple sessions for different recordings. Old: ${session.getRecordingId()} != new: ${recordingId}`
     );
     return session;
   }

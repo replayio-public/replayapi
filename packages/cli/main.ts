@@ -6,7 +6,6 @@ import "./commands/fetch-comments";
 import "./commands/session";
 //import "./commands/sources";
 import "./commands/version";
-import "./commands/annotate-execution-points";
 import "./commands/tools";
 
 import path from "path";
@@ -45,7 +44,7 @@ program
     handleError(err);
   });
 
-(async function main() {
+export async function main(): Promise<void> {
   try {
     debug(
       `"${path.relative(process.cwd(), __filename)}" ${process.argv.map(a => JSON.stringify(a)).join(",")}`
@@ -54,4 +53,8 @@ program
   } catch (err: any) {
     handleError(err);
   }
-})();
+}
+
+if (require.main === module) {
+  main();
+}
