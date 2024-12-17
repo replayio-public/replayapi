@@ -15,8 +15,8 @@ function runTsc(): string {
 }
 
 /**
- * tsc has no structured output format:
- * Instead it has some errors spread over multiple lines.
+ * tsc has no structured output format option:
+ * By default, it might spread errors over multiple lines.
  * At least, extra lines are indented!
  */
 function collapseIndentedLines(lines: string[]): string[] {
