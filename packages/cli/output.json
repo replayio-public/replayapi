@@ -2,7 +2,7 @@
   "status": "Success",
   "result": {
     "thisPoint": "78858008544042601258383216576823300",
-    "userComment": "The .parent-frame rule comes from the parent frame. It should not show up here (within the iframe).",
+    "commentText": "The .parent-frame rule comes from the parent frame. It should not show up here (within the iframe).",
     "reactComponentName": "InheritanceRenderer",
     "location": {
       "line": 151,

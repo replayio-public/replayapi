@@ -187,12 +187,12 @@ export async function initialAnalysisAction({
   const session = await getOrCreateReplaySession(recordingId);
 
   try {
-    const { point, userComment, reactComponentName, consoleError } = await session.findInitialPoint();
+    const { point, commentText, reactComponentName, consoleError } = await session.findInitialPoint();
     if (!point) {
       printCommandResult({ status: "CouldNotFindInitialPoint" });
       return;
     }
-    if (!userComment) {
+    if (!commentText) {
       printCommandResult({ status: "CouldNotFindUserCommentInRecording" });
       return;
     }
@@ -204,7 +204,7 @@ export async function initialAnalysisAction({
       status: "Success",
       result: {
         thisPoint: point,
-        userComment,
+        commentText,
         consoleError,
         reactComponentName,
         ...pointInfo,

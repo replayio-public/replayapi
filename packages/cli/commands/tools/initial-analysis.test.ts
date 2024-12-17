@@ -16,7 +16,7 @@ describe("initialAnalysisAction integration", () => {
     expect(result).toEqual({
       status: "Success",
       result: expect.objectContaining({
-        userComment: expect.stringMatching(/^The /),
+        commentText: expect.stringMatching(/^The /),
         reactComponentName: "InheritanceRenderer",
         stackAndEvents: expect.any(Array),
       }),
