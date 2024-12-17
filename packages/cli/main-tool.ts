@@ -15,7 +15,7 @@ import { CommandOutputResult, getCommandResult } from "./commandsShared/commandO
 
 interface InputSpec {
   command: string;
-  params: Record<string, string>;
+  args: Record<string, string>;
 }
 
 function readInputFile(inputPath: string): InputSpec {
@@ -49,13 +49,15 @@ async function main() {
   try {
     // 0. Read and prepare input.
     const input = readInputFile(inputPath);
-    if (!input.command || !(typeof input.params === "object")) {
+    if (!input.command || !(typeof input.args === "object")) {
       throw new Error(`Invalid input file format: ${JSON.stringify(input || null, null, 2)}`);
     }
-    const commandArgs = Object.entries(input.params).flatMap(([key, value]) => [`--${key}`, value]);
+    const flattenedArgStrings = Object.entries(input.args).flatMap(([key, value]) =>
+      value ? [`--${key}`, value + ""] : `--${key}`
+    );
 
     // 1. Hackfix-override `argv`.
-    process.argv = [process.argv[0], process.argv[1], input.command, ...commandArgs];
+    process.argv = [process.argv[0], process.argv[1], input.command, ...flattenedArgStrings];
 
     // 2. Run the actual command.
     const { main } = await import("./main.ts");

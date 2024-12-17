@@ -50,13 +50,13 @@ program
     "Perform initial analysis of a recording. Legacy logic for annotation execution points may run if checkLegacy() returns true."
   )
   // Legacy options and argument (ignored if not legacy):
-  .option("-w, --workspace-path <workspacePath>", "Local file path of the workspace.")
+  .option("-w, --workspacePath <workspacePath>", "Local file path of the workspace.")
   .option(
-    "-i, --is-workspace-repo-path",
+    "-i, --isWorkspaceRepoPath",
     "If set, `workspacePath` is path to the repo. Otherwise, it's a parent path.",
     false
   )
-  .option("-f, --force-delete", "Delete the target repo directory if it already exists.", false)
+  .option("-f, --forceDelete", "Delete the target repo directory if it already exists.", false)
   .option(
     "-p, --prompt <prompt>",
     "Prompt text, containing recordingId and maybe other relevant data sources."
@@ -111,6 +111,9 @@ async function annotateExecutionPointsAction({
   if (isWorkspaceRepoPath && forceDelete) {
     throw new Error("Cannot use both --is-workspace-repo-path and --force-delete in legacy mode.");
   }
+  if (!workspacePath) {
+    throw new Error("--workspacePath is required.");
+  }
   const { recordingId } = scanReplayUrl(prompt);
   if (!recordingId) {
     printCommandResult({ status: "NoRecordingUrl" });
@@ -124,7 +127,7 @@ async function annotateExecutionPointsAction({
 
   try {
     const treeish = branch || commit || tag;
-    const repo = new LocalGitRepo(workspacePath || "", !!isWorkspaceRepoPath, repoUrl, treeish);
+    const repo = new LocalGitRepo(workspacePath, !!isWorkspaceRepoPath, repoUrl, treeish);
 
     // Clone + checkout branch if necessary.
     await repo.init(!!forceDelete);

@@ -17,7 +17,7 @@ export interface APIKeyOption {
 }
 
 export function requiresAPIKey(command: Command): void {
-  const option = new Option("-k, --api-key <API_KEY>", "API KEY")
+  const option = new Option("-k, --apiKey <API_KEY>", "API KEY")
     .env("REPLAY_API_KEY")
     .makeOptionMandatory(true);
 

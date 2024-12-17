@@ -5,13 +5,7 @@ import { program } from "commander";
 import createDebug from "debug";
 
 import { printCommandResult } from "../../commandsShared/commandOutput";
-import {
-  PointOption,
-  RecordingOption,
-  requiresAPIKey,
-  requiresPoint,
-  requiresRecording,
-} from "../options";
+import { PointOption, RecordingOption, requiresPoint, requiresRecording } from "../options";
 
 const debug = createDebug("replay:inspect-data");
 
@@ -21,7 +15,6 @@ const command = program
   .option("-e, --expression <expression>", "Expression of interest at point.")
   .action(inspectDataAction);
 
-requiresAPIKey(command);
 requiresRecording(command);
 requiresPoint(command);
 

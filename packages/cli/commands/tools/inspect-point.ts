@@ -5,26 +5,15 @@ import { program } from "commander";
 import createDebug from "debug";
 
 import { printCommandResult } from "../../commandsShared/commandOutput";
-import {
-  PointOption,
-  RecordingOption,
-  requiresAPIKey,
-  requiresPoint,
-  requiresRecording,
-} from "../options";
+import { PointOption, RecordingOption, requiresPoint, requiresRecording } from "../options";
 
 const debug = createDebug("replay:inspect-point");
 
 const command = program
   .command("inspect-point")
   .description("Explains dynamic control flow and data flow dependencies of the code at `point`.")
-  .argument(
-    "<problemDescriptionFile>",
-    "Path to a file that contains the description of the issue to fix."
-  )
   .action(inspectPointAction);
 
-requiresAPIKey(command);
 requiresRecording(command);
 requiresPoint(command);
 
