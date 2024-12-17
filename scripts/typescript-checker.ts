@@ -15,36 +15,19 @@ function runTsc(): string {
 }
 
 /**
- * tsc has no structured output format.
+ * tsc has no structured output format:
+ * Instead it has some errors spread over multiple lines.
+ * At least, extra lines are indented!
  */
-function mergeMultilineErrors(lines: string[]): string[] {
-  const merged: string[] = [];
-  let currentLine: string | null = null;
-
-  for (const line of lines) {
-    if (line.startsWith("  ")) {
-      // Continuation line: merge into previous line with ` -- `
-      if (currentLine !== null) {
-        currentLine += " -- " + line.trim();
-      } else {
-        // If we somehow get a continuation line without a current line, just treat it as new
-        currentLine = line.trim();
-      }
+function collapseIndentedLines(lines: string[]): string[] {
+  return lines.reduce<string[]>((acc, line) => {
+    if (line.startsWith(" ")) {
+      acc[acc.length - 1] += ` -- ${line.trim()}`;
     } else {
-      // New main line: push the previous one if it exists
-      if (currentLine !== null) {
-        merged.push(currentLine);
-      }
-      currentLine = line;
+      acc.push(line.trim());
     }
-  }
-
-  // Push the last line if there is one
-  if (currentLine !== null) {
-    merged.push(currentLine);
-  }
-
-  return merged;
+    return acc;
+  }, []);
 }
 
 function filterUninterestingFiles(lines: string[]): string[] {
@@ -59,11 +42,11 @@ function main() {
   const stderrOutput = runTsc();
   const lines = stderrOutput.split("\n").filter(l => l.trim() !== "");
 
-  // Merge multiline errors
-  const merged = mergeMultilineErrors(lines);
+  // Merge multiline errors.
+  const errorLines = collapseIndentedLines(lines);
 
-  // Filter out any lines with .yalc
-  const filtered = filterUninterestingFiles(merged);
+  // Filter out any lines with .yalc.
+  const filtered = filterUninterestingFiles(errorLines);
 
   // Print output to stderr
   if (filtered.length > 0) {
