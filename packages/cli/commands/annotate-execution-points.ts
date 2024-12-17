@@ -1,7 +1,6 @@
 /* Copyright 2020-2024 Record Replay Inc. */
 
 import { readFile } from "fs/promises";
-import { debuglog } from "util";
 
 import { annotateExecutionPoints } from "@replayio/data/src/analysis/annotateExecutionPoints";
 import { AnalysisType } from "@replayio/data/src/analysis/dependencyGraphShared";
@@ -10,14 +9,20 @@ import { runAnalysis } from "@replayio/data/src/analysis/runAnalysis";
 import { ExecutionDataAnalysisResult } from "@replayio/data/src/analysis/specs/executionPoint";
 import { scanGitUrl } from "@replayio/data/src/gitUtil/gitStringUtil";
 import LocalGitRepo from "@replayio/data/src/gitUtil/LocalGitRepo";
-import ReplaySession from "@replayio/data/src/recordingData/ReplaySession";
-import { scanReplayUrl, scanAnnotationDataUrl } from "@replayio/data/src/recordingData/replayStringUtil";
+import ReplaySession, {
+  getOrCreateReplaySession,
+} from "@replayio/data/src/recordingData/ReplaySession";
+import {
+  scanAnnotationDataUrl,
+  scanReplayUrl,
+} from "@replayio/data/src/recordingData/replayStringUtil";
 import { assert } from "@replayio/data/src/util/assert";
 import { program } from "commander";
+import createDebug from "debug";
 
-import { printCommandResult } from "../commandsShared/print";
+import { printCommandResult } from "../commandsShared/commandOutput";
 
-const debug = debuglog("replay:annotateExecutionPoints");
+const debug = createDebug("replay:annotate-execution-points");
 
 /**
  * @see https://linear.app/replay/issue/PRO-904/3-let-oh-fix-the-github-issue-using-brians-10609-solution
@@ -27,7 +32,7 @@ program
   .command("annotate-execution-points")
   .description(
     "Analyze recording provided in problemDescription and annotate code at given path with comments." +
-      " If it is not a repo yet, then a GitHub URL is extracted from problemDescription for cloning."
+      " If there is no repo at given path, then a GitHub URL is extracted from problemDescription for cloning."
   )
   .option("-w --workspace-path <workspacePath>", "Local file path of the workspace.")
   .option(
@@ -52,11 +57,12 @@ export type CommandArgs = {
   forceDelete?: boolean;
 };
 
-async function getAnalysisResults(session: ReplaySession, recordingId: string, annotationDataUrl: string | undefined): Promise<ExecutionDataAnalysisResult> {
+async function getAnalysisResults(
+  session: ReplaySession,
+  recordingId: string,
+  annotationDataUrl: string | undefined
+): Promise<ExecutionDataAnalysisResult> {
   if (!annotationDataUrl) {
-    // Initialize session.
-    debug(`connecting to Replay server...`);
-    await session.initialize(recordingId);
     const analysisInput: AnalysisInput = {
       analysisType: AnalysisType.ExecutionPoint,
       spec: { recordingId },
@@ -69,7 +75,7 @@ async function getAnalysisResults(session: ReplaySession, recordingId: string, a
 
   // Download from URL.
   const response = await fetch(annotationDataUrl);
-  const data = await response.json() as ExecutionDataAnalysisResult;
+  const data = (await response.json()) as ExecutionDataAnalysisResult;
 
   // Sanity check.
   assert(data.points, "No points found in annotation data");
@@ -104,7 +110,7 @@ export async function annotateExecutionPointsAction(
     return;
   }
 
-  const session = new ReplaySession();
+  const session = await getOrCreateReplaySession(recordingId);
   try {
     const treeish = branch || commit || tag;
     const repo = new LocalGitRepo(workspacePath, !!isWorkspaceRepoPath, repoUrl, treeish);

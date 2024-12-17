@@ -1,10 +1,12 @@
 {
   "extends": "@tsconfig/node22/tsconfig.json",
   "compilerOptions": {
+    "allowImportingTsExtensions": true,
     /* Visit https://aka.ms/tsconfig.json to read more about this file */
     /* Basic Options */
     "incremental": false /* Enable incremental compilation */,
     "target": "esnext",
+    "module": "NodeNext",
     // "module": "commonjs" /* Specify module code generation: 'none', 'commonjs', 'amd', 'system', 'umd', 'es2015', 'es2020', or 'ESNext'. */,
     // "allowJs": true,                       /* Allow javascript files to be compiled. */
     // "checkJs": true,                       /* Report errors in .js files. */
@@ -53,9 +55,6 @@
       "@replayio/data/*": [
         "packages/replay-data/*"
       ],
-      "@replayio/tools/*": [
-        "packages/replay-ai-tools/*"
-      ],
       "@replayio/source-parser/*": [
         "packages/source-parser/*"
       ],
@@ -64,6 +63,9 @@
       ],
       "replay-next/*": [
         ".yalc/replay-next/*"
+      ],
+      "replay-next/*.css": [
+        "third-party/mocks/empty.js"
       ],
       "shared/*": [
         ".yalc/shared/*"
@@ -80,6 +82,12 @@
       ],
       "react-is": [
         "third-party/mocks/react-is/index.js"
+      ],
+      "classnames": [
+        "third-party/mocks/classnames/index.js"
+      ],
+      "use-context-menu": [
+        "third-party/mocks/empty.js"
       ]
     } /* A series of entries which re-map imports to lookup locations relative to the 'baseUrl'. */,
     // "rootDirs": [],                        /* List of root folders whose combined content represents the structure of the project at runtime. */
@@ -104,7 +112,7 @@
     "skipLibCheck": true /* Skip type checking of declaration files. */,
     "forceConsistentCasingInFileNames": true /* Disallow inconsistently-cased references to the same file. */,
     "allowJs": true,
-    "moduleResolution": "node16",
+    "moduleResolution": "nodenext",
     "resolveJsonModule": true
   },
   "exclude": [

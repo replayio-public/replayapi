@@ -1,7 +1,14 @@
+/* Copyright 2020-2024 Record Replay Inc. */
+
+// TODO: Remove the marker-based logic and use the json wrapper instead.
 const MarkerStart = "MARKER-gJNVWbR2W1FRxa5zkvVZtXcrep2DFHjUUNjQJErE-START";
 const MarkerEnd = "MARKER-gJNVWbR2W1FRxa5zkvVZtXcrep2DFHjUUNjQJErE-END";
 
-export function printCommandResult(result: Record<string, any>): void {
+export type CommandOutputResult = Record<string, any>;
+
+let result: CommandOutputResult | null = null;
+
+export function printCommandResult(result: CommandOutputResult): void {
   printResult({ result });
 }
 
@@ -9,20 +16,30 @@ export function printCommandError(errorMessage: string, errorDetails?: string): 
   printResult({ error: errorMessage, errorDetails });
 }
 
-function printResult(obj: Record<string, any>) {
+function printResult(obj: CommandOutputResult) {
+  if (result) {
+    throw new Error(
+      `Tried to printResult twice with: ${JSON.stringify(obj)}\n (already had: ${JSON.stringify(obj)})`
+    );
+  }
+  result = obj;
   const shouldPrintMarkers = process.env.REPLAYAPI_PRINT_MARKERS;
   if (shouldPrintMarkers) console.log(MarkerStart);
   console.log(JSON.stringify(obj, null, 2));
   if (shouldPrintMarkers) console.log(MarkerEnd);
 }
 
-export function parseMarkedOutput(output: string): Record<string, any> | null {
+export function parseMarkedOutput(output: string): CommandOutputResult | null {
   const parts = output.split(new RegExp(`${MarkerStart}|${MarkerEnd}`));
   if (parts.length < 3) return null;
-  
+
   try {
     return JSON.parse(parts[1].trim());
   } catch {
     return null;
   }
+}
+
+export function getCommandResult(): CommandOutputResult | null {
+  return result;
 }

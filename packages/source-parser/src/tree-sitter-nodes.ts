@@ -6,9 +6,11 @@
 import difference from "lodash/difference";
 import isString from "lodash/isString";
 import union from "lodash/union";
+import uniqBy from "lodash/uniqBy";
 import Parser, { SyntaxNode } from "tree-sitter";
+import TypeScript from "tree-sitter-typescript";
 
-import { BaseNode, Language } from "./tree-sitter-types";
+import { BaseNode, Language, NodeInfo } from "./tree-sitter-types";
 
 /**
  * Node types, including concrete types and covers/abstract types.
@@ -70,6 +72,7 @@ function getLanguage(languageOrParser: Language | Parser): Language {
 
 export class LanguageInfo {
   readonly language: Language;
+  readonly nodeInfos: NodeInfo[];
   readonly typesByNames: Map<NodeTypeName, BaseNode>;
 
   expression: TypeCover;
@@ -78,10 +81,17 @@ export class LanguageInfo {
   function: TypeCover;
   clazz: TypeCover;
   scopeOwner: TypeCover;
+  jsx: TypeCover;
+  constant: TypeCover;
 
   constructor(languageOrParser: Language | Parser) {
     this.language = getLanguage(languageOrParser);
-    this.typesByNames = new Map(this.language.nodeTypeInfo.map(n => [n.type, n]));
+    this.nodeInfos = this.language.nodeTypeInfo;
+    if (this.language.name === "tsx") {
+      this.nodeInfos.push(...TypeScript.typescript.nodeTypeInfo);
+      this.nodeInfos = uniqBy(this.nodeInfos, "type");
+    }
+    this.typesByNames = new Map(this.nodeInfos.map(n => [n.type, n]));
 
     // Supertypes.
     // These are a very small set of abstract type covers that tree-sitter already has predefined.
@@ -94,6 +104,8 @@ export class LanguageInfo {
     this.function = this.typeCover(this.getMatchingNodeTypes(/function|method/));
     this.clazz = this.typeCover(this.getMatchingNodeTypes(/class/));
     this.scopeOwner = this.typeCover(this.getAllScopeOwnerTypes());
+    this.jsx = this.typeCover(this.getMatchingNodeTypes(/jsx/));
+    this.constant = this.typeCover(["string", "number", "regex", "null", "true", "false", "undefined"]);
   }
 
   typeCover(types: Array<NodeTypeName | TypeCover>): TypeCover {
@@ -101,13 +113,13 @@ export class LanguageInfo {
   }
 
   getConcreteTypeNames(...types: NodeTypeName[]): NodeTypeName[] {
-    return types.flatMap(t => {
+    return types.flat().flatMap(t => {
       const info = this.getNodeTypeInfo(t);
       if (!info) {
         throw new Error(`Unknown type for language ${this.language.name}: ${t}`);
       }
       if (!info.subtypes) return [t];
-      return info.subtypes.map((s: BaseNode) => s.type);
+      return this.getConcreteTypeNames(...info.subtypes.map((s: BaseNode) => s.type));
     });
   }
 
@@ -116,7 +128,7 @@ export class LanguageInfo {
   }
 
   getMatchingNodeTypes(re: RegExp): NodeTypeName[] {
-    const t = this.language.nodeTypeInfo;
+    const t = this.nodeInfos;
     return t.filter(n => re.test(n.type)).map(n => n.type);
   }
 
@@ -143,7 +155,7 @@ export class LanguageInfo {
   getAllBodyNodeTypes(): string[] {
     return Array.from(
       new Set(
-        this.language.nodeTypeInfo
+        this.nodeInfos
           .flatMap((n: any) =>
             Object.entries(n.fields || {}).map(([name]: [string, any]) =>
               name == "body" ? n.type : null
@@ -157,9 +169,13 @@ export class LanguageInfo {
 
 if (require.main === module) {
   async function debugPrint() {
-    const module = await import("tree-sitter-typescript");
-    const l = module.default.tsx;
+    const typescript = await import("tree-sitter-typescript");
+    const l = typescript.default.typescript;
     const lang = new LanguageInfo(l);
+
+    console.group("Expressions:");
+    console.log(lang.getConcreteTypeNames("expression"));
+    console.groupEnd();
 
     console.group(lang.getAllScopeOwnerTypes.name);
     console.log(lang.getAllScopeOwnerTypes());

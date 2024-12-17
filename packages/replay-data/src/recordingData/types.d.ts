@@ -5,12 +5,13 @@ export type IndexedPointStackFrame = PointStackFrame & { index: number };
 export type FrameWithPoint = Frame & { point?: PointDescription };
 
 /**
- * Line, source url and a string representing the code statement/expression surrounding some point.
+ * Line, source url, functionName and a string representing the code statement/expression surrounding some point.
  */
-export type CodeAtPoint = {
+export type CodeAtLocation = {
   line: number;
   url: string;
   code: string;
+  functionName?: string;
 };
 
 export type PointFunctionInfo = {

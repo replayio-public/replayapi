@@ -3,13 +3,14 @@ import os from "os";
 import path from "path";
 
 import ReplaySession from "../recordingData/ReplaySession";
+import NestedError from "../util/NestedError";
 import { AnalysisType } from "./dependencyGraphShared";
 import { AnalysisInput } from "./dgSpecs";
+import { AnalysisResult } from "./specs";
 
-/**
- * TODO: Typify results based on AnalysisType, just like we have done with AnalysisInput.
- */
-export type AnalysisResult = any;
+// import createDebug from "debug";
+
+// const debug = createDebug("replay:runAnalysis");
 
 async function prepareAnalysisBase(): Promise<{ replayDir: string }> {
   if (!process.env.DATABASE_URL) {
@@ -71,12 +72,16 @@ const analysisExperimentalCommandMapInverted = Object.fromEntries(
 /**
  * Run the given analysis via `experimentalCommand`.
  */
-export async function runAnalysis(
+export async function runAnalysis<TResult extends AnalysisResult>(
   session: ReplaySession,
   input: AnalysisInput
-): Promise<AnalysisResult> {
-  return session.experimentalCommand(
-    analysisExperimentalCommandMapInverted[input.analysisType],
-    input.spec
-  );
+): Promise<TResult> {
+  try {
+    return (await session.experimentalCommand(
+      analysisExperimentalCommandMapInverted[input.analysisType],
+      input.spec
+    )) as TResult;
+  } catch (err: any) {
+    throw new NestedError(`runAnalysis failed with input=${JSON.stringify(input)}\n  ${err.stack}`);
+  }
 }

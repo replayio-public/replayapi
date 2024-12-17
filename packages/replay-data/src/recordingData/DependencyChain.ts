@@ -13,7 +13,9 @@ import { runAnalysis } from "../analysis/runAnalysis";
 import { AnalyzeDependenciesResult } from "../analysis/specs/analyzeDependencies";
 import PointQueries from "./PointQueries";
 import ReplaySession from "./ReplaySession";
-import { CodeAtPoint, FrameWithPoint } from "./types";
+import { CodeAtLocation, FrameWithPoint } from "./types";
+
+export const MaxEventChainLength = 10;
 
 const TargetDGEventCodes = ["ReactCreateElement", "PromiseSettled"] as const;
 export type RichStackFrameKind = "sync" | (typeof TargetDGEventCodes)[number];
@@ -24,7 +26,7 @@ export type RawRichStackFrame = {
   functionName?: string;
 };
 
-export type RichStackFrame = CodeAtPoint & RawRichStackFrame;
+export type RichStackFrame = CodeAtLocation & RawRichStackFrame;
 
 /**
  * This wraps our DG analysis code (which for now primarily resides in the backend).
@@ -42,7 +44,7 @@ export default class DependencyChain {
       analysisType: AnalysisType.Dependency,
       spec,
     };
-    return await runAnalysis(this.session, input);
+    return await runAnalysis<AnalyzeDependenciesResult>(this.session, input);
   }
 
   private normalizeFrameForRichStack(frame: FrameWithPoint): RawRichStackFrame | null {
@@ -71,10 +73,10 @@ export default class DependencyChain {
   }
 
   /**
-   * The "rich stack" is composed of the synchronous call stack interleaved with async events,
-   * possibly including high-level framework (e.g. React) events.
+   * The "rich stack" is not really a stack, but rather a mix of the synchronous call stack, interleaved with async events,
+   * including high-level framework (e.g. React) events, order by time (latest first).
    */
-  async getNormalizedRichStackAtPoint(pointQueries: PointQueries): Promise<RichStackFrame[]> {
+  async getNormalizedStackAndEventsAtPoint(pointQueries: PointQueries): Promise<[boolean, RichStackFrame[]]> {
     const [frames, dgChain] = await Promise.all([
       pointQueries.getStackFramesWithPoint(),
       this.getDependencyChain(pointQueries.point),
@@ -98,8 +100,13 @@ export default class DependencyChain {
     const richFrames = await Promise.all(
       rawFrames.map(async f => {
         const p = await this.session.queryPoint(f.point);
-        const code = await p.queryStatement();
-        const functionInfo = await p.queryFunctionInfo();
+        if (!(await p.shouldIncludeThisPoint())) {
+          return null;
+        }
+        const [code, functionInfo] = await Promise.all([
+          p.queryCodeAndLocation(),
+          p.queryFunctionInfo(),
+        ]);
         // TODO: add functionInfo
         return {
           ...f,
@@ -107,7 +114,12 @@ export default class DependencyChain {
         } as RichStackFrame;
       })
     );
-    return richFrames.filter(shouldIncludeRichStackFrame);
+
+    const result = richFrames.filter(f => !!f);
+    if (result.length > MaxEventChainLength) {
+      return [true, result.slice(0, MaxEventChainLength)];
+    }
+    return [false, result];
   }
 }
 
@@ -122,13 +134,4 @@ export default class DependencyChain {
 function shouldIncludeRawRichStackFrame(frame: RawRichStackFrame) {
   const includedEventCodes: readonly RichStackFrameKind[] = TargetDGEventCodes;
   return includedEventCodes.includes(frame.kind);
-}
-/**
- * Cull after getting extra data.
- */
-function shouldIncludeRichStackFrame(frame: RichStackFrame) {
-  if (frame.url.includes("node_modules")) {
-    return false;
-  }
-  return true;
 }

@@ -1,4 +1,4 @@
 #!/bin/bash
-set -ex
+set -e
 cd "$(dirname "$0")"/..
-exec npx --yes tsx main.ts $*
+exec npx --yes tsx -r tsconfig-paths/register main.ts $*

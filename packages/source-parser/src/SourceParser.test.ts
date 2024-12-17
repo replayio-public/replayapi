@@ -126,7 +126,78 @@ describe("extract functions and their names", () => {
 });
 
 describe("input dependencies", () => {
-  const code = `return /**BREAK*/ {
+  test("1", () => {
+    const code = `import { ReactElement, useMemo, useState } from "react";
+
+import { RulesListData } from "devtools/client/inspector/markup/components/rules/RulesListData";
+import { GenericList } from "replay-next/components/windowing/GenericList";
+import { RuleState } from "ui/suspense/styleCaches";
+
+import { ITEM_SIZE, RulesListItem, RulesListItemData } from "./RulesListItem";
+
+export function RulesList({
+  height,
+  noContentFallback,
+  rules,
+  searchText,
+}: {
+  height: number;
+  noContentFallback: ReactElement;
+  rules: RuleState[];
+  searchText: string;
+}) {
+  const [showPseudoElements, setShowPseudoElements] = useState(true);
+
+  const rulesListData = useMemo(
+    () => new RulesListData(rules, showPseudoElements),
+    [rules, showPseudoElements]
+  );
+
+  const itemData = useMemo<RulesListItemData>(
+    () => ({
+      rules,
+      searchText,
+      setShowPseudoElements,
+      showPseudoElements,
+    }),
+    [rules, showPseudoElements, searchText]
+  );
+
+  return (
+    <GenericList
+      dataTestId="RulesList"
+      fallbackForEmptyList={noContentFallback}
+      height={height}
+      itemData={itemData}
+      itemRendererComponent={RulesListItem}
+      itemSize={ITEM_SIZE}
+      listData={rulesListData}
+      width="100%"
+    />
+  );
+}
+`;
+    const location = { line: 38, column: 4 };
+    
+    const parser = new SourceParser("test.ts", code);
+    parser.parse();
+
+    const dependencies = parser.getInterestingInputDependencies(location).map(n => n.text);
+    expect(dependencies.sort()).toEqual(
+      [
+        "noContentFallback",
+        "height",
+        "itemData",
+        "RulesListItem",
+        "ITEM_SIZE",
+        "rulesListData",
+        "GenericList"
+      ].sort()
+    );
+  });
+
+  test("2", () => {
+    const code = `return /**BREAK*/ {
   declarations: rule.declarations.map((declaration) =>
     getDeclarationState(declaration, rule.domRule.objectId())
   ),
@@ -140,29 +211,30 @@ describe("input dependencies", () => {
   type: rule.domRule.type,
 };
 `;
-  const parser = new SourceParser("test.ts", code);
-  parser.parse();
+    const parser = new SourceParser("test.ts", code);
+    parser.parse();
 
-  const node = parser.tree.rootNode;
-  const dependencies = parser.getInterestingInputDependencies(node).map(n => n.text);
-  expect(dependencies.sort()).toEqual(
-    [
-      "rule",
-      "rule.declarations",
-      "rule.declarations.map",
-      `rule.declarations.map((declaration) =>
+    const node = parser.tree.rootNode;
+    const dependencies = parser.getInterestingInputDependencies(node).map(n => n.text);
+    expect(dependencies.sort()).toEqual(
+      [
+        "rule",
+        "rule.declarations",
+        "rule.declarations.map",
+        `rule.declarations.map((declaration) =>
     getDeclarationState(declaration, rule.domRule.objectId())
   )`,
-      "rule.domRule.objectId()",
-      "rule.domRule.objectId",
-      "rule.domRule",
-      "rule.inheritance",
-      "rule.isUnmatched",
-      "rule.domRule.isSystem",
-      "rule.pseudoElement",
-      "rule.selector",
-      "rule.sourceLink",
-      "rule.domRule.type",
-    ].sort()
-  );
+        "rule.domRule.objectId()",
+        "rule.domRule.objectId",
+        "rule.domRule",
+        "rule.inheritance",
+        "rule.isUnmatched",
+        "rule.domRule.isSystem",
+        "rule.pseudoElement",
+        "rule.selector",
+        "rule.sourceLink",
+        "rule.domRule.type",
+      ].sort()
+    );
+  });
 });

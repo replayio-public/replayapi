@@ -1,11 +1,11 @@
 import { SyntaxNode } from "@replayio/source-parser/src/tree-sitter-types";
+import { ValuePreview } from "../values/values";
 
-import RecordedValue from "../values/RecordedValue";
 
 export default class DynamicBinding {
   constructor(
     public readonly name: string,
     public readonly node: SyntaxNode,
-    public readonly value: RecordedValue
+    public readonly value: ValuePreview
   ) {}
 }

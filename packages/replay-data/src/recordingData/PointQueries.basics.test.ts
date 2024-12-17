@@ -2,12 +2,12 @@ import { ExecutionPoint } from "@replayio/protocol";
 
 import { getReplaySessionForTest } from "../../testing/sessions";
 import ReplaySession from "./ReplaySession";
-import { CodeAtPoint } from "./types";
+import { CodeAtLocation } from "./types";
 
 const RecordingId = "011f1663-6205-4484-b468-5ec471dc5a31";
 
 type PointExpectations = {
-  statement: CodeAtPoint;
+  statement: CodeAtLocation;
   scopes: any[];
   richStack: any[];
 };
@@ -76,7 +76,7 @@ const PointExpectations: Record<ExecutionPoint, PointExpectations> = {
   //   },
 };
 
-describe("PointQueries", () => {
+describe("PointQueries basics", () => {
   let session: ReplaySession;
   beforeAll(async () => {
     session = await getReplaySessionForTest(RecordingId);
@@ -86,11 +86,8 @@ describe("PointQueries", () => {
     async (point, expected) => {
       const result = await session.queryPoint(point);
 
-      const statement = await result.queryStatement();
+      const statement = await result.queryCodeAndLocation();
       expect({ ...statement }).toStrictEqual(expected.statement);
-
-      // const richStack = await result.queryRichStack();
-      // console.log("DDBG Rich stack:", richStack.slice(0, 15));
 
       const scopes = await result.queryDynamicScopes();
       const allStaticBindings = [];

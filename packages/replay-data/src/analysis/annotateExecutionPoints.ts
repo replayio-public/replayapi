@@ -122,6 +122,5 @@ export async function annotateExecutionPoints(
     });
   }
 
-  sortBy(annotatedLocations, "point", "desc");
-  return { annotatedLocations, pointNames };
+  return { annotatedLocations: sortBy(annotatedLocations, "point", "desc"), pointNames };
 }
