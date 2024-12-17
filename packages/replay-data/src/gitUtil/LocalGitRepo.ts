@@ -41,6 +41,9 @@ export default class LocalGitRepo {
 
   async init(forceDelete: boolean): Promise<void> {
     if (forceDelete) {
+      if (!this.url) {
+        throw new Error(`Tried to force-delete a repo, but no URL is provided to re-clone it. Path: ${this.folderPath}`);
+      }
       if (fs.existsSync(this.folderPath)) {
         await fs.promises.rmdir(this.folderPath, { recursive: true });
       }
