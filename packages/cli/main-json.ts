@@ -12,7 +12,7 @@ import path, { join } from "path";
 import { deterministicObjectHash } from "@replayio/data/src/util/objectUtil";
 import { spawnAsync } from "@replayio/data/src/util/spawnAsync";
 
-const DATA_ROOT_DIR = "/tmp/cli-specs";
+const DATA_ROOT_DIR = "/tmp/cli-data";
 const thisDir = __dirname;
 
 (async function main() {
