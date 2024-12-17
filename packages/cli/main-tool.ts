@@ -15,7 +15,7 @@ import { CommandOutputResult, getCommandResult } from "./commandsShared/commandO
 
 interface InputSpec {
   command: string;
-  args: Record<string, string>;
+  args: Record<string, any>;
 }
 
 function readInputFile(inputPath: string): InputSpec {
@@ -53,7 +53,8 @@ async function main() {
       throw new Error(`Invalid input file format: ${JSON.stringify(input || null, null, 2)}`);
     }
     const flattenedArgStrings = Object.entries(input.args).flatMap(([key, value]) =>
-      value ? [`--${key}`, value + ""] : `--${key}`
+      // Flatten the props into a single string array, w/ special handling for boolean flags.
+      value === true ? [`--${key}`] : value === false ? [] : [`--${key}`, value + ""]
     );
 
     // 1. Hackfix-override `argv`.
