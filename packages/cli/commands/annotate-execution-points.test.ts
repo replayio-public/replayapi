@@ -28,7 +28,7 @@ import { runAnalysis } from "@replayio/data/src/analysis/runAnalysis";
 import { ExecutionDataAnalysisResult } from "@replayio/data/src/analysis/specs/executionPoint";
 import LocalGitRepo from "@replayio/data/src/gitUtil/LocalGitRepo";
 
-import { printCommandResult } from "../commandsShared/print";
+import { printCommandResult } from "../commandsShared/commandOutput";
 import { CommandArgs, annotateExecutionPointsAction } from "./annotate-execution-points";
 
 async function runAction(problemDescription: string, options: CommandArgs) {

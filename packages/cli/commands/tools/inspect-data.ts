@@ -4,7 +4,7 @@ import { getOrCreateReplaySession } from "@replayio/data/src/recordingData/Repla
 import { program } from "commander";
 import createDebug from "debug";
 
-import { printCommandResult } from "../../commandsShared/print";
+import { printCommandResult } from "../../commandsShared/commandOutput";
 import {
   PointOption,
   RecordingOption,

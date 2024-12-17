@@ -1,3 +1,7 @@
+/* Copyright 2020-2024 Record Replay Inc. */
+
+import "tsconfig-paths/register";
+
 import "./commands/fetch-comments";
 import "./commands/session";
 //import "./commands/sources";
@@ -11,38 +15,41 @@ import { program } from "commander";
 import createDebug from "debug";
 
 // commands auto-register themselves when imported
-import { printCommandError } from "./commandsShared/print";
+import { printCommandError } from "./commandsShared/commandOutput";
 
-const debug = createDebug("replay:_main_impl_");
+const debug = createDebug("replay:main");
 
-program.configureHelp({
-  sortOptions: true,
-  sortSubcommands: true,
-});
-program.helpCommand("help [command]", "Display help for command");
-program.helpOption("-h, --help", "Display help for command");
+// Help stuff.
+program
+  .configureHelp({
+    sortOptions: true,
+    sortSubcommands: true,
+  })
+  .helpCommand("help [command]", "Display help for command")
+  .helpOption("-h, --help", "Display help for command");
 
+// Custom error handler.
 function handleError(err: any) {
   const message = `Failed to execute command: ${err.message}`;
   const causedBy = err.cause ? `\n\n  [CAUSED BY] ${(err.cause as any).stack || err.cause}` : "";
   printCommandError(message, `${err.stack}${causedBy}`);
   process.exit(err.exitCode);
 }
-
-// Add a custom error handler.
-program.exitOverride(err => {
-  if (err.exitCode && err.code !== "commander.help") {
+program
+  .exitOverride(err => {
+    if (err.exitCode && err.code !== "commander.help") {
+      handleError(err);
+    }
+  })
+  .on("error", err => {
     handleError(err);
-  }
-});
-
-program.on("error", err => {
-  handleError(err);
-});
+  });
 
 (async function main() {
   try {
-    debug(`"${path.relative(process.cwd(), __filename)}" ${process.argv.map(a => JSON.stringify(a)).join(",")}`);
+    debug(
+      `"${path.relative(process.cwd(), __filename)}" ${process.argv.map(a => JSON.stringify(a)).join(",")}`
+    );
     await program.parseAsync();
   } catch (err: any) {
     handleError(err);

@@ -20,7 +20,7 @@ import { assert } from "@replayio/data/src/util/assert";
 import { program } from "commander";
 import createDebug from "debug";
 
-import { printCommandResult } from "../commandsShared/print";
+import { printCommandResult } from "../commandsShared/commandOutput";
 
 const debug = createDebug("replay:annotate-execution-points");
 
