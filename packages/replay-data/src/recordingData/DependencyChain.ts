@@ -44,7 +44,7 @@ export default class DependencyChain {
       analysisType: AnalysisType.Dependency,
       spec,
     };
-    return await runAnalysis(this.session, input);
+    return await runAnalysis<AnalyzeDependenciesResult>(this.session, input);
   }
 
   private normalizeFrameForRichStack(frame: FrameWithPoint): RawRichStackFrame | null {

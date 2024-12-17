@@ -11,10 +11,22 @@ import { sourcesCache } from "replay-next/src/suspense/SourcesCache";
 import { ReplayClient } from "shared/client/ReplayClient";
 import { STATUS_PENDING } from "suspense";
 
+import { AnalysisType } from "../analysis/dependencyGraphShared";
+import { AnalysisInput } from "../analysis/dgSpecs";
+import { wrapAsyncWithHardcodedData } from "../analysis/hardcodedResults";
+import { runAnalysis } from "../analysis/runAnalysis";
+import { ExecutionDataAnalysisResult } from "../analysis/specs/executionPoint";
 import PointQueries from "./PointQueries";
 import ReplaySources from "./ReplaySources";
 
 const debug = createDebug("replay:ReplaySession");
+
+
+export type FindInitialPointResult = {
+  point?: ExecutionPoint;
+  userComment?: string;
+  reactComponentName?: string;
+};
 
 /**
  * The devtools require a `time` value for managing pauses, but it is not necessary.
@@ -123,6 +135,22 @@ export default class ReplaySession extends ReplayClient {
   /** ###########################################################################
    * Points.
    * ##########################################################################*/
+
+  async findInitialPoint(): Promise<FindInitialPointResult> {
+    const recordingId = this.getRecordingId()!;
+    const analysisInput: AnalysisInput = {
+      analysisType: AnalysisType.ExecutionPoint,
+      spec: { recordingId },
+    };
+    return await wrapAsyncWithHardcodedData(recordingId, "findInitialPoint", async () => {
+      const analysisResults = (await runAnalysis<ExecutionDataAnalysisResult>(
+        this,
+        analysisInput
+      ));
+      const { point, commentText: userComment, reactComponentName } = analysisResults;
+      return { point, userComment, reactComponentName };
+    });
+  }
 
   async queryPoint(point: ExecutionPoint): Promise<PointQueries> {
     debug(`queryPoint ${point}...`);

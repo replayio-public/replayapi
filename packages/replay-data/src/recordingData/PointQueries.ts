@@ -324,7 +324,7 @@ export default class PointQueries {
       analysisInput.spec.depth = depth;
     }
 
-    return (await runAnalysis(this.session, analysisInput)) as ExecutionDataAnalysisResult;
+    return (await runAnalysis<ExecutionDataAnalysisResult>(this.session, analysisInput));
   }
 
   async runDataFlowAnalysis(): Promise<DataFlowAnalysisResult> {

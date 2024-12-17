@@ -32,7 +32,7 @@ program
   .command("annotate-execution-points")
   .description(
     "Analyze recording provided in problemDescription and annotate code at given path with comments." +
-      " If it is not a repo yet, then a GitHub URL is extracted from problemDescription for cloning."
+      " If there is no repo at given path, then a GitHub URL is extracted from problemDescription for cloning."
   )
   .option("-w --workspace-path <workspacePath>", "Local file path of the workspace.")
   .option(

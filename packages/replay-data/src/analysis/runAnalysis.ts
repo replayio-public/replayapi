@@ -2,21 +2,15 @@ import { mkdir, mkdtemp, writeFile } from "fs/promises";
 import os from "os";
 import path from "path";
 
-import { ExecutionPoint } from "@replayio/protocol";
-import createDebug from "debug";
-
 import ReplaySession from "../recordingData/ReplaySession";
+import NestedError from "../util/NestedError";
 import { AnalysisType } from "./dependencyGraphShared";
 import { AnalysisInput } from "./dgSpecs";
-import { wrapAsyncWithHardcodedData } from "./hardcodedResults";
-import { ExecutionDataAnalysisResult } from "./specs/executionPoint";
+import { AnalysisResult } from "./specs";
 
-const debug = createDebug("replay:runAnalysis");
+// import createDebug from "debug";
 
-/**
- * TODO: Typify results based on AnalysisType, just like we have done with AnalysisInput.
- */
-export type AnalysisResult = any;
+// const debug = createDebug("replay:runAnalysis");
 
 async function prepareAnalysisBase(): Promise<{ replayDir: string }> {
   if (!process.env.DATABASE_URL) {
@@ -78,38 +72,16 @@ const analysisExperimentalCommandMapInverted = Object.fromEntries(
 /**
  * Run the given analysis via `experimentalCommand`.
  */
-export async function runAnalysis(
+export async function runAnalysis<TResult extends AnalysisResult>(
   session: ReplaySession,
   input: AnalysisInput
-): Promise<AnalysisResult> {
+): Promise<TResult> {
   try {
-    return await session.experimentalCommand(
+    return (await session.experimentalCommand(
       analysisExperimentalCommandMapInverted[input.analysisType],
       input.spec
-    );
+    )) as TResult;
   } catch (err: any) {
-    console.error(`Failed to run analysis ${JSON.stringify(input)}:\n  ${err.stack}`);
+    throw new NestedError(`runAnalysis failed with input=${JSON.stringify(input)}\n  ${err.stack}`);
   }
-}
-
-export type InitialAnalysisResult = {
-  point?: ExecutionPoint;
-  userComment?: string;
-  reactComponentName?: string;
-};
-
-export async function runInitialAnalysis(session: ReplaySession): Promise<InitialAnalysisResult> {
-  const recordingId = session.getRecordingId()!;
-  const analysisInput: AnalysisInput = {
-    analysisType: AnalysisType.ExecutionPoint,
-    spec: { recordingId },
-  };
-  return await wrapAsyncWithHardcodedData(recordingId, "initial-analysis", async () => {
-    const analysisResults = (await runAnalysis(
-      session,
-      analysisInput
-    )) as ExecutionDataAnalysisResult;
-    const { point, commentText: userComment, reactComponentName } = analysisResults;
-    return { point, userComment, reactComponentName };
-  });
 }

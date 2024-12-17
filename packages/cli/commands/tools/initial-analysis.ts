@@ -1,6 +1,5 @@
 /* Copyright 2020-2024 Record Replay Inc. */
 
-import { runInitialAnalysis } from "@replayio/data/src/analysis/runAnalysis";
 import { getOrCreateReplaySession } from "@replayio/data/src/recordingData/ReplaySession";
 import { program } from "commander";
 import createDebug from "debug";
@@ -35,12 +34,17 @@ export async function initialAnalysisAction({ recordingId }: RecordingOption): P
 
   try {
     // 2. Find point and run analysis on that point.
-    const { point, userComment, reactComponentName } = await runInitialAnalysis(session);
-    if (!point || !userComment) {
-      printCommandResult({ status: "NoVisualComment" });
+    const { point, userComment, reactComponentName } = await session.findInitialPoint();
+    if (!point) {
+      printCommandResult({ status: "CouldNotFindInitialPoint" });
+      return;
+    }
+    if (!userComment) {
+      printCommandResult({ status: "CouldNotFindUserCommentInRecording" });
       return;
     }
 
+    // 3. Get basic point data.
     const p = await session.queryPoint(point);
     const pointInfo = await p.inspectPoint();
 

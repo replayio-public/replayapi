@@ -67,17 +67,6 @@ export interface ExecutionDataEntry {
   associatedLocation?: URLLocationWithSource;
 }
 
-export interface ExecutionDataPoint {
-  // Associated point.
-  point: ExecutionPoint;
-
-  // Location in the recording being described.
-  location: URLLocationWithSource;
-
-  // Entries describing the point.
-  entries: ExecutionDataEntry[];
-}
-
 export interface ExecutionDataAnalysisResult {
   // Points which were described.
   points: ExecutionDataPoint[];

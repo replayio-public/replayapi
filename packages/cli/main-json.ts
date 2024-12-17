@@ -9,8 +9,8 @@ import "tsconfig-paths/register";
 import { mkdirSync, readFileSync, writeFileSync } from "fs";
 import path, { join } from "path";
 
-import { spawnAsync } from "@replayio/data/src/util/spawnAsync";
 import { deterministicObjectHash } from "@replayio/data/src/util/objectUtil";
+import { spawnAsync } from "@replayio/data/src/util/spawnAsync";
 
 const DATA_ROOT_DIR = "/tmp/cli-specs";
 const thisDir = __dirname;
@@ -35,10 +35,10 @@ const thisDir = __dirname;
     const params = Object.entries(input.params).flatMap(([key, value]) => [`--${key}`, value]);
     const result = await spawnAsync(
       "tsx",
-      ["-r", "tsconfig-paths/register", path.join(thisDir, "main.ts"), input.tool, ...params],
-      {
-        stdio: "inherit",
-      }
+      ["-r", "tsconfig-paths/register", path.join(thisDir, "main.ts"), input.tool, ...params]
+      // {
+      //   stdio: "inherit",
+      // }
     );
     writeFileSync(outputPath, result.stdout);
     console.log(`Done. Result: ${outputPath}`);

@@ -60,7 +60,7 @@ export async function spawnAsync(
 async function streamStdioToBuffer(stdio: Readable): Promise<string> {
   const chunks = [];
   for await (const chunk of stdio) {
-    debug(`  [stdio] ${chunk.toString()}`)
+    debug(`${chunk.toString()}`)
     // process.stdout.write(chunk);
     chunks.push(chunk);
   }
