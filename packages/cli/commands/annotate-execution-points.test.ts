@@ -25,8 +25,8 @@ import path, { join } from "path";
 import { annotateExecutionPoints } from "@replayio/data/src/analysis/annotateExecutionPoints";
 import { AnalysisType } from "@replayio/data/src/analysis/dependencyGraphShared";
 import { runAnalysis } from "@replayio/data/src/analysis/runAnalysis";
+import { ExecutionDataAnalysisResult } from "@replayio/data/src/analysis/specs/executionPoint";
 import LocalGitRepo from "@replayio/data/src/gitUtil/LocalGitRepo";
-import { RecordingComment, getSourceCodeComments } from "@replayio/data/src/recordingData/comments";
 
 import { printCommandResult } from "../commandsShared/print";
 import { CommandArgs, annotateExecutionPointsAction } from "./annotate-execution-points";
@@ -69,29 +69,17 @@ describe("addExecutionPointComments", () => {
     const problemDescription =
       "This is an issue with recordingId https://app.replay.io/recording/011f1663-6205-4484-b468-5ec471dc5a31";
 
-    const mockComments: RecordingComment[] = [
-      {
-        author: "test-author",
-        text: "First comment without point",
-        point: null as any,
-        type: "source-code",
-        createdAt: new Date().toISOString(),
-        location: null,
-      },
-      {
-        author: "test-author",
-        text: "Second comment without point",
-        point: null as any,
-        type: "source-code",
-        createdAt: new Date().toISOString(),
-        location: null,
-      },
-    ];
+    // Mock values.
+    const MockAnalysisResults: ExecutionDataAnalysisResult = {
+      points: [],
+      commentText: "some comment",
+    };
+    (runAnalysis as jest.MockedFunction<typeof runAnalysis>).mockResolvedValue(MockAnalysisResults);
+    (
+      annotateExecutionPoints as jest.MockedFunction<typeof annotateExecutionPoints>
+    ).mockResolvedValue({ annotatedLocations: [], pointNames: new Map() });
 
-    (getSourceCodeComments as jest.MockedFunction<typeof getSourceCodeComments>).mockResolvedValue(
-      mockComments
-    );
-
+    // Go.
     await runAction(problemDescription, {
       workspacePath,
       isWorkspaceRepoPath: true,
@@ -101,49 +89,29 @@ describe("addExecutionPointComments", () => {
   });
 
   it("should succeed", async () => {
-    const workspacePath = "/path/to/workspace";
     const repoName = "my-repo";
     const repoUrl = `https://github.com/user/${repoName}.git`;
-    const problemDescription = `This is an issue with recordingId https://app.replay.io/recording/011f1663-6205-4484-b468-5ec471dc5a31 and a github url ${repoUrl}`;
-
     const recordingId = "011f1663-6205-4484-b468-5ec471dc5a31";
-    const point = "1234";
-    const analysisResults = { points: ["point1"] };
+    const workspacePath = "/path/to/workspace";
+    const problemDescription = `This is an issue with recordingId https://app.replay.io/recording/011f1663-6205-4484-b468-5ec471dc5a31 and a github url ${repoUrl}`;
     const repoPath = path.join(workspacePath, repoName);
 
-    const mockComments: RecordingComment[] = [
-      {
-        author: "test-author",
-        text: "Comment with point",
-        point: point as any,
-        type: "source-code",
-        createdAt: new Date().toISOString(),
-        location: null,
-      },
-      {
-        author: "test-author",
-        text: "Comment without point",
-        point: null as any,
-        type: "source-code",
-        createdAt: new Date().toISOString(),
-        location: null,
-      },
-    ];
-
-    (getSourceCodeComments as jest.MockedFunction<typeof getSourceCodeComments>).mockResolvedValue(
-      mockComments
-    );
-
-    (runAnalysis as jest.MockedFunction<typeof runAnalysis>).mockResolvedValue(analysisResults);
-
-    // Mock annotatedLocations
-    const annotationResult = {
-      annotatedLocations: [{ point, file: "file1", line: 1 }],
+    // Mock values.
+    const MockPoint = "1234";
+    const MockAnnotationResult = {
+      annotatedLocations: [{ point: MockPoint, file: "file1", line: 1 }],
       pointNames: new Map(),
     };
+    const MockAnalysisResults: ExecutionDataAnalysisResult = {
+      point: MockPoint,
+      points: [],
+      reactComponentName: "MyComponent",
+      commentText: "comment with point",
+    };
+    (runAnalysis as jest.MockedFunction<typeof runAnalysis>).mockResolvedValue(MockAnalysisResults);
     (
       annotateExecutionPoints as jest.MockedFunction<typeof annotateExecutionPoints>
-    ).mockResolvedValue(annotationResult);
+    ).mockResolvedValue(MockAnnotationResult);
 
     // Go.
     await runAction(problemDescription, {
@@ -169,22 +137,25 @@ describe("addExecutionPointComments", () => {
     );
     expect(annotateExecutionPoints).toHaveBeenCalledWith({
       repository: repoPath,
-      results: analysisResults,
+      results: MockAnalysisResults,
     });
 
-    const { annotatedLocations } = annotationResult;
-    const startLocation = annotatedLocations.find(l => l.point === point);
+    const { annotatedLocations } = MockAnnotationResult;
+    const startLocation = annotatedLocations.find(l => l.point === MockPoint);
     const startLocationStr = startLocation
       ? `${startLocation.file}:${startLocation.line}`
       : undefined;
+
+    expect(MockAnalysisResults.commentText).toBeString();
     expect(printCommandResult).toHaveBeenCalledWith({
       status: "Success",
-      point,
-      commentText: mockComments[0].text,
+      point: MockPoint,
+      commentText: MockAnalysisResults.commentText,
       annotatedRepo: repoPath,
+      reactComponentName: MockAnalysisResults.reactComponentName,
       annotatedLocations,
       startLocation: startLocationStr,
-      startName: annotationResult.pointNames.get(point),
+      startName: MockAnnotationResult.pointNames.get(MockPoint),
     });
   });
 });

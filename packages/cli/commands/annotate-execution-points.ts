@@ -63,9 +63,6 @@ async function getAnalysisResults(
   annotationDataUrl: string | undefined
 ): Promise<ExecutionDataAnalysisResult> {
   if (!annotationDataUrl) {
-    // Initialize session.
-    debug(`connecting to Replay server...`);
-    await session.initialize(recordingId);
     const analysisInput: AnalysisInput = {
       analysisType: AnalysisType.ExecutionPoint,
       spec: { recordingId },
