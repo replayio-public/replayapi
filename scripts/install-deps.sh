@@ -1,7 +1,7 @@
 #!/bin/bash
 set -ex
 
-REPLAY_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
+export REPLAY_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 
 # Clone devtools if not already present.
 if [ ! -d "$REPLAY_DIR/devtools" ]; then
