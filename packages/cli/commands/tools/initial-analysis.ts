@@ -59,19 +59,21 @@ program
   .description(
     "Perform initial analysis of a recording. Legacy logic for annotation execution points may run if checkLegacy() returns true."
   )
-  // Legacy options and argument (ignored if not legacy):
-  .option("-w, --workspacePath <workspacePath>", "Local file path of the workspace.")
+  .option(
+    "-p, --prompt <prompt>",
+    "Prompt text, containing recordingId and maybe other relevant data sources."
+  )
+
+  // Legacy options (ignored when not legacy).
+  .option("-w, --workspacePath <workspacePath>", "Local file path of the workspace.", false)
   .option(
     "-i, --isWorkspaceRepoPath",
     "If set, `workspacePath` is path to the repo. Otherwise, it's a parent path.",
     false
   )
   .option("-f, --forceDelete", "Delete the target repo directory if it already exists.", false)
-  .option(
-    "-p, --prompt <prompt>",
-    "Prompt text, containing recordingId and maybe other relevant data sources."
-  )
-  // New logic requires recording option:
+  
+  // Action handler.
   .action(async (options: InitialAnalysisCommandOptions & LegacyOptions) => {
     // We need a recordingId either from the legacy prompt or from the new mode.
     const { recordingId } = scanReplayUrl(options.prompt);
