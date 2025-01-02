@@ -104,7 +104,7 @@ export async function annotateExecutionPoints(
     const lines = fs.readFileSync(filePath, "utf8").split("\n");
     let found = false;
     for (let i = location.line - 1; i < lines.length; i++) {
-      if (lines[i].trim() == location.source) {
+      if (lines[i].trim() == location.source.trim()) {
         found = true;
         const indent = " ".repeat(countLeadingSpaces(lines[i]));
         for (const line of annotationLines) {
@@ -113,7 +113,10 @@ export async function annotateExecutionPoints(
         break;
       }
     }
-    assert(found, `Line ${location.source} not found in ${filePath}`);
+    assert(
+      found,
+      `Line <LINE>${location.source.trim()}</LINE> not found in ${filePath}. File contents=\n${lines.join("\n")}`
+    );
     fs.writeFileSync(filePath, lines.join("\n"));
     annotatedLocations.push({
       point: point,
