@@ -13,5 +13,5 @@ else
 fi
 thisDir=$(dirname "$thisFile")
 
-cd "$thisDir/../packages/cli"
+cd "$thisDir/packages/cli"
 exec npx --yes tsx main $*
