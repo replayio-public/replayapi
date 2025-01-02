@@ -13,7 +13,7 @@ import { STATUS_PENDING } from "suspense";
 
 import { AnalysisType } from "../analysis/dependencyGraphShared";
 import { AnalysisInput } from "../analysis/dgSpecs";
-import { wrapAsyncWithHardcodedData } from "../analysis/hardcodedResults";
+import { wrapAsyncWithHardcodedData } from "./hardcodedResults";
 import { runAnalysis } from "../analysis/runAnalysis";
 import { ExecutionDataAnalysisResult } from "../analysis/specs/executionPoint";
 import PointQueries from "./PointQueries";
