@@ -22,14 +22,14 @@ import { printCommandError, printCommandResult } from "../../commandsShared/comm
 
 const debug = createDebug("replay:initial-analysis");
 
-type LegacyCommandArgs = {
+type LegacyOptions = {
   prompt: string;
   workspacePath?: string;
   isWorkspaceRepoPath?: boolean;
   forceDelete?: boolean;
 };
 
-type InitialAnalysisCommandOptions = {
+export type InitialAnalysisCommandOptions = {
   prompt: string;
 };
 
@@ -62,7 +62,7 @@ program
     "Prompt text, containing recordingId and maybe other relevant data sources."
   )
   // New logic requires recording option:
-  .action(async (options: LegacyCommandArgs & InitialAnalysisCommandOptions) => {
+  .action(async (options: InitialAnalysisCommandOptions & LegacyOptions) => {
     // We need a recordingId either from the legacy prompt or from the new mode.
     const { recordingId } = scanReplayUrl(options.prompt);
 
@@ -107,7 +107,7 @@ async function annotateExecutionPointsAction({
   workspacePath,
   isWorkspaceRepoPath,
   forceDelete,
-}: LegacyCommandArgs): Promise<void> {
+}: LegacyOptions): Promise<void> {
   if (isWorkspaceRepoPath && forceDelete) {
     throw new Error("Cannot use both --is-workspace-repo-path and --force-delete in legacy mode.");
   }
