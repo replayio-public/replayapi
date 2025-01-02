@@ -18,7 +18,7 @@ import { assert } from "@replayio/data/src/util/assert";
 import { program } from "commander";
 import createDebug from "debug";
 
-import { printCommandResult } from "../../commandsShared/commandOutput";
+import { printCommandError, printCommandResult } from "../../commandsShared/commandOutput";
 
 const debug = createDebug("replay:initial-analysis");
 
@@ -116,7 +116,7 @@ async function annotateExecutionPointsAction({
   }
   const { recordingId } = scanReplayUrl(prompt);
   if (!recordingId) {
-    printCommandResult({ status: "NoRecordingUrl" });
+    printCommandError("NoRecordingUrl");
     return;
   }
   const annotationDataUrl = scanAnnotationDataUrl(prompt);
@@ -153,17 +153,14 @@ async function annotateExecutionPointsAction({
       : undefined;
 
     printCommandResult({
-      status: "Success",
-      result: {
-        thisPoint: point,
-        commentText,
-        reactComponentName,
-        consoleError,
-        annotatedRepo: repo.folderPath,
-        annotatedLocations,
-        startLocation: startLocationStr,
-        startName: pointNames.get(point),
-      },
+      thisPoint: point,
+      commentText,
+      reactComponentName,
+      consoleError,
+      annotatedRepo: repo.folderPath,
+      annotatedLocations,
+      startLocation: startLocationStr,
+      startName: pointNames.get(point),
     });
   } finally {
     session?.disconnect();
@@ -179,20 +176,21 @@ export async function initialAnalysisAction({
 }: InitialAnalysisCommandOptions): Promise<void> {
   const { recordingId } = scanReplayUrl(prompt);
   if (!recordingId) {
-    printCommandResult({ status: "NoRecordingUrl" });
+    printCommandError("NoRecordingUrl");
     return;
   }
 
   const session = await getOrCreateReplaySession(recordingId);
 
   try {
-    const { point, commentText, reactComponentName, consoleError } = await session.findInitialPoint();
+    const { point, commentText, reactComponentName, consoleError } =
+      await session.findInitialPoint();
     if (!point) {
-      printCommandResult({ status: "CouldNotFindInitialPoint" });
+      printCommandError("CouldNotFindInitialPoint");
       return;
     }
     if (!commentText) {
-      printCommandResult({ status: "CouldNotFindUserCommentInRecording" });
+      printCommandError("CouldNotFindUserCommentInRecording");
       return;
     }
 
@@ -200,14 +198,11 @@ export async function initialAnalysisAction({
     const pointInfo = await p.inspectPoint();
 
     const result = {
-      status: "Success",
-      result: {
-        thisPoint: point,
-        commentText,
-        consoleError,
-        reactComponentName,
-        ...pointInfo,
-      },
+      thisPoint: point,
+      commentText,
+      consoleError,
+      reactComponentName,
+      ...pointInfo,
     };
 
     printCommandResult(result);

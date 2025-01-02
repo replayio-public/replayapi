@@ -1,8 +1,10 @@
 /* Copyright 2020-2024 Record Replay Inc. */
 
+export type CommandResultObject = Record<string, any>;
+
 export type CommandOutputSuccess = {
   status: "Success";
-  result: Record<string, any>;
+  result: CommandResultObject;
 };
 
 export type CommandOutputError = {
@@ -11,16 +13,12 @@ export type CommandOutputError = {
   errorDetails?: string;
 };
 
-export type CommandOutputOther = {
-  status: string;
-};
-
-export type CommandOutputResult = CommandOutputSuccess | CommandOutputError | CommandOutputOther;
+export type CommandOutputResult = CommandOutputSuccess | CommandOutputError;
 
 let result: CommandOutputResult | null = null;
 
-export function printCommandResult(result: CommandOutputResult): void {
-  printResult(result);
+export function printCommandResult(result: CommandResultObject): void {
+  printResult({ status: "Success", result });
 }
 
 export function printCommandError(errorMessage: string, errorDetails?: string): void {
@@ -30,7 +28,7 @@ export function printCommandError(errorMessage: string, errorDetails?: string): 
 function printResult(obj: CommandOutputResult) {
   if (result) {
     throw new Error(
-      `Tried to printResult twice with: ${JSON.stringify(obj)}\n (already had: ${JSON.stringify(obj)})`
+      `Tried to printResult twice: ${JSON.stringify(obj)}\n (already had: ${JSON.stringify(obj)})`
     );
   }
   result = obj;

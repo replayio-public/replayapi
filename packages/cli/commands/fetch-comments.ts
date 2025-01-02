@@ -17,8 +17,5 @@ type CommandOptions = RecordingOption & APIKeyOption;
 async function fetchRecordingComments(opts: CommandOptions) {
   const { recordingId } = opts;
   const comments = await getSourceCodeComments(recordingId);
-  printCommandResult({
-    status: "Success",
-    result: comments,
-  });
+  printCommandResult(comments);
 }

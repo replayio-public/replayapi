@@ -4,7 +4,7 @@ import { getOrCreateReplaySession } from "@replayio/data/src/recordingData/Repla
 import { program } from "commander";
 import createDebug from "debug";
 
-import { printCommandResult } from "../../commandsShared/commandOutput";
+import { printCommandError, printCommandResult } from "../../commandsShared/commandOutput";
 import { PointOption, RecordingOption, requiresPoint, requiresRecording } from "../options";
 
 const debug = createDebug("replay:inspect-data");
@@ -26,11 +26,11 @@ export async function inspectDataAction(
   const { recordingId, point, expression } = options;
 
   if (!recordingId) {
-    printCommandResult({ status: "NoRecordingId" });
+    printCommandError("NoRecordingId");
     return;
   }
   if (!point) {
-    printCommandResult({ status: "NoPoint" });
+    printCommandError("NoPoint");
     return;
   }
 
@@ -42,10 +42,7 @@ export async function inspectDataAction(
     const p = await session.queryPoint(point);
     const inspectResult = await p.inspectData(expression);
 
-    printCommandResult({
-      status: "Success",
-      result: { thisPoint: point, ...inspectResult },
-    });
+    printCommandResult({ thisPoint: point, ...inspectResult });
   } finally {
     session?.disconnect();
   }
