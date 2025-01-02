@@ -119,9 +119,8 @@ async function annotateExecutionPointsAction({
     printCommandResult({ status: "NoRecordingUrl" });
     return;
   }
-
-  const { repoUrl, branch, commit, tag } = scanGitUrl(prompt) || {};
   const annotationDataUrl = scanAnnotationDataUrl(prompt);
+  const { repoUrl, branch, commit, tag } = scanGitUrl(prompt) || {};
 
   const session = await getOrCreateReplaySession(recordingId);
 
