@@ -7,6 +7,7 @@ import { runAnalysis } from "@replayio/data/src/analysis/runAnalysis";
 import { ExecutionDataAnalysisResult } from "@replayio/data/src/analysis/specs/executionPoint";
 import { scanGitUrl } from "@replayio/data/src/gitUtil/gitStringUtil";
 import LocalGitRepo from "@replayio/data/src/gitUtil/LocalGitRepo";
+import { InspectPointResult } from "@replayio/data/src/recordingData/PointQueries";
 import ReplaySession, {
   getOrCreateReplaySession,
 } from "@replayio/data/src/recordingData/ReplaySession";
@@ -19,6 +20,7 @@ import { program } from "commander";
 import createDebug from "debug";
 
 import { printCommandError, printCommandResult } from "../../commandsShared/commandOutput";
+import { AnalysisToolMetadata } from "./tools-shared";
 
 const debug = createDebug("replay:initial-analysis");
 
@@ -33,15 +35,23 @@ export type InitialAnalysisCommandOptions = {
   prompt: string;
 };
 
-function checkLegacy(recordingId: string | undefined): boolean {
+export interface InitialAnalysisResult extends InspectPointResult {
+  thisPoint: string;
+  commentText?: string;
+  reactComponentName?: string;
+  consoleError?: string;
+  metadata: AnalysisToolMetadata;
+}
+
+const NewRecordingIds = ["011f1663-6205-4484-b468-5ec471dc5a31"];
+function shouldUseLegacyMode(recordingId: string | undefined): boolean {
   if (!recordingId) {
     // If we have no recordingId from the problem description, default to new mode.
     return false;
   }
 
-  // If the recordingId is in this array, return false (new mode), else true (legacy mode)
-  const newRecordingIds = ["011f1663-6205-4484-b468-5ec471dc5a31"];
-  return !newRecordingIds.includes(recordingId);
+  // If the recordingId is in the array, return false (new mode), else true (legacy mode)
+  return !NewRecordingIds.includes(recordingId);
 }
 
 program
@@ -66,7 +76,7 @@ program
     // We need a recordingId either from the legacy prompt or from the new mode.
     const { recordingId } = scanReplayUrl(options.prompt);
 
-    if (checkLegacy(recordingId)) {
+    if (shouldUseLegacyMode(recordingId)) {
       // Run old, more exhaustive, annotate-execution-points logic
       await annotateExecutionPointsAction(options);
     } else {
@@ -196,13 +206,15 @@ export async function initialAnalysisAction({
 
     const p = await session.queryPoint(point);
     const pointInfo = await p.inspectPoint();
+    const metadata: AnalysisToolMetadata = { recordingId };
 
-    const result = {
+    const result: InitialAnalysisResult = {
       thisPoint: point,
       commentText,
       consoleError,
       reactComponentName,
       ...pointInfo,
+      metadata,
     };
 
     printCommandResult(result);

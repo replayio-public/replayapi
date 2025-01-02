@@ -19,13 +19,14 @@ interface InputSpec {
 }
 
 function readInputFile(inputPath: string): InputSpec {
+  let inputData: string | undefined;
   try {
-    const inputData = readFileSync(inputPath, "utf8");
+    inputData = readFileSync(inputPath, "utf8");
     const input = JSON.parse(inputData);
     return input;
   } catch (error: any) {
     throw new Error(
-      `Error reading or parsing input file from "${inputPath}": ${error?.stack || error}`
+      `Error reading or parsing input file from "${inputPath}" (contents=${inputData}): ${error?.stack || error}`
     );
   }
 }

@@ -22,7 +22,7 @@ async function getHardcodeHandler(
   name: string,
   inputString: string | null
 ): Promise<HardcodeHandlerOrResult> {
-  let filePath = path.join(__dirname, "hardcoded-data", recordingId, name);
+  let filePath = path.join(__dirname, "hardcodedData", recordingId, name);
   if (inputString) {
     filePath = path.join(filePath, inputString);
   }
@@ -107,7 +107,7 @@ export async function wrapAsyncWithHardcodedData<I extends AnyInput, O extends A
     }
   } catch (err: any) {
     console.error(
-      `❌ Failed to run analysis (input=${JSON.stringify(inputOrCallback)}): ${err.message}`
+      `❌ Failed to lookup hardcoded result (${recordingId}, ${name}, ${JSON.stringify(inputOrCallback)}): ${err.message}`
     );
     return (await lookupHardcodedData(
       recordingId,

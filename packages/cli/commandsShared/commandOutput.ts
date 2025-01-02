@@ -3,12 +3,12 @@
 export type CommandResultObject = Record<string, any>;
 
 export type CommandOutputSuccess = {
-  status: "Success";
+  status: "success";
   result: CommandResultObject;
 };
 
 export type CommandOutputError = {
-  status: "Error";
+  status: "error";
   error?: string;
   errorDetails?: string;
 };
@@ -18,11 +18,12 @@ export type CommandOutputResult = CommandOutputSuccess | CommandOutputError;
 let result: CommandOutputResult | null = null;
 
 export function printCommandResult(result: CommandResultObject): void {
-  printResult({ status: "Success", result });
+  printResult({ status: "success", result });
 }
 
 export function printCommandError(errorMessage: string, errorDetails?: string): void {
-  printResult({ status: "Error", error: errorMessage, errorDetails });
+  process.exitCode = 1;
+  printResult({ status: "error", error: errorMessage, errorDetails });
 }
 
 function printResult(obj: CommandOutputResult) {
