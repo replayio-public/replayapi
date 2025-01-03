@@ -17,17 +17,25 @@ type HardcodeHandlerOrResult = HardcodedResult | HardcodeHandler;
 
 let _hardcodeHandlers = new Map<RecordingId, any>();
 
-async function getHardcodeHandler(
-  recordingId: RecordingId,
-  name: string,
-  inputString: string | null
-): Promise<HardcodeHandlerOrResult> {
+function getHardcodedPath(recordingId: RecordingId, name: string, inputString: string | null) {
   let filePath = path.join(__dirname, "hardcodedData", recordingId, name);
   if (inputString) {
     filePath = path.join(filePath, inputString);
   }
   filePath += ".ts";
+  return filePath;
+}
 
+/**
+ * Look up the *.ts file and return its default export.
+ * @returns A function with custom inputs or hardcoded data.
+ */
+async function getHardcodeHandler(
+  recordingId: RecordingId,
+  name: string,
+  inputString: string | null
+): Promise<HardcodeHandlerOrResult> {
+  const filePath = getHardcodedPath(recordingId, name, inputString);
   let result = _hardcodeHandlers.get(filePath);
   if (!result) {
     try {
@@ -36,13 +44,15 @@ async function getHardcodeHandler(
         !imported?.default ||
         (!(imported.default instanceof Function) && typeof imported.default !== "object")
       ) {
-        throw new Error(`Invalid override file must default-export an object or a function: ${imported}`);
+        throw new Error(
+          `Invalid override file must default-export an object or a function: ${imported}`
+        );
       }
       result = imported.default;
       debug(`✅ getHardcodedData ${filePath}`);
       _hardcodeHandlers.set(filePath, result);
     } catch (err: any) {
-      if (err.code === "ENOENT") {
+      if (err.code === "ENOENT" || err.code === "ERR_MODULE_NOT_FOUND") {
         // Data is not hardcoded.
         debug(`❌ getHardcodedData ${filePath}`);
         _hardcodeHandlers.set(filePath, (result = {}));
@@ -57,7 +67,19 @@ async function getHardcodeHandler(
   return result;
 }
 
-export async function lookupHardcodedData(
+function checkHardcodedResult(
+  res: AnyResult,
+  recordingId: RecordingId,
+  name: string,
+  inputString: string | null
+) {
+  if (typeof res !== "object" || res === null) {
+    const filePath = getHardcodedPath(recordingId, name, inputString);
+    throw new Error(`Invalid hardcoded result must be object at "${filePath}": ${res}`);
+  }
+}
+
+async function lookupHardcodedData(
   recordingId: RecordingId,
   name: string,
   input: AnyInput | null,
@@ -66,43 +88,52 @@ export async function lookupHardcodedData(
   const inputString = input ? deterministicObjectHash(input) : null;
   const hardcodeResultOrHandler = await getHardcodeHandler(recordingId, name, inputString);
 
+  let res: AnyResult;
   if (hardcodeResultOrHandler instanceof Function) {
-    return await hardcodeResultOrHandler(existingResult);
+    // Hardcoded function, returining an object.
+    res = await hardcodeResultOrHandler(existingResult);
+    checkHardcodedResult(res, recordingId, name, inputString);
+  } else if (hardcodeResultOrHandler) {
+    // Hardcoded object.
+    res = hardcodeResultOrHandler;
+    checkHardcodedResult(res, recordingId, name, inputString);
+    res = defaultsDeep(existingResult || {}, res);
   } else {
-    const hardcodedResult = hardcodeResultOrHandler;
-    return defaultsDeep(existingResult || {}, hardcodedResult);
+    // No hardcoded data.
+    res = existingResult || {};
   }
+  return res;
 }
 
-export function wrapAsyncWithHardcodedData<I, O>(
+export function wrapAsyncWithHardcodedData<I extends AnyInput, O extends AnyResult>(
   recordingId: RecordingId,
   name: string,
   input: AnyInput,
-  cb: (input: I) => Promise<O>
+  cb: (input: I) => Promise<O | undefined>
 ): Promise<O>;
 
-export function wrapAsyncWithHardcodedData<O>(
+export function wrapAsyncWithHardcodedData<O extends AnyResult>(
   recordingId: RecordingId,
   name: string,
-  cb: () => Promise<O>
+  cb: () => Promise<O | undefined>
 ): Promise<O>;
 
 export async function wrapAsyncWithHardcodedData<I extends AnyInput, O extends AnyResult>(
   recordingId: RecordingId,
   name: string,
-  inputOrCallback: I | (() => Promise<O>),
-  cb?: (input: I) => Promise<O>
+  inputOrCallback: I | (() => Promise<O | undefined>),
+  cbWithInput?: (input: I) => Promise<O | undefined>
 ): Promise<O> {
   try {
-    if (cb) {
-      // First overload case
+    if (cbWithInput) {
+      // Overload 1: Input given.
       const input = inputOrCallback as I;
-      const existingResult = await cb(input);
+      const existingResult = await cbWithInput(input);
       return (await lookupHardcodedData(recordingId, name, input, existingResult)) as O;
     } else {
-      // Second overload case
-      const callback = inputOrCallback as () => Promise<O>;
-      const existingResult = await callback();
+      // Overload 2: No input given.
+      const cbWithoutInput = inputOrCallback as () => Promise<O | undefined>;
+      const existingResult = await cbWithoutInput();
       return (await lookupHardcodedData(recordingId, name, null, existingResult)) as O;
     }
   } catch (err: any) {
@@ -112,7 +143,7 @@ export async function wrapAsyncWithHardcodedData<I extends AnyInput, O extends A
     return (await lookupHardcodedData(
       recordingId,
       name,
-      cb ? inputOrCallback : null,
+      cbWithInput ? inputOrCallback : null,
       undefined
     )) as O;
   }

@@ -52,21 +52,6 @@ export interface URLLocationWithSource extends URLLocation {
   source: string;
 }
 
-export interface ExecutionDataEntry {
-  // Value from the application source which is being described.
-  value?: string;
-
-  // Description of the contents of the value. If |value| is omitted
-  // this describes a control dependency for the location.
-  contents: string;
-
-  // Any associated execution point.
-  associatedPoint?: ExecutionPoint;
-
-  // Location in the recording of the associated execution point.
-  associatedLocation?: URLLocationWithSource;
-}
-
 export interface ExecutionDataAnalysisResult {
   // Points which were described.
   points: ExecutionDataPoint[];

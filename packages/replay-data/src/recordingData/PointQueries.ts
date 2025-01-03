@@ -10,8 +10,10 @@ import {
 import StaticScope from "@replayio/source-parser/src/bindings/StaticScope";
 import SourceParser from "@replayio/source-parser/src/SourceParser";
 import createDebug from "debug";
-import { sortBy, truncate } from "lodash";
 import groupBy from "lodash/groupBy";
+import isEmpty from "lodash/isEmpty";
+import sortBy from "lodash/sortBy";
+import truncate from "lodash/truncate";
 import protocolValueToText from "replay-next/components/inspector/protocolValueToText";
 import { framesCache } from "replay-next/src/suspense/FrameCache";
 import { pointStackCache } from "replay-next/src/suspense/PointStackCache";
@@ -24,6 +26,7 @@ import { ExecutionDataAnalysisResult, ExecutionDataEntry } from "../analysis/spe
 import { BigIntToPoint, ExecutionPointInfo } from "../util/points";
 import DynamicScope from "./bindings/DynamicScope";
 import DependencyChain, { RichStackFrame } from "./DependencyChain";
+import { wrapAsyncWithHardcodedData } from "./hardcodedResults";
 import ReplaySession from "./ReplaySession";
 import {
   CodeAtLocation,
@@ -38,7 +41,7 @@ const debug = createDebug("replay:PointQueries");
 
 const POINT_ANNOTATION = "/*BREAK*/";
 
-export interface DataFlowAnalysisResult {
+export interface BackendDataFlowAnalysisResult {
   variablePointsByName: Record<string, ExecutionDataEntry[]>;
 }
 
@@ -50,6 +53,16 @@ export interface CodeAtPoint extends CodeAtLocation {
   point: ExecutionPoint;
 }
 
+export interface DataFlowOrigin {
+  point?: ExecutionPoint;
+  location?: CodeAtLocation;
+  explanation?: string;
+}
+
+export interface ExpressionDataFlowResult {
+  origins?: DataFlowOrigin[];
+}
+
 export interface SimpleValuePreview {
   value?: string;
   type?: string;
@@ -58,7 +71,8 @@ export interface SimpleValuePreview {
 export type SimpleValuePreviewResult = SimpleValuePreview | null;
 
 export interface ExpressionAnalysisResult extends SimpleValuePreview {
-  origins: CodeAtPoint[];
+  expression: string;
+  origins: DataFlowOrigin[];
 }
 
 export interface InspectPointResult {
@@ -275,42 +289,67 @@ export default class PointQueries {
     };
   }
 
+  private async queryDataFlow(
+    expression: string,
+    dataFlowResult: BackendDataFlowAnalysisResult
+  ): Promise<DataFlowOrigin[]> {
+    let res = await wrapAsyncWithHardcodedData(
+      this.session.getRecordingId()!,
+      "dataFlowPoints",
+      { expression, point: this.point },
+      async ({ expression }): Promise<ExpressionDataFlowResult | undefined> => {
+        let dataFlowPoints =
+          dataFlowResult.variablePointsByName[expression]
+            ?.filter(p => !!p.associatedPoint)
+            .map(p => p.associatedPoint!) || [];
+        dataFlowPoints = sortBy(dataFlowPoints, p => BigInt(p), "desc");
+        if (dataFlowPoints?.length) {
+          return { origins: dataFlowPoints.map<DataFlowOrigin>(p => ({ point: p })) };
+        }
+        return undefined;
+      }
+    );
+
+    return (
+      await Promise.all(
+        (res.origins || []).map<Promise<DataFlowOrigin | null>>(
+          async ({ point, location, ...other }) => {
+            if (!location) {
+              if (!point) {
+                return isEmpty(other) ? null : other;
+              }
+
+              // Look up location if not provided already.
+              const pointQuery = await this.session.queryPoint(point);
+              location = await pointQuery.queryCodeAndLocation();
+            }
+            return {
+              point,
+              location: location!,
+              ...other,
+            } as DataFlowOrigin;
+          }
+        )
+      )
+    ).filter(x => !!x);
+  }
+
   /**
    * Preview and trace the data flow of the value held by `expression`.
    */
   private async queryExpressionInfo(
     expression: string,
-    dataFlowResult: DataFlowAnalysisResult
+    dataFlowResult: BackendDataFlowAnalysisResult
   ): Promise<ExpressionAnalysisResult> {
-    const points = sortBy(
-      dataFlowResult.variablePointsByName[expression],
-      v => v.associatedPoint,
-      "desc"
+    const [valuePreview, origins]: [SimpleValuePreviewResult, DataFlowOrigin[]] = await Promise.all(
+      [this.makeValuePreview(expression), this.queryDataFlow(expression, dataFlowResult)]
     );
-    const [valuePreview, ...origins]: [SimpleValuePreviewResult, ...(CodeAtPoint | undefined)[]] =
-      await Promise.all([
-        this.makeValuePreview(expression),
-        ...points.map<Promise<CodeAtPoint | undefined>>(async dataFlowPoint => {
-          const { associatedPoint } = dataFlowPoint;
-          let location: CodeAtLocation | null = null;
-          if (!associatedPoint) {
-            return undefined;
-          }
-
-          const p = await this.session.queryPoint(associatedPoint);
-          location = await p.queryCodeAndLocation();
-          return {
-            point: associatedPoint,
-            ...location,
-          };
-        }),
-      ]);
 
     return {
-      // Test at https://app.replay.io/recording/localhost8080--011f1663-6205-4484-b468-5ec471dc5a31?commentId=&focusWindow=eyJiZWdpbiI6eyJwb2ludCI6IjAiLCJ0aW1lIjowfSwiZW5kIjp7InBvaW50IjoiOTQxMTAzODA1NjY1MDg4NDQwNzA4NTU3NjEzNzEwNzA0NjQiLCJ0aW1lIjo0MzA2M319&point=78858008544035673353062034033344524&primaryPanel=comments&secondaryPanel=console&time=35130.18987398943&viewMode=dev
+      expression,
       value: valuePreview?.value || undefined,
       type: valuePreview?.type || undefined,
-      origins: origins.filter(o => !!o),
+      origins,
     };
   }
 
@@ -324,10 +363,10 @@ export default class PointQueries {
       analysisInput.spec.depth = depth;
     }
 
-    return (await runAnalysis<ExecutionDataAnalysisResult>(this.session, analysisInput));
+    return await runAnalysis<ExecutionDataAnalysisResult>(this.session, analysisInput);
   }
 
-  async runDataFlowAnalysis(): Promise<DataFlowAnalysisResult> {
+  async runDataFlowAnalysis(): Promise<BackendDataFlowAnalysisResult> {
     const analysisResults = await this.runExecutionPointAnalysis(0);
     const { points } = analysisResults;
     return {
@@ -355,7 +394,6 @@ export default class PointQueries {
             return null;
           }
           return {
-            expression,
             ...info,
           };
         })
@@ -409,6 +447,7 @@ export default class PointQueries {
         this.queryCodeAndLocation(),
         this.queryFunctionInfo(),
         this.queryInputDependencies(),
+        // null,
         this.queryStackAndEvents(),
       ]);
 
@@ -424,9 +463,9 @@ export default class PointQueries {
   }
 
   async inspectData(expression: string): Promise<InspectDataResult> {
-    const pointData = await this.inspectPoint();
     const dataFlowResult = await this.runDataFlowAnalysis();
     const expressionInfo = await this.queryExpressionInfo(expression, dataFlowResult);
+    const pointData = await this.inspectPoint();
 
     return {
       ...expressionInfo,
