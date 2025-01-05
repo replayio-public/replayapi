@@ -1,6 +1,6 @@
 import { guessFunctionName } from "./function-names";
 import SourceParser from "./SourceParser";
-import { pointToSourceLocation } from "./tree-sitter-locations";
+import { treeSitterPointToSourceLocation } from "./tree-sitter-locations";
 
 /// <reference types="jest-extended" />
 
@@ -119,7 +119,7 @@ describe("extract functions and their names", () => {
         `((identifier) @constant (#match? @constant "MARKER"))`
       )[0];
 
-      const func = parser.getInnermostFunction(pointToSourceLocation(marker.startPosition));
+      const func = parser.getInnermostFunction(treeSitterPointToSourceLocation(marker.startPosition));
       expect(guessFunctionName(func!)).toBe(testCase.expected);
     });
   });
@@ -238,3 +238,5 @@ export function RulesList({
     );
   });
 });
+
+

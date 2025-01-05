@@ -293,6 +293,7 @@ export default class PointQueries {
     expression: string,
     dataFlowResult: BackendDataFlowAnalysisResult
   ): Promise<DataFlowOrigin[]> {
+    // 1. Get data flow points from backend data flow result.
     let res = await wrapAsyncWithHardcodedData(
       this.session.getRecordingId()!,
       "dataFlowPoints",
@@ -310,6 +311,7 @@ export default class PointQueries {
       }
     );
 
+    // 2. Try to guess all missing data points.
     return (
       await Promise.all(
         (res.origins || []).map<Promise<DataFlowOrigin | null>>(

@@ -7,12 +7,18 @@ import { ContentType, SourceLocation } from "@replayio/protocol";
 import uniqBy from "lodash/uniqBy";
 import Parser, { QueryMatch, SyntaxNode, Tree } from "tree-sitter";
 
+import { BabelParser, babelParse } from "./babel/BabelParser";
 import StaticScopes from "./bindings/StaticScopes";
 import { guessFunctionName } from "./function-names";
 import SourceContents from "./SourceContents";
-import { pointToSourceLocation, sourceLocationToPoint } from "./tree-sitter-locations";
+import { StaticBinding } from "./StaticBindings";
+import {
+  sourceLocationToTreeSitterPoint,
+  treeSitterPointToSourceLocation,
+} from "./tree-sitter-locations";
 import { LanguageInfo, TypeCover } from "./tree-sitter-nodes";
 import { createTreeSitterParser } from "./tree-sitter-setup";
+import { truncateAround } from "./util/truncateCenter";
 
 // Query API:
 //   * https://tree-sitter.github.io/tree-sitter/playground
@@ -20,13 +26,14 @@ import { createTreeSitterParser } from "./tree-sitter-setup";
 export default class SourceParser {
   readonly code: SourceContents;
   private readonly parser: Parser;
+  private _babelParser: BabelParser | null = null;
   public readonly language: LanguageInfo;
 
   private _scopes: StaticScopes | null = null;
   private _tree: Tree | null = null;
 
   constructor(url: string, code: string, contentType?: ContentType) {
-    this.code = new SourceContents(code);
+    this.code = new SourceContents(url, code);
     this.parser = createTreeSitterParser(url, contentType);
     this.language = new LanguageInfo(this.parser);
   }
@@ -66,7 +73,7 @@ export default class SourceParser {
     }
 
     // 1. Try exact position:
-    const treeSitterPoint = sourceLocationToPoint(locOrNode);
+    const treeSitterPoint = sourceLocationToTreeSitterPoint(locOrNode);
     let node = this.tree.rootNode.descendantForPosition(treeSitterPoint);
 
     if (!node) {
@@ -189,22 +196,46 @@ export default class SourceParser {
   }
 
   /** ###########################################################################
-   * Annotations.
+   * Text + annotations.
    * ##########################################################################*/
 
+  /**
+   * Get the most descriptive text for code at `loc`.
+   * 
+   * TODO: Consider better heuristics, especially as it pertains to locations inside declarations of large nodes, such as:
+   * * function headers,
+   * * if conditions,
+   * * catch arguments
+   * * Statements containing large expressions, e.g. inline functions etc.
+   * and more...
+   */
+  getTruncatedNodeTextAt(loc: SourceLocation): string | null {
+    const node = this.getRelevantContainingNodeAt(loc);
+    if (!node) {
+      return null;
+    }
+    const relativeIndex = this.code.getRelativeIndex(
+      loc,
+      treeSitterPointToSourceLocation(node.startPosition)
+    );
+    return truncateAround(node.text, relativeIndex);
+  }
+
   getAnnotatedNodeTextAt(loc: SourceLocation, pointAnnotation: String): string | null {
-    const result = this.getRelevantContainingNodeAt(loc);
-    if (!result) {
+    const node = this.getRelevantContainingNodeAt(loc);
+    if (!node) {
       return null;
     }
 
     // Add `pointAnnotation` to `result.text` at `position`.
-    const annotationIndex = this.code.locationToIndex(loc);
-    let text = result.text;
+    const annotationIndex = this.code.getRelativeIndex(
+      loc,
+      treeSitterPointToSourceLocation(node.startPosition)
+    );
+    let text = node.text;
 
-    const start = result.startIndex;
-    const before = text.slice(0, annotationIndex - start);
-    const after = text.slice(annotationIndex - start);
+    const before = text.slice(0, annotationIndex);
+    const after = text.slice(annotationIndex);
 
     return `${before}${pointAnnotation}${after}`;
   }
@@ -222,8 +253,8 @@ export default class SourceParser {
     return {
       name: name || "",
       lines: {
-        start: pointToSourceLocation(functionNode.startPosition).line,
-        end: pointToSourceLocation(functionNode.endPosition).line,
+        start: treeSitterPointToSourceLocation(functionNode.startPosition).line,
+        end: treeSitterPointToSourceLocation(functionNode.endPosition).line,
       },
       params: functionNode.childForFieldName("parameters")?.text || "",
     };
@@ -261,7 +292,9 @@ export default class SourceParser {
     // 2. Only pick the top-level expressions, including unwanted sub-trees.
     expressions = Array.from(
       new Set(
-        expressions.map(e => this.getOutermostExpression(pointToSourceLocation(e.startPosition))!)
+        expressions.map(
+          e => this.getOutermostExpression(treeSitterPointToSourceLocation(e.startPosition))!
+        )
       )
     );
     // 3. Find all nested expressions but cull unwanted sub-trees.
@@ -280,5 +313,34 @@ export default class SourceParser {
       traverse(expr);
     }
     return uniqBy(nodes, n => n.text);
+  }
+
+  /** ###########################################################################
+   * Babel, bindings.
+   * ##########################################################################*/
+
+  get babelParser(): BabelParser {
+    if (!this._babelParser) {
+      this._babelParser = babelParse(this.code);
+    }
+    return this._babelParser;
+  }
+
+  getBindingAt(loc: SourceLocation, expression: string): StaticBinding | null {
+    const binding = this.babelParser.getBindingAt(loc, expression);
+    if (!binding) return null;
+    const bindingNode = binding.identifier;
+    const bindingLoc = this.code.indexToLocation(bindingNode.start!);
+    const bindingStatementText = this.getTruncatedNodeTextAt(bindingLoc) || "";
+    const bindingFunction = this.getFunctionInfoAt(bindingLoc);
+    return {
+      kind: binding.kind,
+      location: {
+        line: bindingLoc.line,
+        url: this.code.url,
+        code: bindingStatementText,
+        functionName: bindingFunction?.name || undefined,
+      },
+    };
   }
 }
