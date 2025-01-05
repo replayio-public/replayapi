@@ -27,6 +27,7 @@ export default class SourceParser {
   readonly code: SourceContents;
   private readonly parser: Parser;
   private _babelParser: BabelParser | null = null;
+  private _babelTriedParse: boolean = false;
   public readonly language: LanguageInfo;
 
   private _scopes: StaticScopes | null = null;
@@ -201,7 +202,7 @@ export default class SourceParser {
 
   /**
    * Get the most descriptive text for code at `loc`.
-   * 
+   *
    * TODO: Consider better heuristics, especially as it pertains to locations inside declarations of large nodes, such as:
    * * function headers,
    * * if conditions,
@@ -319,15 +320,21 @@ export default class SourceParser {
    * Babel, bindings.
    * ##########################################################################*/
 
-  get babelParser(): BabelParser {
+  get babelParser(): BabelParser | null {
     if (!this._babelParser) {
-      this._babelParser = babelParse(this.code);
+      try {
+        this._babelTriedParse = true;
+        this._babelParser = babelParse(this.code);
+      } catch (err: any) {
+        console.error("Failed to parse with babel:", err.stack);
+        this._babelParser = null;
+      }
     }
     return this._babelParser;
   }
 
   getBindingAt(loc: SourceLocation, expression: string): StaticBinding | null {
-    const binding = this.babelParser.getBindingAt(loc, expression);
+    const binding = this.babelParser?.getBindingAt(loc, expression);
     if (!binding) return null;
     const bindingNode = binding.identifier;
     const bindingLoc = this.code.indexToLocation(bindingNode.start!);
