@@ -10,10 +10,10 @@ export type StaticBinding = {
   /**
    * Declaration.
    */
-  declaration: CodeAtLocation;
+  declaration?: CodeAtLocation;
 
   /**
-   * All writes to this binding.
+   * All writes to this binding (if it has any).
    */
-  writes: CodeAtLocation[];
+  writes?: CodeAtLocation[];
 };

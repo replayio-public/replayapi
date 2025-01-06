@@ -368,10 +368,15 @@ export default class SourceParser {
     const binding = this.babelParser?.getBindingAt(loc, expression);
     if (!binding) return null;
 
+    let writes = binding.constantViolations.length
+      ? binding.constantViolations.map(v => this.getBabelCodeAtLocation(v.node as BabelNode))
+      : undefined;
     return {
       kind: binding.kind,
-      declaration: this.getBabelCodeAtLocation(binding.identifier),
-      writes: binding.constantViolations.map(v => this.getBabelCodeAtLocation(v.node as BabelNode)),
+      // NOTE: We don't need declaration info for params, since those can be inferred from function and caller info.
+      declaration:
+        binding.kind !== "param" ? this.getBabelCodeAtLocation(binding.identifier) : undefined,
+      writes,
     };
   }
 }

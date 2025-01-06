@@ -61,12 +61,7 @@ describe("getBindingAt", () => {
 
     expect(binding).toBeTruthy();
     expect(binding).toMatchObject({
-      kind: "param", // or "var", depending on the parser
-      declaration: {
-        line: 2,
-        code: expect.stringContaining("function add(a, b)"),
-        functionName: "add",
-      },
+      kind: "param",
     });
   });
 
@@ -176,11 +171,6 @@ describe("getBindingAt", () => {
     expect(binding).toBeTruthy();
     expect(binding).toMatchObject({
       kind: "param",
-      declaration: {
-        line: 2,
-        code: expect.stringContaining("{ a, b }"),
-        functionName: "destructure",
-      },
     });
   });
 

@@ -52,13 +52,13 @@ async function getHardcodeHandler(
       debug(`✅ getHardcodedData ${filePath}`);
       _hardcodeHandlers.set(filePath, result);
     } catch (err: any) {
-      if (err.code === "ENOENT" || err.code === "ERR_MODULE_NOT_FOUND") {
+      if (err.code === "ENOENT" || err.code?.includes("MODULE_NOT_FOUND")) {
         // Data is not hardcoded.
         debug(`❌ getHardcodedData ${filePath}`);
         _hardcodeHandlers.set(filePath, (result = {}));
       } else {
         throw new NestedError(
-          `readAllHardcodedData failed for recordingId=${recordingId}, name=${name}, inputString=${inputString}`,
+          `readAllHardcodedData failed (${err.code}) for recordingId=${recordingId}, name=${name}, inputString=${inputString}`,
           err
         );
       }

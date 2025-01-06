@@ -9,6 +9,7 @@ import {
 } from "@replayio/protocol";
 import StaticScope from "@replayio/source-parser/src/bindings/StaticScope";
 import SourceParser from "@replayio/source-parser/src/SourceParser";
+import { StaticBinding } from "@replayio/source-parser/src/StaticBindings";
 import createDebug from "debug";
 import groupBy from "lodash/groupBy";
 import isEmpty from "lodash/isEmpty";
@@ -60,6 +61,7 @@ export interface DataFlowOrigin {
 }
 
 export interface ExpressionDataFlowResult {
+  staticBinding?: StaticBinding;
   origins: DataFlowOrigin[];
 }
 
@@ -70,9 +72,8 @@ export interface SimpleValuePreview {
 
 export type SimpleValuePreviewResult = SimpleValuePreview | null;
 
-export interface ExpressionAnalysisResult extends SimpleValuePreview {
+export interface ExpressionAnalysisResult extends SimpleValuePreview, ExpressionDataFlowResult {
   expression: string;
-  origins: DataFlowOrigin[];
 }
 
 export interface InspectPointResult {
@@ -255,7 +256,7 @@ export default class PointQueries {
     } else {
       // TODO: Also stub out nested repeated expressions.
       return {
-        value: "(already previewed)",
+        value: "<ALREADY_PREVIEWED/>",
       };
     }
     return res;
@@ -304,10 +305,12 @@ export default class PointQueries {
     expression: string,
     backendDataFlowResult: BackendDataFlowAnalysisResult
   ): Promise<ExpressionDataFlowResult> {
+    const [thisLocation, parser] = await Promise.all([
+      this.getSourceLocation(),
+      this.parseSource(),
+    ]);
 
     // TODO:
-    // 1. Start w/ `StaticBinding`s.
-    //    * Add the point look-up algorithm, and add intermediate references to origins.
     // 2a. Add dynamic origin data from backend:
     //    * Creation site of object (referential data type).
     //    * Last prop assignment.
@@ -315,7 +318,6 @@ export default class PointQueries {
     // 3. Look up hardcoded origin data (if not dup?).
     //    * TODO: What if there is no point associated with the data?
     //    * TODO: Automatically stub-out hardcoded data if it has no entry yet (if some env var is set).
-
 
     // 1. Get data flow points from backend data flow results, and/or hardcoded overrides.
     let res = await wrapAsyncWithHardcodedData(
@@ -337,6 +339,7 @@ export default class PointQueries {
 
     // 2. Try to guess missing `location`s.
     return {
+      staticBinding: parser.getBindingAt(thisLocation, expression) || undefined,
       origins: (
         await Promise.all(
           (res.origins || []).map<Promise<DataFlowOrigin | null>>(
@@ -365,10 +368,11 @@ export default class PointQueries {
   /**
    * Preview and trace the data flow of the value held by `expression`.
    */
-  private async queryExpressionInfo(
+  async queryExpressionInfo(
     expression: string,
-    rawDataFlowResult: BackendDataFlowAnalysisResult
+    rawDataFlowResult?: BackendDataFlowAnalysisResult
   ): Promise<ExpressionAnalysisResult> {
+    rawDataFlowResult ||= await this.runDataFlowAnalysis();
     const [valuePreview, dataFlow]: [SimpleValuePreviewResult, ExpressionDataFlowResult] =
       await Promise.all([
         this.makeValuePreview(expression),
@@ -379,7 +383,7 @@ export default class PointQueries {
       expression,
       value: valuePreview?.value || undefined,
       type: valuePreview?.type || undefined,
-      origins: dataFlow.origins || [],
+      ...dataFlow,
     };
   }
 
@@ -393,7 +397,12 @@ export default class PointQueries {
       analysisInput.spec.depth = depth;
     }
 
-    return await runAnalysis<ExecutionDataAnalysisResult>(this.session, analysisInput);
+    try {
+      return await runAnalysis<ExecutionDataAnalysisResult>(this.session, analysisInput);
+    } catch (err: any) {
+      console.error(`PointQueries.runExecutionPointAnalysis FAILED - ${err.stack}`);
+      return { points: [] };
+    }
   }
 
   async runDataFlowAnalysis(): Promise<BackendDataFlowAnalysisResult> {
@@ -497,8 +506,7 @@ export default class PointQueries {
   }
 
   async inspectData(expression: string): Promise<InspectDataResult> {
-    const dataFlowResult = await this.runDataFlowAnalysis();
-    const expressionInfo = await this.queryExpressionInfo(expression, dataFlowResult);
+    const expressionInfo = await this.queryExpressionInfo(expression);
     const pointData = await this.inspectPoint();
 
     return {

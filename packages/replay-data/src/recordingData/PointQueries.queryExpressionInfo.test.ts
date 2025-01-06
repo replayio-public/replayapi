@@ -24,11 +24,39 @@ const PointExpectations: TestData[] = [
     expected: {
       get value() {
         return {
+          expression: "itemData",
           // NOTE: The stringifier util calls JSON.stringify on string values.
-          type: 'object',
+          type: "object",
           value: expect.stringMatching(
             /rules.*?declarations.*?selector.*?getUniqueSelector.*?length/s
           ),
+          staticBinding: {
+            kind: "const",
+            declaration: expect.objectContaining({
+              code: expect.stringMatching(/const itemData = useMemo/),
+              line: 27,
+            }),
+          },
+          origins: [], // TODO
+        };
+      },
+    },
+  },
+  {
+    query: {
+      point: "78858008544042601258383216576823300",
+      expression: "inheritedSource",
+    },
+    expected: {
+      get value() {
+        return {
+          expression: "inheritedSource",
+          type: "string",
+          value: "\"Inherited from iframe\"",
+          staticBinding: {
+            kind: "param",
+          },
+          origins: [], // TODO
         };
       },
     },
@@ -44,19 +72,8 @@ describe("PointQueries values", () => {
     "queryStatement for point %s",
     async ({ query: { point, expression }, expected }) => {
       const pq = await session.queryPoint(point);
-      const result = await pq.makeValuePreview(expression);
+      const result = await pq.queryExpressionInfo(expression);
       expect(result).toEqual(expected.value);
-
-      // TODO: expect on dataFlow data
-      // const dataFlow = await pq.runDataFlowAnalysis();
-      // expect(dataFlow.variablePointsByName["itemData"]).toEqual([
-      //   {
-      //     value: TODO,
-      //     contents: TODO,
-      //     associatedPoint: TODO,
-      //     associatedLocation: TODO,
-      //   },
-      // ]);
     }
   );
 });
