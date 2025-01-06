@@ -36,7 +36,7 @@ describe("getBindingAt", () => {
     expect(binding).toBeTruthy(); // or not.toBeNull()
     expect(binding).toMatchObject({
       kind: "const",
-      location: {
+      declaration: {
         line: 3,
         code: expect.stringContaining("const y = 10;"),
         // It's top-level, so no functionName here
@@ -62,7 +62,7 @@ describe("getBindingAt", () => {
     expect(binding).toBeTruthy();
     expect(binding).toMatchObject({
       kind: "param", // or "var", depending on the parser
-      location: {
+      declaration: {
         line: 2,
         code: expect.stringContaining("function add(a, b)"),
         functionName: "add",
@@ -91,7 +91,7 @@ describe("getBindingAt", () => {
     expect(binding).toBeTruthy();
     expect(binding).toMatchObject({
       kind: "const",
-      location: {
+      declaration: {
         line: 4,
         code: expect.stringContaining("const z = 123;"),
         functionName: "inner",
@@ -137,7 +137,7 @@ describe("getBindingAt", () => {
     expect(bindingInner).toBeTruthy();
     expect(bindingInner).toMatchObject({
       kind: "let",
-      location: {
+      declaration: {
         line: 5,
         code: expect.stringContaining(`let x = "inner"`),
         // If your parser tracks functionName for block scopes, you might omit it or set it accordingly
@@ -150,7 +150,7 @@ describe("getBindingAt", () => {
     expect(bindingOuter).toBeTruthy();
     expect(bindingOuter).toMatchObject({
       kind: "let",
-      location: {
+      declaration: {
         line: 3,
         code: expect.stringContaining(`let x = "outer"`),
       },
@@ -176,7 +176,7 @@ describe("getBindingAt", () => {
     expect(binding).toBeTruthy();
     expect(binding).toMatchObject({
       kind: "param",
-      location: {
+      declaration: {
         line: 2,
         code: expect.stringContaining("{ a, b }"),
         functionName: "destructure",
@@ -202,7 +202,7 @@ describe("getBindingAt", () => {
     expect(binding).toBeTruthy();
     expect(binding).toMatchObject({
       kind: "const",
-      location: {
+      declaration: {
         line: 2,
         code: "const [{ x }, y] = [{ x: 10 }, 20];",
       },
@@ -214,7 +214,7 @@ describe("getBindingAt", () => {
     expect(binding).toBeTruthy();
     expect(binding).toMatchObject({
       kind: "const",
-      location: {
+      declaration: {
         line: 5,
         code: expect.stringContaining("{ foo, bar } ="),
       },
@@ -241,7 +241,7 @@ describe("getBindingAt", () => {
     expect(binding).toBeTruthy();
     expect(binding).toMatchObject({
       kind: "module",
-      location: {
+      declaration: {
         line: 2,
         code: expect.stringContaining("import { greet } from"),
       },
@@ -254,10 +254,42 @@ describe("getBindingAt", () => {
     // Typically an exported const is still "const"
     expect(binding).toMatchObject({
       kind: "const",
-      location: {
+      declaration: {
         line: 5,
         code: "const someValue = 123;",
       },
+    });
+  });
+
+  // Test multi assignments to the same binding
+  test("resolves a binding with multiple assignments", () => {
+    const code = `
+      let x = 10;
+      function nested() {
+        let x = 100;
+        x = 200;
+        console.log(x);
+      }
+      x = 20;
+      console.log(x);
+    `;
+
+    const parser = new SourceParser("test.ts", code);
+    parser.parse();
+
+    // Get binding from `console.log(x);`
+    const loc = { line: 9, column: 18 };
+    expect(parser.getInnermostExpression(loc)?.text).toBe("x");
+    const binding = parser.getBindingAt(loc, "x");
+
+    expect(binding).toBeTruthy();
+    expect(binding).toMatchObject({
+      kind: "let",
+      declaration: {
+        line: 2,
+        code: expect.stringContaining("x = 10;"),
+      },
+      writes: [expect.objectContaining({ line: 8, code: "x = 20;" })],
     });
   });
 });

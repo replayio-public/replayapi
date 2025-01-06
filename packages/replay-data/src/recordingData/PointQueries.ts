@@ -60,7 +60,7 @@ export interface DataFlowOrigin {
 }
 
 export interface ExpressionDataFlowResult {
-  origins?: DataFlowOrigin[];
+  origins: DataFlowOrigin[];
 }
 
 export interface SimpleValuePreview {
@@ -178,7 +178,7 @@ export default class PointQueries {
   }
 
   /** ###########################################################################
-   * High-level Queries.
+   * Other high-level Queries.
    * ##########################################################################*/
 
   async shouldIncludeThisPoint(): Promise<boolean> {
@@ -195,7 +195,10 @@ export default class PointQueries {
       this.parseSource(),
     ]);
 
-    const [statementCode, startLoc] = parser.getAnnotatedNodeTextAt(thisLocation, POINT_ANNOTATION) || ["", thisLocation];
+    const [statementCode, startLoc] = parser.getAnnotatedNodeTextAt(
+      thisLocation,
+      POINT_ANNOTATION
+    ) || ["", thisLocation];
     const functionInfo = parser.getFunctionInfoAt(startLoc);
 
     if (!thisLocation.url) {
@@ -226,6 +229,10 @@ export default class PointQueries {
   async queryStackAndEvents(): Promise<[boolean, RichStackFrame[]]> {
     return await this.dg.getNormalizedStackAndEventsAtPoint(this);
   }
+
+  /** ###########################################################################
+   * Value Queries.
+   * ##########################################################################*/
 
   async protocolValueToText(value: ProtocolValue | ProtocolNamedValue): Promise<string | null> {
     try {
@@ -289,18 +296,35 @@ export default class PointQueries {
     };
   }
 
+  /** ###########################################################################
+   * ExecutionPoint + Data Flow Queries.
+   * ##########################################################################*/
+
   private async queryDataFlow(
     expression: string,
-    dataFlowResult: BackendDataFlowAnalysisResult
-  ): Promise<DataFlowOrigin[]> {
-    // 1. Get data flow points from backend data flow result.
+    backendDataFlowResult: BackendDataFlowAnalysisResult
+  ): Promise<ExpressionDataFlowResult> {
+
+    // TODO:
+    // 1. Start w/ `StaticBinding`s.
+    //    * Add the point look-up algorithm, and add intermediate references to origins.
+    // 2a. Add dynamic origin data from backend:
+    //    * Creation site of object (referential data type).
+    //    * Last prop assignment.
+    // 2b. If backend request failed, add hardcoded origin data.
+    // 3. Look up hardcoded origin data (if not dup?).
+    //    * TODO: What if there is no point associated with the data?
+    //    * TODO: Automatically stub-out hardcoded data if it has no entry yet (if some env var is set).
+
+
+    // 1. Get data flow points from backend data flow results, and/or hardcoded overrides.
     let res = await wrapAsyncWithHardcodedData(
       this.session.getRecordingId()!,
       "dataFlowPoints",
       { expression, point: this.point },
       async ({ expression }): Promise<ExpressionDataFlowResult | undefined> => {
         let dataFlowPoints =
-          dataFlowResult.variablePointsByName[expression]
+          backendDataFlowResult.variablePointsByName[expression]
             ?.filter(p => !!p.associatedPoint)
             .map(p => p.associatedPoint!) || [];
         dataFlowPoints = sortBy(dataFlowPoints, p => BigInt(p), "desc");
@@ -311,29 +335,31 @@ export default class PointQueries {
       }
     );
 
-    // 2. Try to guess all missing data points.
-    return (
-      await Promise.all(
-        (res.origins || []).map<Promise<DataFlowOrigin | null>>(
-          async ({ point, location, ...other }) => {
-            if (!location) {
-              if (!point) {
-                return isEmpty(other) ? null : other;
-              }
+    // 2. Try to guess missing `location`s.
+    return {
+      origins: (
+        await Promise.all(
+          (res.origins || []).map<Promise<DataFlowOrigin | null>>(
+            async ({ point, location, ...other }) => {
+              if (!location) {
+                if (!point) {
+                  return isEmpty(other) ? null : other;
+                }
 
-              // Look up location if not provided already.
-              const pointQuery = await this.session.queryPoint(point);
-              location = await pointQuery.queryCodeAndLocation();
+                // Look up location if not provided already.
+                const pointQuery = await this.session.queryPoint(point);
+                location = await pointQuery.queryCodeAndLocation();
+              }
+              return {
+                point,
+                location: location!,
+                ...other,
+              } as DataFlowOrigin;
             }
-            return {
-              point,
-              location: location!,
-              ...other,
-            } as DataFlowOrigin;
-          }
+          )
         )
-      )
-    ).filter(x => !!x);
+      ).filter(x => !!x),
+    };
   }
 
   /**
@@ -341,17 +367,19 @@ export default class PointQueries {
    */
   private async queryExpressionInfo(
     expression: string,
-    dataFlowResult: BackendDataFlowAnalysisResult
+    rawDataFlowResult: BackendDataFlowAnalysisResult
   ): Promise<ExpressionAnalysisResult> {
-    const [valuePreview, origins]: [SimpleValuePreviewResult, DataFlowOrigin[]] = await Promise.all(
-      [this.makeValuePreview(expression), this.queryDataFlow(expression, dataFlowResult)]
-    );
+    const [valuePreview, dataFlow]: [SimpleValuePreviewResult, ExpressionDataFlowResult] =
+      await Promise.all([
+        this.makeValuePreview(expression),
+        this.queryDataFlow(expression, rawDataFlowResult),
+      ]);
 
     return {
       expression,
       value: valuePreview?.value || undefined,
       type: valuePreview?.type || undefined,
-      origins,
+      origins: dataFlow.origins || [],
     };
   }
 
@@ -378,6 +406,10 @@ export default class PointQueries {
       ),
     };
   }
+
+  /** ###########################################################################
+   * Input Dependencies Queries.
+   * ##########################################################################*/
 
   async queryInputDependencies(): Promise<InputDependency[]> {
     const [thisLocation, parser] = await Promise.all([
@@ -440,7 +472,7 @@ export default class PointQueries {
   }
 
   /** ###########################################################################
-   * Inspection queries.
+   * High-level inspect* queries.
    * ##########################################################################*/
 
   async inspectPoint(): Promise<InspectPointResult> {

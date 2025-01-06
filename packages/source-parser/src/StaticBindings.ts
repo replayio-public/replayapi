@@ -7,5 +7,13 @@ export type StaticBinding = {
    */
   kind: string;
 
-  location: CodeAtLocation;
+  /**
+   * Declaration.
+   */
+  declaration: CodeAtLocation;
+
+  /**
+   * All writes to this binding.
+   */
+  writes: CodeAtLocation[];
 };

@@ -21,6 +21,8 @@ import { LanguageInfo, TypeCover } from "./tree-sitter-nodes";
 import { createTreeSitterParser } from "./tree-sitter-setup";
 import { truncateAround } from "./util/truncateCenter";
 
+const FailBabelParseSilently = process.env.NODE_ENV === "production";
+
 // Query API:
 //   * https://tree-sitter.github.io/tree-sitter/playground
 //   * https://tree-sitter.github.io/tree-sitter/using-parsers#pattern-matching-with-queries
@@ -28,7 +30,7 @@ export default class SourceParser {
   readonly code: SourceContents;
   private readonly parser: Parser;
   private _babelParser: BabelParser | null = null;
-  private _babelTriedParse: boolean = false;
+  private _babelTriedParse = false;
   public readonly language: LanguageInfo;
 
   private _scopes: StaticScopes | null = null;
@@ -233,7 +235,10 @@ export default class SourceParser {
   /**
    * @returns The relevant node text, as well as the node's start location.
    */
-  getAnnotatedNodeTextAt(loc: SourceLocation, pointAnnotation: String): [string, SourceLocation] | null {
+  getAnnotatedNodeTextAt(
+    loc: SourceLocation,
+    pointAnnotation: String
+  ): [string, SourceLocation] | null {
     const node = this.getRelevantContainingNodeAt(loc);
     if (!node) {
       return null;
@@ -241,10 +246,7 @@ export default class SourceParser {
 
     // Add `pointAnnotation` to `result.text` at `position`.
     const startLoc = treeSitterPointToSourceLocation(node.startPosition);
-    const annotationIndex = this.code.getRelativeIndex(
-      loc,
-      startLoc
-    );
+    const annotationIndex = this.code.getRelativeIndex(loc, startLoc);
     let text = node.text;
 
     const before = text.slice(0, annotationIndex);
@@ -333,13 +335,17 @@ export default class SourceParser {
    * ##########################################################################*/
 
   get babelParser(): BabelParser | null {
-    if (!this._babelParser) {
+    if (!this._babelTriedParse) {
       try {
         this._babelTriedParse = true;
         this._babelParser = babelParse(this.code);
       } catch (err: any) {
-        console.error("Failed to parse with babel:", err.stack);
-        this._babelParser = null;
+        if (FailBabelParseSilently) {
+          console.error("Failed to parse with babel:", err.stack);
+          this._babelParser = null;
+        } else {
+          throw err;
+        }
       }
     }
     return this._babelParser;
@@ -364,7 +370,8 @@ export default class SourceParser {
 
     return {
       kind: binding.kind,
-      location: this.getBabelCodeAtLocation(binding.identifier),
+      declaration: this.getBabelCodeAtLocation(binding.identifier),
+      writes: binding.constantViolations.map(v => this.getBabelCodeAtLocation(v.node as BabelNode)),
     };
   }
 }
