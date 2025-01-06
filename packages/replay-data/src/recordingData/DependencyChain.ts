@@ -103,11 +103,11 @@ export default class DependencyChain {
         if (!(await p.shouldIncludeThisPoint())) {
           return null;
         }
-        const [code, functionInfo] = await Promise.all([
+        const [code] = await Promise.all([
           p.queryCodeAndLocation(),
-          p.queryFunctionInfo(),
+          // NOTE: queryCodeAndLocation already returns `functionName`.
+          // p.queryFunctionInfo(),
         ]);
-        // TODO: add functionInfo
         return {
           ...f,
           ...code,

@@ -2,7 +2,8 @@
 
 import assert from "assert";
 
-import { PointFunctionInfo } from "@replayio/data/src/recordingData/types";
+import { Node as BabelNode } from "@babel/types";
+import { CodeAtLocation, PointFunctionInfo } from "@replayio/data/src/recordingData/types";
 import { ContentType, SourceLocation } from "@replayio/protocol";
 import uniqBy from "lodash/uniqBy";
 import Parser, { QueryMatch, SyntaxNode, Tree } from "tree-sitter";
@@ -222,23 +223,27 @@ export default class SourceParser {
     return truncateAround(node.text, relativeIndex);
   }
 
-  getAnnotatedNodeTextAt(loc: SourceLocation, pointAnnotation: String): string | null {
+  /**
+   * @returns The relevant node text, as well as the node's start location.
+   */
+  getAnnotatedNodeTextAt(loc: SourceLocation, pointAnnotation: String): [string, SourceLocation] | null {
     const node = this.getRelevantContainingNodeAt(loc);
     if (!node) {
       return null;
     }
 
     // Add `pointAnnotation` to `result.text` at `position`.
+    const startLoc = treeSitterPointToSourceLocation(node.startPosition);
     const annotationIndex = this.code.getRelativeIndex(
       loc,
-      treeSitterPointToSourceLocation(node.startPosition)
+      startLoc
     );
     let text = node.text;
 
     const before = text.slice(0, annotationIndex);
     const after = text.slice(annotationIndex);
 
-    return `${before}${pointAnnotation}${after}`;
+    return [`${before}${pointAnnotation}${after}`, startLoc];
   }
 
   /** ###########################################################################
@@ -333,21 +338,26 @@ export default class SourceParser {
     return this._babelParser;
   }
 
-  getBindingAt(loc: SourceLocation, expression: string): StaticBinding | null {
-    const binding = this.babelParser?.getBindingAt(loc, expression);
-    if (!binding) return null;
-    const bindingNode = binding.identifier;
+  private getBabelCodeAtLocation(bindingNode: BabelNode): CodeAtLocation {
     const bindingLoc = this.code.indexToLocation(bindingNode.start!);
     const bindingStatementText = this.getTruncatedNodeTextAt(bindingLoc) || "";
     const bindingFunction = this.getFunctionInfoAt(bindingLoc);
+
+    return {
+      line: bindingLoc.line,
+      url: this.code.url,
+      code: bindingStatementText,
+      functionName: bindingFunction?.name,
+    };
+  }
+
+  getBindingAt(loc: SourceLocation, expression: string): StaticBinding | null {
+    const binding = this.babelParser?.getBindingAt(loc, expression);
+    if (!binding) return null;
+
     return {
       kind: binding.kind,
-      location: {
-        line: bindingLoc.line,
-        url: this.code.url,
-        code: bindingStatementText,
-        functionName: bindingFunction?.name || undefined,
-      },
+      location: this.getBabelCodeAtLocation(binding.identifier),
     };
   }
 }

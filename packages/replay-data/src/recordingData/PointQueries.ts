@@ -195,8 +195,8 @@ export default class PointQueries {
       this.parseSource(),
     ]);
 
-    const statementCode = parser.getAnnotatedNodeTextAt(thisLocation, POINT_ANNOTATION) || "";
-    const functionInfo = parser.getFunctionInfoAt(thisLocation);
+    const [statementCode, startLoc] = parser.getAnnotatedNodeTextAt(thisLocation, POINT_ANNOTATION) || ["", thisLocation];
+    const functionInfo = parser.getFunctionInfoAt(startLoc);
 
     if (!thisLocation.url) {
       console.warn(`[PointQueries] No source url found at point ${this.point}`);

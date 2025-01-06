@@ -10,3 +10,4 @@ export interface BabelPosition {
   column: number;
   index: number;
 }
+

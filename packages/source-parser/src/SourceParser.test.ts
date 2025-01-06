@@ -15,20 +15,20 @@ describe("Node extraction", () => {
     // Test innermost statement
     const innermostStmt = parser.getInnermostStatement({ line: 2, column: 4 });
     expect(innermostStmt?.text).toBe('return f(x, g("hello123qweSdfjnlsdfksjdnlsdgndf", 123));');
-    const annotatedTextAtReturn = parser.getAnnotatedNodeTextAt(
+    const [annotatedTextAtReturn] = parser.getAnnotatedNodeTextAt(
       { line: 2, column: 4 },
       "/*BREAK*/"
-    );
+    )!;
     expect(annotatedTextAtReturn).toContain("/*BREAK*/return");
 
     // Test outermost expression
     const outermostExpr = parser.getOutermostExpression({ line: 2, column: 30 });
     expect(outermostExpr?.text).toBe('f(x, g("hello123qweSdfjnlsdfksjdnlsdgndf", 123))');
 
-    const annotatedTextAtExpression = parser.getAnnotatedNodeTextAt(
+    const [annotatedTextAtExpression] = parser.getAnnotatedNodeTextAt(
       { line: 2, column: 30 },
       "/*BREAK*/"
-    );
+    )!;
     expect(annotatedTextAtExpression).toContain("qwe/*BREAK*/Sdf");
   });
 
@@ -42,10 +42,10 @@ describe("Node extraction", () => {
     const s = parser.getRelevantContainingNodeAt({ line: 55, column: 12 });
     expect(s?.text).toEqual("return wiredRules;");
 
-    const annotatedTextAtExpression = parser.getAnnotatedNodeTextAt(
+    const [annotatedTextAtExpression] = parser.getAnnotatedNodeTextAt(
       { line: 55, column: 11 },
       "/*BREAK*/"
-    );
+    )!;
     expect(annotatedTextAtExpression).toEqual("return /*BREAK*/wiredRules;");
   });
 });
