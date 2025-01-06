@@ -356,7 +356,7 @@ export default class PointQueries {
   }
 
   async runExecutionPointAnalysis(depth?: number): Promise<ExecutionDataAnalysisResult> {
-    debug(`run ExecutionPoint analysis...`);
+    debug(`run ExecutionPoint analysis (${depth})...`);
     const analysisInput: AnalysisInput = {
       analysisType: AnalysisType.ExecutionPoint,
       spec: { recordingId: this.session.getRecordingId()!, point: this.point },
@@ -369,7 +369,7 @@ export default class PointQueries {
   }
 
   async runDataFlowAnalysis(): Promise<BackendDataFlowAnalysisResult> {
-    const analysisResults = await this.runExecutionPointAnalysis(0);
+    const analysisResults = await this.runExecutionPointAnalysis();
     const { points } = analysisResults;
     return {
       variablePointsByName: groupBy<ExecutionDataEntry>(
