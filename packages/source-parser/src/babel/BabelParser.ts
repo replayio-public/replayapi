@@ -66,7 +66,7 @@ export class BabelParser {
     let { scope } = path;
     let lastScope = scope;
 
-    while (scope && (binding = scope.getBinding(name) || null) 
+    while (scope && (binding = scope.getBinding(name) || null) && !binding
       // NOTEs:
       // * We cannot perform the `isBound` check since we don't necessarily have an exact `identifier` path.
       // * But omitting the check might lead to false positives, e.g. in case of nested vars.

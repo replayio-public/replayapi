@@ -110,6 +110,13 @@ export default class SourceParser {
     return this.getNodeAt(locOrNode, n => type.has(n.type));
   }
 
+  /**
+   * Start at `loc` and find the first AST node containing it, whose type matches the regex.
+   */
+  getInnermostExpression(locOrNode: SyntaxNode | SourceLocation): SyntaxNode | null {
+    return this.getInnermostNodeAt(locOrNode, this.language.expression);
+  }
+
   getInnermostFunction(loc: SourceLocation): SyntaxNode | null {
     return this.getInnermostNodeAt(loc, this.language.function);
   }
