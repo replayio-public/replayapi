@@ -1,6 +1,7 @@
 /* Copyright 2020-2024 Record Replay Inc. */
 
 import {
+  Result as EvaluationResult,
   ExecutionPoint,
   Frame,
   PauseId,
@@ -19,6 +20,7 @@ import protocolValueToText from "replay-next/components/inspector/protocolValueT
 import { framesCache } from "replay-next/src/suspense/FrameCache";
 import { pointStackCache } from "replay-next/src/suspense/PointStackCache";
 import { FrameScopes, frameScopesCache } from "replay-next/src/suspense/ScopeCache";
+import { evaluate } from "replay-next/src/utils/evaluate";
 
 import { AnalysisType } from "../analysis/dependencyGraphShared";
 import { AnalysisInput } from "../analysis/dgSpecs";
@@ -27,7 +29,7 @@ import { ExecutionDataAnalysisResult, ExecutionDataEntry } from "../analysis/spe
 import { BigIntToPoint, ExecutionPointInfo } from "../util/points";
 import DynamicScope from "./bindings/DynamicScope";
 import DependencyChain, { RichStackFrame } from "./DependencyChain";
-import { wrapAsyncWithHardcodedData } from "./hardcodedResults";
+import { forceLookupHardcodedData, wrapAsyncWithHardcodedData } from "./hardcodedResults";
 import ReplaySession from "./ReplaySession";
 import {
   CodeAtLocation,
@@ -85,6 +87,11 @@ export interface InspectPointResult {
 }
 
 export type InspectDataResult = InspectPointResult & ExpressionAnalysisResult;
+
+export type EvaluateResult = {
+  exception: EvaluationResult["exception"] | null;
+  returned: EvaluationResult["returned"] | null;
+};
 
 export default class PointQueries {
   readonly session: ReplaySession;
@@ -262,20 +269,34 @@ export default class PointQueries {
     return res;
   }
 
-  private async _makeValuePreview(expression: string): Promise<SimpleValuePreviewResult> {
+  _valueEvals = new Map<string, Promise<EvaluateResult>>();
+
+  async evaluate(expression: string): Promise<EvaluateResult> {
     const frame = await this.thisFrame();
     const frameId = frame.frameId;
     const pauseId = this.pauseId;
-    const valueEval = await this.session.evaluateExpression(pauseId, expression, frameId);
+    let res = this._valueEvals.get(expression);
+    if (!res) {
+      this._valueEvals.set(
+        expression,
+        (res = evaluate({ replayClient: this.session, pauseId, text: expression, frameId }))
+      );
+    }
+    return res;
+  }
+
+  async isValueReferenceType(expression: string): Promise<boolean> {
+    const typeEval = await this.evaluate(expression);
+    return !!typeEval?.returned?.object;
+  }
+
+  private async _makeValuePreview(expression: string): Promise<SimpleValuePreviewResult> {
+    const valueEval = await this.evaluate(expression);
     const { returned: value, exception } = valueEval;
     let valuePreview: string | null = null;
     let typePreview: string | null = null;
     if (value) {
-      const typeEval = await this.session.evaluateExpression(
-        pauseId,
-        `${compileGetTypeName(expression)}`,
-        frameId
-      );
+      const typeEval = await this.evaluate(`${compileGetTypeName(expression)}`);
       [valuePreview, typePreview] = await Promise.all([
         this.protocolValueToText(value),
         (typeEval?.returned &&
@@ -285,11 +306,13 @@ export default class PointQueries {
           null,
       ]);
     } else if (exception) {
+      // TODO: There is something wrong with protocolValueToText.
+      // debug(`_makeValuePreview(${expression}) FAILED - ${await this.protocolValueToText(exception)}`);
       // valuePreview = `(COULD NOT EVALUATE: ${await this.protocolValueToText(exception)})`;
       // TODO: Better error handling.
       return null;
     } else {
-      valuePreview = "(COULD NOT EVALUATE)";
+      valuePreview = "<COULD_NOT_EVALUATE/>";
     }
     return {
       value: valuePreview || undefined,
@@ -310,15 +333,6 @@ export default class PointQueries {
       this.parseSource(),
     ]);
 
-    // TODO:
-    // 2a. Add dynamic origin data from backend:
-    //    * Creation site of object (referential data type).
-    //    * Last prop assignment.
-    // 2b. If backend request failed, add hardcoded origin data.
-    // 3. Look up hardcoded origin data (if not dup?).
-    //    * TODO: What if there is no point associated with the data?
-    //    * TODO: Automatically stub-out hardcoded data if it has no entry yet (if some env var is set).
-
     // 1. Get data flow points from backend data flow results, and/or hardcoded overrides.
     let res = await wrapAsyncWithHardcodedData(
       this.session.getRecordingId()!,
@@ -337,7 +351,23 @@ export default class PointQueries {
       }
     );
 
-    // 2. Try to guess missing `location`s.
+    // 2. Look up hardcoded object creation site when isValueReferenceType, but `origins` is empty.
+    if ((await this.isValueReferenceType(expression)) && !res.origins?.length) {
+      const hardcodedCreationSite = await forceLookupHardcodedData(
+        this.session.getRecordingId()!,
+        "objectCreationSite",
+        { expression, point: this.point }
+      );
+      if (isEmpty(hardcodedCreationSite)) {
+        console.error(
+          `❌ [REPLAY_DATA_MISSING] Hardcoded for expression "${expression}" (POINT=${this.point}) missing.`
+        );
+      } else {
+        res = { ...res, origins: [hardcodedCreationSite] };
+      }
+    }
+
+    // 3. Try to guess missing `location`s.
     return {
       staticBinding: parser.getBindingAt(thisLocation, expression) || undefined,
       origins: (
@@ -381,8 +411,7 @@ export default class PointQueries {
 
     return {
       expression,
-      value: valuePreview?.value || undefined,
-      type: valuePreview?.type || undefined,
+      ...valuePreview,
       ...dataFlow,
     };
   }

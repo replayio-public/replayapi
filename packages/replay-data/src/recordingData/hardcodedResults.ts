@@ -1,3 +1,4 @@
+import fs from "fs/promises";
 import path from "path";
 
 import { RecordingId } from "@replayio/protocol";
@@ -33,7 +34,8 @@ function getHardcodedPath(recordingId: RecordingId, name: string, inputString: s
 async function getHardcodeHandler(
   recordingId: RecordingId,
   name: string,
-  inputString: string | null
+  inputString: string | null,
+  force: boolean
 ): Promise<HardcodeHandlerOrResult> {
   const filePath = getHardcodedPath(recordingId, name, inputString);
   let result = _hardcodeHandlers.get(filePath);
@@ -54,7 +56,17 @@ async function getHardcodeHandler(
     } catch (err: any) {
       if (err.code === "ENOENT" || err.code?.includes("MODULE_NOT_FOUND")) {
         // Data is not hardcoded.
-        debug(`❌ getHardcodedData ${filePath}`);
+        if (force) {
+          // Data should exist.
+          // Create a stub file.
+          await fs.mkdir(path.dirname(filePath), { recursive: true });
+          await fs.writeFile(filePath, "export default {};", { mode: 0o666 });
+          console.error(
+            `❌ [REPLAY_DATA_MISSING] Hardcoded data not found for "${filePath}". Created stub.`
+          );
+        } else {
+          debug(`❌ getHardcodedData ${filePath}`);
+        }
         _hardcodeHandlers.set(filePath, (result = {}));
       } else {
         throw new NestedError(
@@ -79,14 +91,23 @@ function checkHardcodedResult(
   }
 }
 
+export async function forceLookupHardcodedData(
+  recordingId: RecordingId,
+  name: string,
+  input: AnyInput | null
+): Promise<AnyResult> {
+  return lookupHardcodedData(recordingId, name, input, undefined, true);
+}
+
 async function lookupHardcodedData(
   recordingId: RecordingId,
   name: string,
   input: AnyInput | null,
-  existingResult: HardcodedResult | undefined
+  existingResult?: HardcodedResult,
+  force?: boolean
 ): Promise<AnyResult> {
   const inputString = input ? deterministicObjectHash(input) : null;
-  const hardcodeResultOrHandler = await getHardcodeHandler(recordingId, name, inputString);
+  const hardcodeResultOrHandler = await getHardcodeHandler(recordingId, name, inputString, !!force);
 
   let res: AnyResult;
   if (hardcodeResultOrHandler instanceof Function) {
