@@ -58,6 +58,7 @@ export interface CodeAtPoint extends CodeAtLocation {
 
 export interface DataFlowOrigin {
   point?: ExecutionPoint;
+  kind?: string;
   location?: CodeAtLocation;
   explanation?: string;
 }
