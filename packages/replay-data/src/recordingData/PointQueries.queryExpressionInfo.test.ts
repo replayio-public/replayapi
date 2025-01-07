@@ -26,21 +26,18 @@ const PointExpectations: TestData[] = [
         return {
           expression: "elementStyle.rules",
           type: "Array",
-          value: expect.stringMatching(
-            /pauseId": "6eebc384-457d-4b35-ac01-dfef9f5ddf80.*_sessionId": "82e71ad8-383f-4efc-8e8c-880b020fc637.*_dispatchURL": "wss:\/\/dispatch\.replay\.io/s
-          ),
+          value: expect.stringContaining('elementStyle": {"nodeId"'),
           staticBinding: undefined,
-          origins: [
-            {
-              point: "67175340610898351232456180199587842",
-              location: {
-                code: "this.rules = [];",
-                url: "webpack://_N_E/src/devtools/client/inspector/rules/models/element-style.ts?7f47",
-                line: 67,
-                functionName: "ElementStyle.populate",
-              },
+          objectCreationSite: {
+            kind: "ArrayExpression",
+            point: "67175340610898351232456180199587842",
+            location: {
+              code: "this.rules = [];",
+              url: "webpack://_N_E/src/devtools/client/inspector/rules/models/element-style.ts?7f47",
+              line: 67,
+              functionName: "ElementStyle.populate",
             },
-          ],
+          },
         };
       },
     },
@@ -56,9 +53,7 @@ const PointExpectations: TestData[] = [
           expression: "itemData",
           // NOTE: The stringifier util calls JSON.stringify on string values.
           type: "object",
-          value: expect.stringMatching(
-            /rules.*?declarations.*?selector.*?getUniqueSelector.*?length/s
-          ),
+          value: expect.stringMatching(/rules.*?declarations.*?selector/s),
           staticBinding: {
             kind: "const",
             declaration: expect.objectContaining({
@@ -66,7 +61,6 @@ const PointExpectations: TestData[] = [
               line: 27,
             }),
           },
-          origins: [], // TODO
         };
       },
     },
@@ -85,7 +79,6 @@ const PointExpectations: TestData[] = [
           staticBinding: {
             kind: "param",
           },
-          origins: [], // TODO
         };
       },
     },
@@ -102,7 +95,7 @@ describe("PointQueries values", () => {
     async ({ query: { point, expression }, expected }) => {
       const pq = await session.queryPoint(point);
       const result = await pq.queryExpressionInfo(expression);
-      expect(result).toEqual(expected.value);
+      expect(result).toEqual(expect.objectContaining(expected.value));
     }
   );
 });

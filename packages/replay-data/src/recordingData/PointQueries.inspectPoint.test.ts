@@ -31,7 +31,6 @@ const PointExpectations: Record<ExecutionPoint, InspectPointResult> = {
         staticBinding: {
           kind: "param",
         },
-        origins: [],
       },
       {
         expression: "style",
@@ -41,7 +40,6 @@ const PointExpectations: Record<ExecutionPoint, InspectPointResult> = {
         staticBinding: {
           kind: "param",
         },
-        origins: [],
       },
       {
         expression: "inheritedSource",
@@ -50,7 +48,6 @@ const PointExpectations: Record<ExecutionPoint, InspectPointResult> = {
         staticBinding: {
           kind: "param",
         },
-        origins: [],
       },
     ],
     stackAndEvents: [

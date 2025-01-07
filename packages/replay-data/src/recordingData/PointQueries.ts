@@ -65,7 +65,8 @@ export interface DataFlowOrigin {
 
 export interface ExpressionDataFlowResult {
   staticBinding?: StaticBinding;
-  origins: DataFlowOrigin[];
+  origins?: DataFlowOrigin[];
+  objectCreationSite?: DataFlowOrigin;
 }
 
 export interface SimpleValuePreview {
@@ -364,35 +365,38 @@ export default class PointQueries {
           `❌ [REPLAY_DATA_MISSING] Hardcoded for expression "${expression}" (POINT=${this.point}) missing.`
         );
       } else {
-        res = { ...res, origins: [hardcodedCreationSite] };
+        res = { ...res, objectCreationSite: hardcodedCreationSite };
       }
     }
+
+    const origins = (
+      await Promise.all(
+        (res.origins || []).map<Promise<DataFlowOrigin | null>>(
+          async ({ point, location, ...other }) => {
+            if (!location) {
+              if (!point) {
+                return isEmpty(other) ? null : other;
+              }
+
+              // Look up location if not provided already.
+              const pointQuery = await this.session.queryPoint(point);
+              location = await pointQuery.queryCodeAndLocation();
+            }
+            return {
+              point,
+              location: location!,
+              ...other,
+            } as DataFlowOrigin;
+          }
+        )
+      )
+    ).filter(x => !!x);
 
     // 3. Try to guess missing `location`s.
     return {
       staticBinding: parser.getBindingAt(thisLocation, expression) || undefined,
-      origins: (
-        await Promise.all(
-          (res.origins || []).map<Promise<DataFlowOrigin | null>>(
-            async ({ point, location, ...other }) => {
-              if (!location) {
-                if (!point) {
-                  return isEmpty(other) ? null : other;
-                }
-
-                // Look up location if not provided already.
-                const pointQuery = await this.session.queryPoint(point);
-                location = await pointQuery.queryCodeAndLocation();
-              }
-              return {
-                point,
-                location: location!,
-                ...other,
-              } as DataFlowOrigin;
-            }
-          )
-        )
-      ).filter(x => !!x),
+      objectCreationSite: res.objectCreationSite,
+      origins: origins.length ? origins : undefined,
     };
   }
 
