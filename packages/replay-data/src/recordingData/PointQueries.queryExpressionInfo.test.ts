@@ -97,13 +97,12 @@ describe("PointQueries values", () => {
   beforeAll(async () => {
     session = await getReplaySessionForTest(RecordingId);
   });
-  test.each(
-    PointExpectations
-      // TODO
-      .slice(0, 1)
-  )("queryStatement for point %s", async ({ query: { point, expression }, expected }) => {
-    const pq = await session.queryPoint(point);
-    const result = await pq.queryExpressionInfo(expression);
-    expect(result).toEqual(expected.value);
-  });
+  test.each(PointExpectations)(
+    "queryStatement for point %s",
+    async ({ query: { point, expression }, expected }) => {
+      const pq = await session.queryPoint(point);
+      const result = await pq.queryExpressionInfo(expression);
+      expect(result).toEqual(expected.value);
+    }
+  );
 });

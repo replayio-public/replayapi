@@ -43,7 +43,7 @@ export interface InitialAnalysisResult extends InspectPointResult {
   metadata: AnalysisToolMetadata;
 }
 
-const NewRecordingIds = ["011f1663-6205-4484-b468-5ec471dc5a31"];
+const NewRecordingIds = ["011f1663-6205-4484-b468-5ec471dc5a31", "7dfc5103-8060-4128-a1b6-20d0a56aadcc"];
 function shouldUseLegacyMode(recordingId: string | undefined): boolean {
   if (!recordingId) {
     // If we have no recordingId from the problem description, default to new mode.

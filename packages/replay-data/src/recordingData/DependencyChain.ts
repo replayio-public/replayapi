@@ -17,8 +17,8 @@ import { CodeAtLocation, FrameWithPoint } from "./types";
 
 export const MaxEventChainLength = 10;
 
-const TargetDGEventCodes = ["ReactCreateElement", "PromiseSettled"] as const;
-export type RichStackFrameKind = "sync" | (typeof TargetDGEventCodes)[number];
+const FilteredDGEventCodes = ["ReactCreateElement", "PromiseSettled"] as const;
+export type RichStackFrameKind = "sync" | (typeof FilteredDGEventCodes)[number];
 
 export type RawRichStackFrame = {
   kind: RichStackFrameKind;
@@ -65,7 +65,7 @@ export default class DependencyChain {
       return null;
     }
     return {
-      kind: event.code as (typeof TargetDGEventCodes)[number],
+      kind: event.code as (typeof FilteredDGEventCodes)[number],
       point: event.point,
       // NOTE: Only some events provide the `functionName`.
       functionName: "functionName" in event ? event.functionName : undefined,
@@ -76,7 +76,9 @@ export default class DependencyChain {
    * The "rich stack" is not really a stack, but rather a mix of the synchronous call stack, interleaved with async events,
    * including high-level framework (e.g. React) events, order by time (latest first).
    */
-  async getNormalizedStackAndEventsAtPoint(pointQueries: PointQueries): Promise<[boolean, RichStackFrame[]]> {
+  async getNormalizedStackAndEventsAtPoint(
+    pointQueries: PointQueries
+  ): Promise<[boolean, RichStackFrame[]]> {
     const [frames, dgChain] = await Promise.all([
       pointQueries.getStackFramesWithPoint(),
       this.getDependencyChain(pointQueries.point),
@@ -84,17 +86,22 @@ export default class DependencyChain {
 
     const normalizedFrames = frames
       .map<RawRichStackFrame | null>(frame => this.normalizeFrameForRichStack(frame))
-      .filter(v => !!v);
+      .filter(v => !!v)
+      // Remove the current frame from stack. We already have that.
+      .filter(v => v.point !== pointQueries.point);
+
     const normalizedDGEvents = dgChain.dependencies
       .map<RawRichStackFrame | null>(event => this.normalizeDGEventForRichStack(event))
-      .filter(v => !!v);
+      .filter(v => !!v)
+      // Filter out a subset of interesting events.
+      .filter(DGEventTypeFilter);
 
     // Interweave the two, sorted by point.
     const rawFrames = orderBy(
-      merge([], normalizedFrames, normalizedDGEvents) as RawRichStackFrame[],
+      normalizedFrames.concat(normalizedDGEvents) as RawRichStackFrame[],
       [frame => BigInt(frame.point)],
       ["desc"]
-    ).filter(shouldIncludeRawRichStackFrame);
+    );
 
     // Annotate the frames with more relevant data.
     const richFrames = await Promise.all(
@@ -131,7 +138,7 @@ export default class DependencyChain {
 /**
  * Cull before getting extra data.
  */
-function shouldIncludeRawRichStackFrame(frame: RawRichStackFrame) {
-  const includedEventCodes: readonly RichStackFrameKind[] = TargetDGEventCodes;
+function DGEventTypeFilter(frame: RawRichStackFrame) {
+  const includedEventCodes: readonly RichStackFrameKind[] = FilteredDGEventCodes;
   return includedEventCodes.includes(frame.kind);
 }
