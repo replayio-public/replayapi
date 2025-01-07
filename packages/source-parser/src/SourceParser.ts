@@ -3,7 +3,6 @@
 import assert from "assert";
 
 import { Node as BabelNode } from "@babel/types";
-import { CodeAtLocation, PointFunctionInfo } from "@replayio/data/src/recordingData/types";
 import { ContentType, SourceLocation } from "@replayio/protocol";
 import uniqBy from "lodash/uniqBy";
 import Parser, { QueryMatch, SyntaxNode, Tree } from "tree-sitter";
@@ -20,6 +19,7 @@ import {
 import { LanguageInfo, TypeCover } from "./tree-sitter-nodes";
 import { createTreeSitterParser } from "./tree-sitter-setup";
 import { truncateAround } from "./util/truncateCenter";
+import { CodeAtLocation, StaticFunctionInfo, StaticFunctionSkeleton } from "./types";
 
 const FailBabelParseSilently = process.env.NODE_ENV === "production";
 
@@ -259,7 +259,7 @@ export default class SourceParser {
    * Function info.
    * ##########################################################################*/
 
-  getFunctionInfoAt(loc: SourceLocation): PointFunctionInfo | null {
+  getStaticFunctionInfoAt(loc: SourceLocation): StaticFunctionInfo | null {
     const functionNode = this.getInnermostFunction(loc);
     if (!functionNode) {
       return null;
@@ -354,7 +354,7 @@ export default class SourceParser {
   private getBabelCodeAtLocation(bindingNode: BabelNode): CodeAtLocation {
     const bindingLoc = this.code.indexToLocation(bindingNode.start!);
     const bindingStatementText = this.getTruncatedNodeTextAt(bindingLoc) || "";
-    const bindingFunction = this.getFunctionInfoAt(bindingLoc);
+    const bindingFunction = this.getStaticFunctionInfoAt(bindingLoc);
 
     return {
       line: bindingLoc.line,
@@ -378,5 +378,35 @@ export default class SourceParser {
         binding.kind !== "param" ? this.getBabelCodeAtLocation(binding.identifier) : undefined,
       writes,
     };
+  }
+
+  /** ###########################################################################
+   * Summaries.
+   * ##########################################################################*/
+
+  getFunctionSkeleton(loc: SourceLocation): StaticFunctionSkeleton | null {
+    const functionNode = this.babelParser?.getInnermostNodePathAt(loc);
+    if (!functionNode) {
+      return null;
+    }
+
+    return {
+      firstLine: {
+        line: functionNode.node.loc.start.line,
+        code: functionNode.node.loc.source,
+      },
+      lastLineAndReturns: functionNode.node.body.body.map((statement: BabelNode) => ({
+        line: statement.loc.end.line,
+        code: statement.loc.source,
+      })),
+      branches: functionNode.node.body.body.map((statement: BabelNode) => ({
+        line: statement.loc.start.line,
+        code: statement.loc.source,
+        lastPoint: {
+          line: statement.loc.end.line,
+          column: statement.loc.end.column,
+        },
+      })),
+    }
   }
 }

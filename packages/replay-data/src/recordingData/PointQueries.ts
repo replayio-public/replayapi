@@ -34,6 +34,7 @@ import ReplaySession from "./ReplaySession";
 import {
   CodeAtLocation,
   FrameWithPoint,
+  FunctionSkeleton,
   IndexedPointStackFrame,
   LocationWithUrl,
   PointFunctionInfo,
@@ -188,6 +189,34 @@ export default class PointQueries {
   }
 
   /** ###########################################################################
+   * Function Queries.
+   * ##########################################################################*/
+
+  async queryFunctionInfo(): Promise<PointFunctionInfo | null> {
+    const [thisLocation, parser] = await Promise.all([
+      this.getSourceLocation(),
+      this.parseSource(),
+    ]);
+    const functionInfo = parser.getStaticFunctionInfoAt(thisLocation);
+    const functionSkeleton = this.getFunctionSkeleton();
+    return {
+      ...functionInfo,
+      functionSkeleton: functionSkeleton || undefined,
+    }
+  }
+
+  async getFunctionSkeleton(): Promise<FunctionSkeleton | null> {
+    const [thisLocation, parser] = await Promise.all([
+      this.getSourceLocation(),
+      this.parseSource(),
+    ]);
+    const functionSkeleton = parser.getFunctionSkeleton(thisLocation);
+    return {
+      
+    };
+  }
+
+  /** ###########################################################################
    * Other high-level Queries.
    * ##########################################################################*/
 
@@ -209,7 +238,7 @@ export default class PointQueries {
       thisLocation,
       POINT_ANNOTATION
     ) || ["", thisLocation];
-    const functionInfo = parser.getFunctionInfoAt(startLoc);
+    const functionInfo = parser.getStaticFunctionInfoAt(startLoc);
 
     if (!thisLocation.url) {
       console.warn(`[PointQueries] No source url found at point ${this.point}`);
@@ -226,14 +255,6 @@ export default class PointQueries {
       code: statementCode,
       functionName: functionInfo?.name || undefined,
     };
-  }
-
-  async queryFunctionInfo(): Promise<PointFunctionInfo | null> {
-    const [thisLocation, parser] = await Promise.all([
-      this.getSourceLocation(),
-      this.parseSource(),
-    ]);
-    return parser.getFunctionInfoAt(thisLocation);
   }
 
   async queryStackAndEvents(): Promise<[boolean, RichStackFrame[]]> {
@@ -540,7 +561,9 @@ export default class PointQueries {
   }
 
   async inspectData(expression: string): Promise<InspectDataResult> {
+    // 1. First get expression info.
     const expressionInfo = await this.queryExpressionInfo(expression);
+    // 2. Then get all other info.
     const pointData = await this.inspectPoint();
 
     return {

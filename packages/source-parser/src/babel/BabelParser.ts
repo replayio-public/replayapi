@@ -66,7 +66,10 @@ export class BabelParser {
     let { scope } = path;
     let lastScope = scope;
 
-    while (scope && (binding = scope.getBinding(name) || null) && !binding
+    while (
+      scope &&
+      (binding = scope.getBinding(name) || null) &&
+      !binding
       // NOTEs:
       // * We cannot perform the `isBound` check since we don't necessarily have an exact `identifier` path.
       // * But omitting the check might lead to false positives, e.g. in case of nested vars.
@@ -90,15 +93,23 @@ export class BabelParser {
     return null;
   }
 
-  getInnermostNodePathAt(loc: SourceLocation): NodePath | null {
+  getInnermostNodePathAt(loc: SourceLocation, babelTypeOrAlias?: string): NodePath | null {
     const targetOffset = this.code.locationToIndex(loc);
     let matchingPath: NodePath | null = null;
     let innerMostSize = Infinity;
+
+    if (babelTypeOrAlias && !(NodePath.prototype as any)["is" + babelTypeOrAlias]) {
+      // hackfix sanity check
+      throw new Error(`Invalid babelTypeOrAlias: ${babelTypeOrAlias}`);
+    }
 
     traverse(this.ast, {
       enter(path: NodePath) {
         const node = path.node;
         if (!node.start || !node.end) {
+          return;
+        }
+        if (babelTypeOrAlias && !path.is(babelTypeOrAlias)) {
           return;
         }
 
