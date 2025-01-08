@@ -259,7 +259,7 @@ export default class SourceParser {
    * Function info.
    * ##########################################################################*/
 
-  getStaticFunctionInfoAt(loc: SourceLocation): StaticFunctionInfo | null {
+  getFunctionInfoAt(loc: SourceLocation): StaticFunctionInfo | null {
     const functionNode = this.getInnermostFunction(loc);
     if (!functionNode) {
       return null;
@@ -354,7 +354,7 @@ export default class SourceParser {
   private getBabelCodeAtLocation(bindingNode: BabelNode): CodeAtLocation {
     const bindingLoc = this.code.indexToLocation(bindingNode.start!);
     const bindingStatementText = this.getTruncatedNodeTextAt(bindingLoc) || "";
-    const bindingFunction = this.getStaticFunctionInfoAt(bindingLoc);
+    const bindingFunction = this.getFunctionInfoAt(bindingLoc);
 
     return {
       line: bindingLoc.line,
@@ -385,28 +385,10 @@ export default class SourceParser {
    * ##########################################################################*/
 
   getFunctionSkeleton(loc: SourceLocation): StaticFunctionSkeleton | null {
-    const functionNode = this.babelParser?.getInnermostNodePathAt(loc);
-    if (!functionNode) {
+    if (!this.babelParser) {
       return null;
     }
 
-    return {
-      firstLine: {
-        line: functionNode.node.loc.start.line,
-        code: functionNode.node.loc.source,
-      },
-      lastLineAndReturns: functionNode.node.body.body.map((statement: BabelNode) => ({
-        line: statement.loc.end.line,
-        code: statement.loc.source,
-      })),
-      branches: functionNode.node.body.body.map((statement: BabelNode) => ({
-        line: statement.loc.start.line,
-        code: statement.loc.source,
-        lastPoint: {
-          line: statement.loc.end.line,
-          column: statement.loc.end.column,
-        },
-      })),
-    }
+    return this.babelParser?.getFunctionSkeletonAt(loc);
   }
 }

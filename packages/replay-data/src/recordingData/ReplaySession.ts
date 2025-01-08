@@ -13,9 +13,9 @@ import { STATUS_PENDING } from "suspense";
 
 import { AnalysisType } from "../analysis/dependencyGraphShared";
 import { AnalysisInput } from "../analysis/dgSpecs";
-import { wrapAsyncWithHardcodedData } from "./hardcodedResults";
 import { runAnalysis } from "../analysis/runAnalysis";
 import { ExecutionDataAnalysisResult } from "../analysis/specs/executionPoint";
+import { wrapAsyncWithHardcodedData } from "./hardcodedResults";
 import PointQueries from "./PointQueries";
 import ReplaySources from "./ReplaySources";
 
@@ -144,10 +144,19 @@ export default class ReplaySession extends ReplayClient {
     });
   }
 
+  pointCache = new Map<string, Promise<PointQueries>>();
   async queryPoint(point: ExecutionPoint): Promise<PointQueries> {
-    debug(`queryPoint ${point}...`);
-    const pauseId = await pauseIdCache.readAsync(this, point, DEFAULT_TIME);
-    return new PointQueries(this, point, pauseId);
+    let pq = this.pointCache.get(point);
+    if (!pq) {
+      const makePointQueries = async (): Promise<PointQueries> => {
+        debug(`queryPoint ${point}...`);
+        const pauseId = await pauseIdCache.readAsync(this, point, DEFAULT_TIME);
+        return new PointQueries(this, point, pauseId);
+      };
+      pq = makePointQueries();
+      this.pointCache.set(point, pq);
+    }
+    return pq;
   }
 }
 

@@ -4,6 +4,7 @@ import NestedError from "@replayio/data/src/util/NestedError";
 import { SourceLocation } from "@replayio/protocol";
 
 import SourceContents from "../SourceContents";
+import { removeNestedPaths } from "./babelLocations";
 
 function getPluginsForSourceUrl(url: string | undefined) {
   const plugins: Array<ParserPlugin> = [
@@ -93,15 +94,22 @@ export class BabelParser {
     return null;
   }
 
-  getInnermostNodePathAt(loc: SourceLocation, babelTypeOrAlias?: string): NodePath | null {
+  private assertTypeOrAliasExist(...babelTypeOrAliases: string[]) {
+    if (
+      babelTypeOrAliases &&
+      // Little trick: NodePath prototype has a check for each type or alias.
+      !babelTypeOrAliases.some(t => (NodePath.prototype as any)["is" + t])
+    ) {
+      throw new Error(`Invalid babelTypeOrAlias: ${babelTypeOrAliases}`);
+    }
+  }
+
+  getInnermostNodePathAt(loc: SourceLocation, ...babelTypeOrAliases: string[]): NodePath | null {
+    this.assertTypeOrAliasExist(...babelTypeOrAliases);
+
     const targetOffset = this.code.locationToIndex(loc);
     let matchingPath: NodePath | null = null;
     let innerMostSize = Infinity;
-
-    if (babelTypeOrAlias && !(NodePath.prototype as any)["is" + babelTypeOrAlias]) {
-      // hackfix sanity check
-      throw new Error(`Invalid babelTypeOrAlias: ${babelTypeOrAlias}`);
-    }
 
     traverse(this.ast, {
       enter(path: NodePath) {
@@ -109,7 +117,7 @@ export class BabelParser {
         if (!node.start || !node.end) {
           return;
         }
-        if (babelTypeOrAlias && !path.is(babelTypeOrAlias)) {
+        if (babelTypeOrAliases && !babelTypeOrAliases.some(t => path.is(t))) {
           return;
         }
 
@@ -128,4 +136,31 @@ export class BabelParser {
 
     return matchingPath;
   }
+
+  getMatchingNodesWithin(path: NodePath, babelTypeOrAliases: string[]): NodePath[] {
+    if (!babelTypeOrAliases.length) {
+      throw new Error(`babelTypeOrAliases missing`);
+    }
+    this.assertTypeOrAliasExist(...babelTypeOrAliases);
+
+    // 1. Find all matching nodes.
+    const matchingPaths: NodePath[] = [];
+    traverse(path.node, {
+      enter(innerPath: NodePath) {
+        if (babelTypeOrAliases.some(t => innerPath.is(t))) {
+          matchingPaths.push(innerPath);
+        }
+      },
+    });
+
+    // 2. Remove nested nodes.
+    return removeNestedPaths(matchingPaths);
+  }
+
+  // getFunctionSkeletonAt(loc: SourceLocation): StaticFunctionSkeleton | null {
+  //   const functionPath = this.getInnermostNodePathAt(loc, "Function");
+  //   return this.getMatchingNodesWithin(functionPath, ["CompletionStatement", "CallExpression", ""]);
+  // }
+
+  
 }

@@ -93,7 +93,7 @@ export default class DependencyChain {
     const normalizedDGEvents = dgChain.dependencies
       .map<RawRichStackFrame | null>(event => this.normalizeDGEventForRichStack(event))
       .filter(v => !!v)
-      // Filter out a subset of interesting events.
+      // We are only interested in a subset of event types.
       .filter(DGEventTypeFilter);
 
     // Interweave the two, sorted by point.

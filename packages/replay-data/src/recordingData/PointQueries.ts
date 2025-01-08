@@ -1,16 +1,16 @@
 /* Copyright 2020-2024 Record Replay Inc. */
 
 import {
-  Result as EvaluationResult,
   ExecutionPoint,
   Frame,
   PauseId,
+  PointDescription,
   NamedValue as ProtocolNamedValue,
   Value as ProtocolValue,
 } from "@replayio/protocol";
 import StaticScope from "@replayio/source-parser/src/bindings/StaticScope";
 import SourceParser from "@replayio/source-parser/src/SourceParser";
-import { StaticBinding } from "@replayio/source-parser/src/StaticBindings";
+import { CodeAtLocation, StaticFunctionInfo } from "@replayio/source-parser/src/types";
 import createDebug from "debug";
 import groupBy from "lodash/groupBy";
 import isEmpty from "lodash/isEmpty";
@@ -18,6 +18,7 @@ import sortBy from "lodash/sortBy";
 import truncate from "lodash/truncate";
 import protocolValueToText from "replay-next/components/inspector/protocolValueToText";
 import { framesCache } from "replay-next/src/suspense/FrameCache";
+import { frameStepsCache } from "replay-next/src/suspense/FrameStepsCache";
 import { pointStackCache } from "replay-next/src/suspense/PointStackCache";
 import { FrameScopes, frameScopesCache } from "replay-next/src/suspense/ScopeCache";
 import { evaluate } from "replay-next/src/utils/evaluate";
@@ -32,12 +33,17 @@ import DependencyChain, { RichStackFrame } from "./DependencyChain";
 import { forceLookupHardcodedData, wrapAsyncWithHardcodedData } from "./hardcodedResults";
 import ReplaySession from "./ReplaySession";
 import {
-  CodeAtLocation,
+  DataFlowOrigin,
+  EvaluateResult,
+  ExpressionAnalysisResult,
+  ExpressionDataFlowResult,
   FrameWithPoint,
-  FunctionSkeleton,
   IndexedPointStackFrame,
+  InputDependency,
+  InspectDataResult,
+  InspectPointResult,
   LocationWithUrl,
-  PointFunctionInfo,
+  SimpleValuePreviewResult,
 } from "./types";
 import { compileGetTypeName } from "./values/previewValueUtil";
 
@@ -48,53 +54,6 @@ const POINT_ANNOTATION = "/*BREAK*/";
 export interface BackendDataFlowAnalysisResult {
   variablePointsByName: Record<string, ExecutionDataEntry[]>;
 }
-
-export interface InputDependency extends ExpressionAnalysisResult {
-  expression: string;
-}
-
-export interface CodeAtPoint extends CodeAtLocation {
-  point: ExecutionPoint;
-}
-
-export interface DataFlowOrigin {
-  point?: ExecutionPoint;
-  kind?: string;
-  location?: CodeAtLocation;
-  explanation?: string;
-}
-
-export interface ExpressionDataFlowResult {
-  staticBinding?: StaticBinding;
-  origins?: DataFlowOrigin[];
-  objectCreationSite?: DataFlowOrigin;
-}
-
-export interface SimpleValuePreview {
-  value?: string;
-  type?: string;
-}
-
-export type SimpleValuePreviewResult = SimpleValuePreview | null;
-
-export interface ExpressionAnalysisResult extends SimpleValuePreview, ExpressionDataFlowResult {
-  expression: string;
-}
-
-export interface InspectPointResult {
-  location: CodeAtLocation;
-  function: PointFunctionInfo | null;
-  inputDependencies: any; // TODO: Replace with proper type once implemented
-  stackAndEvents: RichStackFrame[];
-  stackAndEventsTruncated?: boolean;
-}
-
-export type InspectDataResult = InspectPointResult & ExpressionAnalysisResult;
-
-export type EvaluateResult = {
-  exception: EvaluationResult["exception"] | null;
-  returned: EvaluationResult["returned"] | null;
-};
 
 export default class PointQueries {
   readonly session: ReplaySession;
@@ -151,6 +110,10 @@ export default class PointQueries {
     return thisFrame;
   }
 
+  /**
+   * NOTE: FrameScopes primarily provide values and nothing else.
+   * @returns The dynamic values mapped to the current frame's scope and its parent scopes.
+   */
   async thisFrameScopes(): Promise<FrameScopes> {
     const thisFrame = await this.thisFrame();
     return frameScopesCache.readAsync(this.session, this.pauseId, thisFrame.frameId);
@@ -192,28 +155,34 @@ export default class PointQueries {
    * Function Queries.
    * ##########################################################################*/
 
-  async queryFunctionInfo(): Promise<PointFunctionInfo | null> {
+  async queryFunctionInfo(): Promise<StaticFunctionInfo | null> {
     const [thisLocation, parser] = await Promise.all([
       this.getSourceLocation(),
       this.parseSource(),
     ]);
-    const functionInfo = parser.getStaticFunctionInfoAt(thisLocation);
-    const functionSkeleton = this.getFunctionSkeleton();
-    return {
-      ...functionInfo,
-      functionSkeleton: functionSkeleton || undefined,
-    }
+    const functionInfo = parser.getFunctionInfoAt(thisLocation);
+    // const functionSkeleton = this.getFunctionSkeleton();
+    return functionInfo;
   }
 
-  async getFunctionSkeleton(): Promise<FunctionSkeleton | null> {
-    const [thisLocation, parser] = await Promise.all([
-      this.getSourceLocation(),
-      this.parseSource(),
-    ]);
-    const functionSkeleton = parser.getFunctionSkeleton(thisLocation);
-    return {
-      
-    };
+  // async getFunctionSkeleton(): Promise<FunctionSkeleton | null> {
+  //   const [thisLocation, parser] = await Promise.all([
+  //     this.getSourceLocation(),
+  //     this.parseSource(),
+  //   ]);
+  //   const functionSkeleton = parser.getFunctionSkeleton(thisLocation);
+  //   return {};
+  // }
+
+  /** ###########################################################################
+   * Frame steps.
+   * ##########################################################################*/
+
+  async getFrameSteps(): Promise<PointDescription[] | undefined> {
+    const frame = await this.thisFrame();
+    const frameId = frame.frameId;
+    const pauseId = this.pauseId;
+    return await frameStepsCache.readAsync(this.session, pauseId, frameId);
   }
 
   /** ###########################################################################
@@ -238,7 +207,7 @@ export default class PointQueries {
       thisLocation,
       POINT_ANNOTATION
     ) || ["", thisLocation];
-    const functionInfo = parser.getStaticFunctionInfoAt(startLoc);
+    const functionInfo = parser.getFunctionInfoAt(startLoc);
 
     if (!thisLocation.url) {
       console.warn(`[PointQueries] No source url found at point ${this.point}`);
