@@ -167,9 +167,7 @@ export default class DynamicCFGBuilder {
             parentBlockGroup = stack.length ? stack[stack.length - 1] : null;
           } else {
             // 3. Step sideways.
-            do {
-              stack.pop();
-            } while (stack.length && stack[stack.length - 1].blockIndex !== newBlockIndex);
+            stack.pop();
             assert(stack.length, "Stack was empty upon CFG step out.");
             parentBlockGroup = stack.length ? stack[stack.length - 1] : null;
             stack.push(newBlock);

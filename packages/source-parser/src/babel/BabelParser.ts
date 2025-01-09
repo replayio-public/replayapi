@@ -1,5 +1,6 @@
 import { ParserPlugin, parse } from "@babel/parser";
 import traverse, { Binding, NodePath } from "@babel/traverse";
+import { isNodesEquivalent } from "@babel/types";
 import NestedError from "@replayio/data/src/util/NestedError";
 import { SourceLocation } from "@replayio/protocol";
 
@@ -140,51 +141,56 @@ export class BabelParser {
   }
 
   getMatchingNodesWithin(
-    path: NodePath,
+    targetPath: NodePath,
     babelTypeOrAliases: string[],
-    removeNested = true
+    skipTypes: string[]
   ): NodePath[] {
     if (!babelTypeOrAliases.length) {
       throw new Error(`babelTypeOrAliases missing`);
     }
     this.assertTypeOrAliasExist(...babelTypeOrAliases);
 
+    let seenTargetNode = false;
+
     // 1. Find all matching nodes.
     let matchingPaths: NodePath[] = [];
     traverse(this.ast, {
       enter(innerPath: NodePath) {
-        // Skip nodes not within path.
-        if (!path.isAncestor(innerPath)) {
-          return;
-        }
         if (babelTypeOrAliases.some(t => innerPath.isNodeType(t))) {
           matchingPaths.push(innerPath);
         }
       },
+      shouldSkip(innerPath: NodePath) {
+        if (!seenTargetNode) {
+          if (innerPath.node === targetPath.node) {
+            seenTargetNode = true;
+          }
+          // Always include the target node and all its ancestors.
+          return false;
+        }
+        // Skip nodes not within path, as well as skipType paths.
+        return !targetPath.isAncestor(innerPath) || skipTypes.some(t => innerPath.isNodeType(t));
+      },
     });
-
-    if (removeNested) {
-      // 2. Remove nested nodes.
-      matchingPaths = removeNestedPaths(matchingPaths);
-    }
     return matchingPaths;
   }
 
-  getAllBlockParentsWithin(path: NodePath): NodePath[] {
+  /**
+   * NOTE: Removes all nested functions.
+   */
+  getAllBlockParentsWithinFunction(path: NodePath): NodePath[] {
     // NOTE: IfStatement is not part of the BlockParent cover (must be a babel-types bug).
+    const skipTypes = ["Function"];
     return (
-      this.getMatchingNodesWithin(path, ["BlockParent", "IfStatement"], false)
-        // Remove all pure blocks. We only care about possibly conditional block parents.
+      this.getMatchingNodesWithin(path, ["BlockParent", "IfStatement"], skipTypes)
+        // Remove all pure blocks: We only care about possibly conditional block parents.
         .filter(b => !b.isBlock())
     );
   }
 
   getAllBlockParentsInFunctionAt(loc: SourceLocation): NodePath[] {
     const functionPath = this.getInnermostNodePathAt(loc, "Function");
-    return functionPath
-      ? // Add the containing function itself.
-        [functionPath].concat(this.getAllBlockParentsWithin(functionPath))
-      : [];
+    return functionPath ? this.getAllBlockParentsWithinFunction(functionPath) : [];
   }
 
   // getFunctionSkeletonAt(loc: SourceLocation): StaticFunctionSkeleton | null {
