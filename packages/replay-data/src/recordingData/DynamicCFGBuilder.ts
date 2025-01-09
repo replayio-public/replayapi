@@ -125,7 +125,7 @@ export default class DynamicCFGBuilder {
 
       // TODO: Get the first step that is called most often to skip initializer steps.
       //     DoWhile: Always the first step.
-      //     Other LoopStatements: The first step that gets repeated. There is at least one repeated step, unless the loop is never entered.
+      //     Other LoopStatements: Take the first step within the loop's block? But then all condition steps, except the first, have the wrong iteration index.
       // TODO: For this, we will have to look ahead in the frameSteps of the loop's current dynamic block execution:
       //   → stop when stepping outside the block
       //   → ignore steps of nested blocks
