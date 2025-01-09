@@ -19,7 +19,7 @@ import {
 import { LanguageInfo, TypeCover } from "./tree-sitter-nodes";
 import { createTreeSitterParser } from "./tree-sitter-setup";
 import { truncateAround } from "./util/truncateCenter";
-import { CodeAtLocation, StaticFunctionInfo, StaticFunctionSkeleton } from "./types";
+import { CodeAtLocation, StaticFunctionInfo } from "./types";
 
 const FailBabelParseSilently = process.env.NODE_ENV === "production";
 
@@ -375,20 +375,8 @@ export default class SourceParser {
       kind: binding.kind,
       // NOTE: We don't need declaration info for params, since those can be inferred from function and caller info.
       declaration:
-        binding.kind !== "param" ? this.getBabelCodeAtLocation(binding.identifier) : undefined,
+        binding.kind !== "param" ? this.getBabelCodeAtLocation(binding.identifier as BabelNode) : undefined,
       writes,
     };
-  }
-
-  /** ###########################################################################
-   * Summaries.
-   * ##########################################################################*/
-
-  getFunctionSkeleton(loc: SourceLocation): StaticFunctionSkeleton | null {
-    if (!this.babelParser) {
-      return null;
-    }
-
-    return this.babelParser?.getFunctionSkeletonAt(loc);
   }
 }

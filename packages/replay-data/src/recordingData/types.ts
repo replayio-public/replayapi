@@ -5,6 +5,7 @@ import {
   Location,
   PointDescription,
   PointStackFrame,
+  SourceLocation,
 } from "@replayio/protocol";
 import { StaticBinding } from "@replayio/source-parser/src/StaticBindings";
 import { CodeAtLocation, LineOfCode, StaticFunctionInfo } from "@replayio/source-parser/src/types";
@@ -93,3 +94,10 @@ export type SummarizedCodeAtPoint =
 export type NeighboringCodeSummary = {
   statements: SummarizedCodeAtPoint[];
 };
+
+export type FrameStep = SourceLocation & {
+  /** 1-dimensional index into the source code. */
+  index: number;
+  point: ExecutionPoint;
+};
+export type UniqueFrameStep = FrameStep & { hits: number };

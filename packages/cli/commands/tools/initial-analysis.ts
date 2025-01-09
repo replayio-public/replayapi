@@ -7,7 +7,7 @@ import { runAnalysis } from "@replayio/data/src/analysis/runAnalysis";
 import { ExecutionDataAnalysisResult } from "@replayio/data/src/analysis/specs/executionPoint";
 import { scanGitUrl } from "@replayio/data/src/gitUtil/gitStringUtil";
 import LocalGitRepo from "@replayio/data/src/gitUtil/LocalGitRepo";
-import { InspectPointResult } from "@replayio/data/src/recordingData/PointQueries";
+import { InspectPointResult } from "@replayio/data/src/recordingData/types";
 import ReplaySession, {
   getOrCreateReplaySession,
 } from "@replayio/data/src/recordingData/ReplaySession";

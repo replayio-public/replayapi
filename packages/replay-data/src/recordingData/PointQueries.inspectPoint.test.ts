@@ -1,8 +1,8 @@
 import { ExecutionPoint } from "@replayio/protocol";
 
 import { getReplaySessionForTest } from "../../testing/sessions";
-import { InspectPointResult } from "./PointQueries";
 import ReplaySession from "./ReplaySession";
+import { InspectPointResult } from "./types";
 
 const RecordingId = "011f1663-6205-4484-b468-5ec471dc5a31";
 

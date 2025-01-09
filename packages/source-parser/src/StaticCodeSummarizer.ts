@@ -1,10 +1,4 @@
-import {
-  Expression as BabelExpression,
-  Node as BabelNode,
-  Statement as BabelStatement,
-} from "@babel/types";
-import SourceParser from "./SourceParser";
-import { SourceLocation } from "graphql";
+import { Expression as BabelExpression, Statement as BabelStatement } from "@babel/types";
 
 export type BasicNode = BabelStatement | BigBasicBlock;
 
@@ -26,28 +20,25 @@ export interface IfBlock extends BigBasicBlock {
  * to summarize the code using dynamic paging, block summarization and more.
  */
 export class StaticPartialCodeGraph {
-  constructor(public readonly parser: SourceParser) {
-  }
-
-  build(ast: BabelNode): Map<string, BigBasicBlock> {
-    traverse(ast, {
-      enter: path => {
-        if (this.isBranchNode(path.node)) {
-          const condition = this.extractCondition(path.node);
-          const trueBlock = this.createBlock();
-          const falseBlock = this.createBlock();
-
-          this.currentBlock.setCondition(condition);
-          this.currentBlock.setBranches(trueBlock, falseBlock);
-          this.currentBlock = trueBlock;
-        } else if (t.isStatement(path.node)) {
-          this.currentBlock.addStatement(path.node);
-        }
-      },
-    });
-    return this.blocks;
-  }
-
+  // constructor(public readonly parser: SourceParser) {
+  // }
+  // build(ast: BabelNode): Map<string, BigBasicBlock> {
+  //   traverse(ast, {
+  //     enter: path => {
+  //       if (this.isBranchNode(path.node)) {
+  //         const condition = this.extractCondition(path.node);
+  //         const trueBlock = this.createBlock();
+  //         const falseBlock = this.createBlock();
+  //         this.currentBlock.setCondition(condition);
+  //         this.currentBlock.setBranches(trueBlock, falseBlock);
+  //         this.currentBlock = trueBlock;
+  //       } else if (t.isStatement(path.node)) {
+  //         this.currentBlock.addStatement(path.node);
+  //       }
+  //     },
+  //   });
+  //   return this.blocks;
+  // }
   // private isBranchNode(node: BabelNode): boolean {
   //   return (
   //     // basic blocks with expression condition
@@ -64,5 +55,4 @@ export class StaticPartialCodeGraph {
   //     t.isCatchClause(node)
   //   );
   // }
-
 }

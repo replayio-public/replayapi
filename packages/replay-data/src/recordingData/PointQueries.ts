@@ -37,6 +37,7 @@ import {
   EvaluateResult,
   ExpressionAnalysisResult,
   ExpressionDataFlowResult,
+  FrameStep,
   FrameWithPoint,
   IndexedPointStackFrame,
   InputDependency,
@@ -44,12 +45,13 @@ import {
   InspectPointResult,
   LocationWithUrl,
   SimpleValuePreviewResult,
+  UniqueFrameStep,
 } from "./types";
 import { compileGetTypeName } from "./values/previewValueUtil";
 
 const debug = createDebug("replay:PointQueries");
 
-const POINT_ANNOTATION = "/*BREAK*/";
+const POINT_ANNOTATION = "/*POINT*/";
 
 export interface BackendDataFlowAnalysisResult {
   variablePointsByName: Record<string, ExecutionDataEntry[]>;
@@ -178,11 +180,44 @@ export default class PointQueries {
    * Frame steps.
    * ##########################################################################*/
 
-  async getFrameSteps(): Promise<PointDescription[] | undefined> {
-    const frame = await this.thisFrame();
+  async getFrameSteps(): Promise<FrameStep[] | undefined> {
+    const [frame, allSources, parser] = await Promise.all([
+      this.thisFrame(),
+      this.session.getSources(),
+      this.parseSource(),
+    ]);
     const frameId = frame.frameId;
     const pauseId = this.pauseId;
-    return await frameStepsCache.readAsync(this.session, pauseId, frameId);
+    const rawSteps = await frameStepsCache.readAsync(this.session, pauseId, frameId);
+    return (
+      rawSteps
+        ?.filter(s => s.frame)
+        ?.map(s => {
+          const loc = allSources.getBestLocation(s.frame!);
+          return {
+            point: s.point,
+            ...loc,
+            index: parser.code.locationToIndex(loc),
+          };
+        }) || []
+    );
+  }
+
+  async getUniqueFrameSteps(steps: FrameStep[]): Promise<UniqueFrameStep[]> {
+    const [parser] = await Promise.all([this.parseSource()]);
+    // Count unique steps by their location index
+    const uniqueSteps = new Map<number, UniqueFrameStep>();
+    for (const step of steps) {
+      const index = parser.code.locationToIndex(step);
+      let existing = uniqueSteps.get(index);
+      if (existing) {
+        existing.hits++;
+      } else {
+        uniqueSteps.set(index, (existing = { ...step, hits: 1 }));
+      }
+    }
+
+    return Array.from(uniqueSteps.values());
   }
 
   /** ###########################################################################

@@ -1,3 +1,5 @@
+import { Function, FunctionDeclaration, Identifier, Method } from "@babel/types";
+
 import { guessFunctionName } from "./function-names";
 import SourceParser from "./SourceParser";
 import { treeSitterPointToSourceLocation } from "./tree-sitter-locations";
@@ -119,7 +121,9 @@ describe("extract functions and their names", () => {
         `((identifier) @constant (#match? @constant "MARKER"))`
       )[0];
 
-      const func = parser.getInnermostFunction(treeSitterPointToSourceLocation(marker.startPosition));
+      const func = parser.getInnermostFunction(
+        treeSitterPointToSourceLocation(marker.startPosition)
+      );
       expect(guessFunctionName(func!)).toBe(testCase.expected);
     });
   });
@@ -178,7 +182,7 @@ export function RulesList({
 }
 `;
     const location = { line: 38, column: 4 };
-    
+
     const parser = new SourceParser("test.ts", code);
     parser.parse();
 
@@ -191,7 +195,7 @@ export function RulesList({
         "RulesListItem",
         "ITEM_SIZE",
         "rulesListData",
-        "GenericList"
+        "GenericList",
       ].sort()
     );
   });
@@ -237,6 +241,36 @@ export function RulesList({
       ].sort()
     );
   });
+
+  test("BabelParser basics", () => {
+    const code = `
+    function foo1() {
+      return 1;
+    }
+
+    class A {
+      foo2() {
+        return 2;
+      }
+    }
+    `;
+    const parser = new SourceParser("test.ts", code);
+    parser.parse();
+
+    const babelParser = parser.babelParser!;
+    const foo1 = babelParser.getInnermostNodePathAt({ line: 3, column: 13 }, "Function");
+    expect(foo1?.node).toEqual(
+      expect.objectContaining({
+        type: "FunctionDeclaration",
+        id: expect.objectContaining({ name: "foo1" }),
+      })
+    );
+    const foo2 = babelParser.getInnermostNodePathAt({ line: 8, column: 15 }, "Function");
+    expect(foo2?.node).toEqual(
+      expect.objectContaining({
+        type: "ClassMethod",
+        key: expect.objectContaining({ name: "foo2" }),
+      })
+    );
+  });
 });
-
-

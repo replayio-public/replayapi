@@ -117,7 +117,7 @@ export class BabelParser {
         if (!node.start || !node.end) {
           return;
         }
-        if (babelTypeOrAliases && !babelTypeOrAliases.some(t => path.is(t))) {
+        if (babelTypeOrAliases && !babelTypeOrAliases.some(t => path.isNodeType(t))) {
           return;
         }
 
@@ -155,6 +155,16 @@ export class BabelParser {
 
     // 2. Remove nested nodes.
     return removeNestedPaths(matchingPaths);
+  }
+
+  getAllBlockParentsWithin(path: NodePath): NodePath[] {
+    // NOTE: IfStatement not being part of the BlockParent cover must be a babel-types bug.
+    return this.getMatchingNodesWithin(path, ["BlockParent", "IfStatement"]);
+  }
+
+  getAllBlockParentsInFunctionAt(loc: SourceLocation): NodePath[] {
+    const functionPath = this.getInnermostNodePathAt(loc, "Function");
+    return functionPath ? this.getAllBlockParentsWithin(functionPath) : [];
   }
 
   // getFunctionSkeletonAt(loc: SourceLocation): StaticFunctionSkeleton | null {

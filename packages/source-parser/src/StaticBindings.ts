@@ -1,4 +1,4 @@
-import { CodeAtLocation } from "@replayio/data/src/recordingData/types";
+import { CodeAtLocation } from "./types";
 
 export type StaticBinding = {
   /**

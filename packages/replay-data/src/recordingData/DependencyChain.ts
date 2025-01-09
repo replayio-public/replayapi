@@ -1,6 +1,6 @@
 /* Copyright 2020-2024 Record Replay Inc. */
 import { ExecutionPoint } from "@replayio/protocol";
-import merge from "lodash/merge";
+import { CodeAtLocation } from "@replayio/source-parser/src/types";
 import orderBy from "lodash/orderBy";
 
 import {
@@ -13,7 +13,7 @@ import { runAnalysis } from "../analysis/runAnalysis";
 import { AnalyzeDependenciesResult } from "../analysis/specs/analyzeDependencies";
 import PointQueries from "./PointQueries";
 import ReplaySession from "./ReplaySession";
-import { CodeAtLocation, FrameWithPoint } from "./types";
+import { FrameWithPoint } from "./types";
 
 export const MaxEventChainLength = 10;
 
