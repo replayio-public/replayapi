@@ -44,9 +44,7 @@ export type CFGBlock = {
   parent: CFGBlock | null;
   staticBlock: NodePath;
   /** Start index in source code. */
-  startIndex: number;
-  /** End index in source code. */
-  endIndex: number;
+  blockIndex: number;
   iterations?: CFGIteration[];
   
   // TODO: Add condition information.
@@ -65,8 +63,8 @@ export default class DynamicCFGBuilder {
   }
 
   /**
-   * Compute a partial dynamic control flow graph (CFG), for the function at
-   * selected `point`.
+   * Compute a partial dynamic control flow graph (CFG), for the function, centered
+   * around `this.point`.
    * It is projected onto the source code, which means that there
    * is max one step per source location.
    */
@@ -134,8 +132,7 @@ export default class DynamicCFGBuilder {
         newBlock = {
           parent: currentBlock,
           staticBlock: newStaticBlock,
-          startIndex: newBlockIndex,
-          endIndex: newBlockIndex,
+          blockIndex: newBlockIndex,
           iterations: [{ steps: [step] }],
         };
         if (!currentBlock) {
@@ -146,7 +143,7 @@ export default class DynamicCFGBuilder {
           // 1. Step into nested block.
           // 2. Step out of nested block.
           // 3. Step into sibling block.
-          const oldBlockIndex = currentBlock.startIndex;
+          const oldBlockIndex = currentBlock.blockIndex;
           const isStepIntoNestedBlock =
             newBlockIndex > currentBlock.staticBlock.node!.loc!.start.index &&
             newBlockIndex < currentBlock.staticBlock.node!.loc!.end.index;
@@ -165,12 +162,15 @@ export default class DynamicCFGBuilder {
             // 2. Step out.
             do {
               stack.pop();
-            } while (stack.length && stack[stack.length - 1].startIndex !== newBlockIndex);
+            } while (stack.length && stack[stack.length - 1].blockIndex !== newBlockIndex);
             assert(stack.length, "Stack was empty upon CFG step out.");
             parentBlockGroup = stack.length ? stack[stack.length - 1] : null;
           } else {
             // 3. Step sideways.
-            stack.pop();
+            do {
+              stack.pop();
+            } while (stack.length && stack[stack.length - 1].blockIndex !== newBlockIndex);
+            assert(stack.length, "Stack was empty upon CFG step out.");
             parentBlockGroup = stack.length ? stack[stack.length - 1] : null;
             stack.push(newBlock);
           }

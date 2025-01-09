@@ -242,7 +242,46 @@ export function RulesList({
     );
   });
 
-  test("BabelParser basics", () => {
+  test("BabelParser.getAllBlockParentsInFunctionAt", () => {
+    const code = `function root() {
+    console.log("root");
+    function foo1() {
+      return 1;
+    }
+
+    class A {
+      foo2() {
+        if (true) {
+          while (true) {
+            console.log("hello");
+          }
+        }
+        return 2;
+      }
+    }
+  }`;
+    const parser = new SourceParser("test.ts", code);
+    parser.parse();
+
+    const babelParser = parser.babelParser!;
+    const blocks = babelParser.getAllBlockParentsInFunctionAt({ line: 1, column: 35 });
+    // eslint-disable-next-line @typescript-eslint/no-base-to-string
+    const blockTexts = blocks.map(b => b.toString());
+    expect(blockTexts).toHaveLength(5);
+    expect(blocks[2].node).toEqual(
+      expect.objectContaining({
+        type: "ClassMethod",
+        key: expect.objectContaining({ name: "foo2" }),
+      })
+    );
+    expect(blocks[4].node).toEqual(
+      expect.objectContaining({
+        type: "WhileStatement"
+      })
+    );
+  });
+
+  test("BabelParser.getInnermostNodePathAt", () => {
     const code = `
     function foo1() {
       return 1;

@@ -49,8 +49,12 @@ describe("PointQueries basics", () => {
     const cfgBuilder = new DynamicCFGBuilder(pq);
     const cfg = await cfgBuilder.computeProjectedFunctionCFG();
 
-    console.log(cfg.iterations!.length);
-    console.log(cfg.iterations);
+    // Only one iteration of the function.
+    expect(cfg.iterations!.length).toEqual(1);
+
+    const functionNode = cfg.iterations![0];
+    const blocks = functionNode.steps.filter(s => "parent" in s);
+    expect(blocks.length).toEqual(5);
   });
 });
 
