@@ -110,6 +110,12 @@ export default class DynamicCFGBuilder {
     })();
 
     // 2. Group steps and BlockParents into iterations.
+    // TODO: Determine if a block was executed:
+    //    IfStatement, CatchStatement, TryStatement's finally: Check which blocks have any steps.
+    //    DoWhile: Will always iterate at least once.
+    //    Other LoopStatements: Check if the block has any steps.
+    TODO;
+
     let stack: CFGBlock[] = [];
     for (let i = 0; i < frameSteps.length; ++i) {
       const step = frameSteps[i];
@@ -118,6 +124,11 @@ export default class DynamicCFGBuilder {
       const allStepsOfBlock = stepsByBlockStartIndex[newBlockIndex].map(g => g.step);
 
       // TODO: Get the first step that is called most often to skip initializer steps.
+      //     DoWhile: Always the first step.
+      //     Other LoopStatements: The first step that gets repeated. There is at least one repeated step, unless the loop is never entered.
+      // TODO: For this, we will have to look ahead in the frameSteps of the loop's current dynamic block execution:
+      //   → stop when stepping outside the block
+      //   → ignore steps of nested blocks
       const loopEntryStepOfBlock = TODO; // allStepsOfBlock[0].index;
       const currentBlock = stack.length ? stack[stack.length - 1] : null;
 
