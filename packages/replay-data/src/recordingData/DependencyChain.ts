@@ -18,7 +18,7 @@ import { FrameWithPoint } from "./types";
 export const MaxEventChainLength = 10;
 
 const FilteredDGEventCodes = ["ReactCreateElement", "PromiseSettled"] as const;
-export type RichStackFrameKind = "sync" | (typeof FilteredDGEventCodes)[number];
+export type RichStackFrameKind = "StackFrame" | (typeof FilteredDGEventCodes)[number];
 
 export type RawRichStackFrame = {
   kind: RichStackFrameKind;
@@ -53,7 +53,7 @@ export default class DependencyChain {
       return null;
     }
     return {
-      kind: "sync",
+      kind: "StackFrame",
       point: frame.point?.point,
       functionName: frame.originalFunctionName || frame.functionName || "<anonymous>",
     };

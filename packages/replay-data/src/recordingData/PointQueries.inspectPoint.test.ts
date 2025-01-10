@@ -152,7 +152,7 @@ const PointExpectations: Record<ExecutionPoint, InspectPointResult> = {
     inputDependencies: [],
     stackAndEvents: [
       {
-        kind: "sync",
+        kind: "StackFrame",
         point: "78858008544006974830969978873708558",
         functionName: "cssRulesCache.load",
         line: 302,
