@@ -298,9 +298,6 @@ export default class PointQueries {
     try {
       return await protocolValueToText(this.session, value, this.pauseId);
     } catch (err: any) {
-      // TODO: There is an error from `.yalc/shared/client/ReplayClient.ts`
-      //   1. `getObjectWithPreview` calls `client.Pause.getObjectPreview` with `level = "none"` and gets an empty data object.
-      //   2. When changing it to `level` = "canOverflow", it throws with "Message params not an object, null, or undefined" instead.
       console.error(
         `protocolValueToText ERROR: "${truncate(JSON.stringify(value), { length: 100 })}" → ${err.stack}`
       );
@@ -376,6 +373,27 @@ export default class PointQueries {
    * ExecutionPoint + Data Flow Queries.
    * ##########################################################################*/
 
+  private async addLocationToOrigin({
+    point,
+    location,
+    ...other
+  }: DataFlowOrigin): Promise<DataFlowOrigin | null> {
+    if (!location) {
+      if (!point) {
+        return isEmpty(other) ? null : other;
+      }
+
+      // Look up location if not provided already.
+      const pointQuery = await this.session.queryPoint(point);
+      location = await pointQuery.queryCodeAndLocation();
+    }
+    return {
+      point,
+      location: location!,
+      ...other,
+    } as DataFlowOrigin;
+  }
+
   private async queryDataFlow(
     expression: string,
     backendDataFlowResult: BackendDataFlowAnalysisResult
@@ -421,31 +439,16 @@ export default class PointQueries {
 
     const origins = (
       await Promise.all(
-        (res.origins || []).map<Promise<DataFlowOrigin | null>>(
-          async ({ point, location, ...other }) => {
-            if (!location) {
-              if (!point) {
-                return isEmpty(other) ? null : other;
-              }
-
-              // Look up location if not provided already.
-              const pointQuery = await this.session.queryPoint(point);
-              location = await pointQuery.queryCodeAndLocation();
-            }
-            return {
-              point,
-              location: location!,
-              ...other,
-            } as DataFlowOrigin;
-          }
-        )
+        (res.origins || []).map<Promise<DataFlowOrigin | null>>(o => this.addLocationToOrigin(o))
       )
     ).filter(x => !!x);
 
     // 3. Try to guess missing `location`s.
     return {
       staticBinding: parser.getBindingAt(thisLocation, expression) || undefined,
-      objectCreationSite: res.objectCreationSite,
+      objectCreationSite:
+        (res.objectCreationSite && (await this.addLocationToOrigin(res.objectCreationSite))) ||
+        undefined,
       origins: origins.length ? origins : undefined,
     };
   }

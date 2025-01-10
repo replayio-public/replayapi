@@ -11,7 +11,7 @@ const PointExpectations: Record<ExecutionPoint, InspectPointResult> = {
     location: {
       line: 151,
       url: "webpack://_N_E/src/devtools/client/inspector/markup/components/rules/RulesListItem.tsx?6a8d",
-      code: "return (\n    /*BREAK*/<div className={styles.Inheritance} data-list-index={index} style={style}>\n      {inheritedSource}\n    </div>\n  );",
+      code: "return (\n    /*POINT*/<div className={styles.Inheritance} data-list-index={index} style={style}>\n      {inheritedSource}\n    </div>\n  );",
       functionName: "InheritanceRenderer",
     },
     function: {
@@ -57,7 +57,7 @@ const PointExpectations: Record<ExecutionPoint, InspectPointResult> = {
         functionName: "RulesListItem",
         line: 40,
         url: "webpack://_N_E/src/devtools/client/inspector/markup/components/rules/RulesListItem.tsx?6a8d",
-        code: "return (\n      /*BREAK*/<InheritanceRenderer index={index} inheritedSource={item.inheritedSource} style={style} />\n    );",
+        code: "return (\n      /*POINT*/<InheritanceRenderer index={index} inheritedSource={item.inheritedSource} style={style} />\n    );",
       },
       {
         kind: "ReactCreateElement",
@@ -65,7 +65,7 @@ const PointExpectations: Record<ExecutionPoint, InspectPointResult> = {
         functionName: "GenericList",
         line: 216,
         url: "webpack://_N_E/packages/replay-next/components/windowing/GenericList.tsx?9746",
-        code: "return (\n    /*BREAK*/<List<GenericListItemData<Item, ItemData>>\n      children={itemRendererComponent}\n      className={className}\n      height={height}\n      itemCount={itemCount}\n      itemData={{\n        itemData,\n        listData,\n        revision,\n        selectedItemIndex,\n      }}\n      itemSize={itemSize}\n      onItemsRendered={onItemsRendered}\n      outerRef={outerRef}\n      ref={listRef}\n      style={style}\n      width={width}\n    />\n  );",
+        code: "return (\n    /*POINT*/<List<GenericListItemData<Item, ItemData>>\n      children={itemRendererComponent}\n      className={className}\n      height={height}\n      itemCount={itemCount}\n      itemData={{\n        itemData,\n        listData,\n        revision,\n        selectedItemIndex,\n      }}\n      itemSize={itemSize}\n      onItemsRendered={onItemsRendered}\n      outerRef={outerRef}\n      ref={listRef}\n      style={style}\n      width={width}\n    />\n  );",
       },
       {
         kind: "ReactCreateElement",
@@ -73,7 +73,7 @@ const PointExpectations: Record<ExecutionPoint, InspectPointResult> = {
         functionName: "RulesList",
         line: 38,
         url: "webpack://_N_E/src/devtools/client/inspector/markup/components/rules/RulesList.tsx?7810",
-        code: 'return (\n    /*BREAK*/<GenericList\n      dataTestId="RulesList"\n      fallbackForEmptyList={noContentFallback}\n      height={height}\n      itemData={itemData}\n      itemRendererComponent={RulesListItem}\n      itemSize={ITEM_SIZE}\n      listData={rulesListData}\n      width="100%"\n    />\n  );',
+        code: 'return (\n    /*POINT*/<GenericList\n      dataTestId="RulesList"\n      fallbackForEmptyList={noContentFallback}\n      height={height}\n      itemData={itemData}\n      itemRendererComponent={RulesListItem}\n      itemSize={ITEM_SIZE}\n      listData={rulesListData}\n      width="100%"\n    />\n  );',
       },
       {
         kind: "ReactCreateElement",
@@ -81,7 +81,7 @@ const PointExpectations: Record<ExecutionPoint, InspectPointResult> = {
         functionName: "RulesPanelSuspends",
         line: 70,
         url: "webpack://_N_E/src/devtools/client/inspector/markup/components/rules/RulesPanel.tsx?8b1e",
-        code: 'return (\n    <div\n      className={styles.RulesPanel}\n      data-test-id="RulesPanel"\n      data-is-pending={isPending || undefined}\n    >\n      <div className={styles.FilterRow}>\n        <Icon className={styles.FilterIcon} type="filter" />\n        <input\n          className={styles.FilterInput}\n          onChange={({ target }) => setSearchText(target.value)}\n          placeholder="Find Styles"\n          value={searchText}\n        />\n      </div>\n      <div className={styles.ListWrapper}>\n        <AutoSizer disableWidth>\n          {({ height }: { height: number }) => (\n            <RulesList\n              height={height}\n              noContentFallback={\n                /*BREAK*/<div className={styles.NoStyles}>\n                  {selectedNodeId ? "No styles to display" : "No element selected"}\n                </div>\n              }\n              rules={cachedStyles?.rules ?? NO_RULES_AVAILABLE}\n              searchText={searchText}\n            />\n          )}\n        </AutoSizer>\n      </div>\n    </div>\n  );',
+        code: 'return (\n    <div\n      className={styles.RulesPanel}\n      data-test-id="RulesPanel"\n      data-is-pending={isPending || undefined}\n    >\n      <div className={styles.FilterRow}>\n        <Icon className={styles.FilterIcon} type="filter" />\n        <input\n          className={styles.FilterInput}\n          onChange={({ target }) => setSearchText(target.value)}\n          placeholder="Find Styles"\n          value={searchText}\n        />\n      </div>\n      <div className={styles.ListWrapper}>\n        <AutoSizer disableWidth>\n          {({ height }: { height: number }) => (\n            <RulesList\n              height={height}\n              noContentFallback={\n                /*POINT*/<div className={styles.NoStyles}>\n                  {selectedNodeId ? "No styles to display" : "No element selected"}\n                </div>\n              }\n              rules={cachedStyles?.rules ?? NO_RULES_AVAILABLE}\n              searchText={searchText}\n            />\n          )}\n        </AutoSizer>\n      </div>\n    </div>\n  );',
       },
       {
         kind: "ReactCreateElement",
@@ -89,7 +89,7 @@ const PointExpectations: Record<ExecutionPoint, InspectPointResult> = {
         functionName: "RulesPanelSuspends",
         line: 65,
         url: "webpack://_N_E/src/devtools/client/inspector/markup/components/rules/RulesPanel.tsx?8b1e",
-        code: 'return (\n    <div\n      className={styles.RulesPanel}\n      data-test-id="RulesPanel"\n      data-is-pending={isPending || undefined}\n    >\n      <div className={styles.FilterRow}>\n        <Icon className={styles.FilterIcon} type="filter" />\n        <input\n          className={styles.FilterInput}\n          onChange={({ target }) => setSearchText(target.value)}\n          placeholder="Find Styles"\n          value={searchText}\n        />\n      </div>\n      <div className={styles.ListWrapper}>\n        /*BREAK*/<AutoSizer disableWidth>\n          {({ height }: { height: number }) => (\n            <RulesList\n              height={height}\n              noContentFallback={\n                <div className={styles.NoStyles}>\n                  {selectedNodeId ? "No styles to display" : "No element selected"}\n                </div>\n              }\n              rules={cachedStyles?.rules ?? NO_RULES_AVAILABLE}\n              searchText={searchText}\n            />\n          )}\n        </AutoSizer>\n      </div>\n    </div>\n  );',
+        code: 'return (\n    <div\n      className={styles.RulesPanel}\n      data-test-id="RulesPanel"\n      data-is-pending={isPending || undefined}\n    >\n      <div className={styles.FilterRow}>\n        <Icon className={styles.FilterIcon} type="filter" />\n        <input\n          className={styles.FilterInput}\n          onChange={({ target }) => setSearchText(target.value)}\n          placeholder="Find Styles"\n          value={searchText}\n        />\n      </div>\n      <div className={styles.ListWrapper}>\n        /*POINT*/<AutoSizer disableWidth>\n          {({ height }: { height: number }) => (\n            <RulesList\n              height={height}\n              noContentFallback={\n                <div className={styles.NoStyles}>\n                  {selectedNodeId ? "No styles to display" : "No element selected"}\n                </div>\n              }\n              rules={cachedStyles?.rules ?? NO_RULES_AVAILABLE}\n              searchText={searchText}\n            />\n          )}\n        </AutoSizer>\n      </div>\n    </div>\n  );',
       },
       {
         kind: "PromiseSettled",
@@ -97,7 +97,7 @@ const PointExpectations: Record<ExecutionPoint, InspectPointResult> = {
         functionName: "cssRulesCache.load",
         line: 302,
         url: "webpack://_N_E/src/ui/suspense/styleCaches.ts?52eb",
-        code: "return {\n      elementStyle,\n      rules: elementStyle.rules?.map(rule => getRuleState(/*BREAK*/rule)) ?? [],\n    };",
+        code: "return {\n      elementStyle,\n      rules: elementStyle.rules?.map(rule => getRuleState(/*POINT*/rule)) ?? [],\n    };",
       },
       {
         kind: "PromiseSettled",
@@ -105,7 +105,7 @@ const PointExpectations: Record<ExecutionPoint, InspectPointResult> = {
         functionName: "ElementStyle.onRuleUpdated",
         line: 215,
         url: "webpack://_N_E/src/devtools/client/inspector/rules/models/element-style.ts?7f47",
-        code: "{\n    this.updateDeclarations();\n\n    // Update declarations for matching rules for pseudo-elements.\n    for (const pseudo of this.pseudoElements) {\n      this.updateDeclarations(pseudo);\n    }\n  /*BREAK*/}",
+        code: "{\n    this.updateDeclarations();\n\n    // Update declarations for matching rules for pseudo-elements.\n    for (const pseudo of this.pseudoElements) {\n      this.updateDeclarations(pseudo);\n    }\n  /*POINT*/}",
       },
       {
         kind: "PromiseSettled",
@@ -113,7 +113,7 @@ const PointExpectations: Record<ExecutionPoint, InspectPointResult> = {
         functionName: "appliedRulesCache.load",
         line: 187,
         url: "webpack://_N_E/src/ui/suspense/styleCaches.ts?52eb",
-        code: "return /*BREAK*/wiredRules;",
+        code: "return /*POINT*/wiredRules;",
       },
       {
         kind: "PromiseSettled",
@@ -121,7 +121,7 @@ const PointExpectations: Record<ExecutionPoint, InspectPointResult> = {
         functionName: "appliedRulesCache.load",
         line: 178,
         url: "webpack://_N_E/src/ui/suspense/styleCaches.ts?52eb",
-        code: "await Promise./*BREAK*/all(stylePromises);",
+        code: "await Promise./*POINT*/all(stylePromises);",
       },
       {
         kind: "PromiseSettled",
@@ -129,7 +129,7 @@ const PointExpectations: Record<ExecutionPoint, InspectPointResult> = {
         functionName: "ReplayClient.getObjectWithPreview",
         line: 739,
         url: "webpack://_N_E/packages/shared/client/ReplayClient.ts?2a2d",
-        code: "return result./*BREAK*/data;",
+        code: "return result./*POINT*/data;",
       },
     ],
     stackAndEventsTruncated: true,
@@ -138,7 +138,7 @@ const PointExpectations: Record<ExecutionPoint, InspectPointResult> = {
     location: {
       line: 302,
       url: "webpack://_N_E/src/ui/suspense/styleCaches.ts?52eb",
-      code: "return {\n      elementStyle,\n      rules: elementStyle.rules?.map(rule => getRuleState(/*BREAK*/rule)) ?? [],\n    };",
+      code: "return {\n      elementStyle,\n      rules: elementStyle.rules?.map(rule => getRuleState(/*POINT*/rule)) ?? [],\n    };",
       functionName: "cssRulesCache.load",
     },
     function: {
@@ -157,7 +157,7 @@ const PointExpectations: Record<ExecutionPoint, InspectPointResult> = {
         functionName: "cssRulesCache.load",
         line: 302,
         url: "webpack://_N_E/src/ui/suspense/styleCaches.ts?52eb",
-        code: "return {\n      elementStyle,\n      rules: elementStyle.rules?./*BREAK*/map(rule => getRuleState(rule)) ?? [],\n    };",
+        code: "return {\n      elementStyle,\n      rules: elementStyle.rules?./*POINT*/map(rule => getRuleState(rule)) ?? [],\n    };",
       },
       {
         kind: "PromiseSettled",
@@ -165,7 +165,7 @@ const PointExpectations: Record<ExecutionPoint, InspectPointResult> = {
         functionName: "ElementStyle.onRuleUpdated",
         line: 215,
         url: "webpack://_N_E/src/devtools/client/inspector/rules/models/element-style.ts?7f47",
-        code: "{\n    this.updateDeclarations();\n\n    // Update declarations for matching rules for pseudo-elements.\n    for (const pseudo of this.pseudoElements) {\n      this.updateDeclarations(pseudo);\n    }\n  /*BREAK*/}",
+        code: "{\n    this.updateDeclarations();\n\n    // Update declarations for matching rules for pseudo-elements.\n    for (const pseudo of this.pseudoElements) {\n      this.updateDeclarations(pseudo);\n    }\n  /*POINT*/}",
       },
       {
         kind: "PromiseSettled",
@@ -173,7 +173,7 @@ const PointExpectations: Record<ExecutionPoint, InspectPointResult> = {
         functionName: "appliedRulesCache.load",
         line: 187,
         url: "webpack://_N_E/src/ui/suspense/styleCaches.ts?52eb",
-        code: "return /*BREAK*/wiredRules;",
+        code: "return /*POINT*/wiredRules;",
       },
       {
         kind: "PromiseSettled",
@@ -181,7 +181,7 @@ const PointExpectations: Record<ExecutionPoint, InspectPointResult> = {
         functionName: "appliedRulesCache.load",
         line: 178,
         url: "webpack://_N_E/src/ui/suspense/styleCaches.ts?52eb",
-        code: "await Promise./*BREAK*/all(stylePromises);",
+        code: "await Promise./*POINT*/all(stylePromises);",
       },
       {
         kind: "PromiseSettled",
@@ -189,7 +189,7 @@ const PointExpectations: Record<ExecutionPoint, InspectPointResult> = {
         functionName: "ReplayClient.getObjectWithPreview",
         line: 739,
         url: "webpack://_N_E/packages/shared/client/ReplayClient.ts?2a2d",
-        code: "return result./*BREAK*/data;",
+        code: "return result./*POINT*/data;",
       },
       {
         kind: "PromiseSettled",
@@ -197,7 +197,7 @@ const PointExpectations: Record<ExecutionPoint, InspectPointResult> = {
         functionName: "sendMessage",
         line: 249,
         url: "webpack://_N_E/packages/protocol/socket.ts?32fa",
-        code: "return response./*BREAK*/result as any;",
+        code: "return response./*POINT*/result as any;",
       },
       {
         kind: "PromiseSettled",
@@ -205,7 +205,7 @@ const PointExpectations: Record<ExecutionPoint, InspectPointResult> = {
         functionName: "socketDataHandler",
         line: 335,
         url: "webpack://_N_E/packages/protocol/socket.ts?32fa",
-        code: "/*BREAK*/resolve(msg);",
+        code: "/*POINT*/resolve(msg);",
       },
       {
         kind: "PromiseSettled",
@@ -213,7 +213,7 @@ const PointExpectations: Record<ExecutionPoint, InspectPointResult> = {
         functionName: "appliedRulesCache.load",
         line: 187,
         url: "webpack://_N_E/src/ui/suspense/styleCaches.ts?52eb",
-        code: "return /*BREAK*/wiredRules;",
+        code: "return /*POINT*/wiredRules;",
       },
       {
         kind: "PromiseSettled",
@@ -221,7 +221,7 @@ const PointExpectations: Record<ExecutionPoint, InspectPointResult> = {
         functionName: "appliedRulesCache.load",
         line: 178,
         url: "webpack://_N_E/src/ui/suspense/styleCaches.ts?52eb",
-        code: "await Promise./*BREAK*/all(stylePromises);",
+        code: "await Promise./*POINT*/all(stylePromises);",
       },
       {
         kind: "PromiseSettled",
@@ -229,7 +229,7 @@ const PointExpectations: Record<ExecutionPoint, InspectPointResult> = {
         functionName: "ReplayClient.getObjectWithPreview",
         line: 739,
         url: "webpack://_N_E/packages/shared/client/ReplayClient.ts?2a2d",
-        code: "return result./*BREAK*/data;",
+        code: "return result./*POINT*/data;",
       },
     ],
     stackAndEventsTruncated: true,
@@ -239,7 +239,7 @@ const PointExpectations: Record<ExecutionPoint, InspectPointResult> = {
   //   statement: {
   //     line: 250,
   //     url: "webpack://_N_E/src/ui/suspense/styleCaches.ts?52eb",
-  //     code: `return /*BREAK*/{
+  //     code: `return /*POINT*/{
   //   // Array of CSS declarations.
   //   declarations: rule.declarations.map(declaration =>
   //     getDeclarationState(declaration, rule.domRule.objectId())

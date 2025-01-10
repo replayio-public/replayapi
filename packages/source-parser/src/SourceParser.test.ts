@@ -1,5 +1,3 @@
-import { Function, FunctionDeclaration, Identifier, Method } from "@babel/types";
-
 import { guessFunctionName } from "./function-names";
 import SourceParser from "./SourceParser";
 import { treeSitterPointToSourceLocation } from "./tree-sitter-locations";
@@ -19,9 +17,9 @@ describe("Node extraction", () => {
     expect(innermostStmt?.text).toBe('return f(x, g("hello123qweSdfjnlsdfksjdnlsdgndf", 123));');
     const [annotatedTextAtReturn] = parser.getAnnotatedNodeTextAt(
       { line: 2, column: 4 },
-      "/*BREAK*/"
+      "/*POINT*/"
     )!;
-    expect(annotatedTextAtReturn).toContain("/*BREAK*/return");
+    expect(annotatedTextAtReturn).toContain("/*POINT*/return");
 
     // Test outermost expression
     const outermostExpr = parser.getOutermostExpression({ line: 2, column: 30 });
@@ -29,9 +27,9 @@ describe("Node extraction", () => {
 
     const [annotatedTextAtExpression] = parser.getAnnotatedNodeTextAt(
       { line: 2, column: 30 },
-      "/*BREAK*/"
+      "/*POINT*/"
     )!;
-    expect(annotatedTextAtExpression).toContain("qwe/*BREAK*/Sdf");
+    expect(annotatedTextAtExpression).toContain("qwe/*POINT*/Sdf");
   });
 
   test("2", () => {
@@ -46,9 +44,9 @@ describe("Node extraction", () => {
 
     const [annotatedTextAtExpression] = parser.getAnnotatedNodeTextAt(
       { line: 55, column: 11 },
-      "/*BREAK*/"
+      "/*POINT*/"
     )!;
-    expect(annotatedTextAtExpression).toEqual("return /*BREAK*/wiredRules;");
+    expect(annotatedTextAtExpression).toEqual("return /*POINT*/wiredRules;");
   });
 });
 
@@ -201,7 +199,7 @@ export function RulesList({
   });
 
   test("2", () => {
-    const code = `return /**BREAK*/ {
+    const code = `return /*POINT*/ {
   declarations: rule.declarations.map((declaration) =>
     getDeclarationState(declaration, rule.domRule.objectId())
   ),
@@ -245,7 +243,7 @@ export function RulesList({
 
 describe("code annotations", () => {
   test("basics", () => {
-    const code = `return /**BREAK*/ {
+    const code = `return /*POINT*/ {
       declarations: rule.declarations.map((declaration) =>
         getDeclarationState(declaration, rule.domRule.objectId())
       ),

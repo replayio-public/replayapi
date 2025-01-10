@@ -236,7 +236,7 @@ export default class SourceParser {
     nodeOrLocation: SyntaxNode | SourceLocation,
     pointAnnotation: string,
     targetLoc: SourceLocation | null = null,
-    maxLines = 20
+    maxLines = 40
   ): [string, SourceLocation] | null {
     // Add `pointAnnotation` to `result.text` at `position`.
     if (!targetLoc) {
