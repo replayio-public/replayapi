@@ -355,10 +355,7 @@ export default class PointQueries {
           null,
       ]);
     } else if (exception) {
-      // TODO: There is something wrong with protocolValueToText.
-      // debug(`_makeValuePreview(${expression}) FAILED - ${await this.protocolValueToText(exception)}`);
-      // valuePreview = `(COULD NOT EVALUATE: ${await this.protocolValueToText(exception)})`;
-      // TODO: Better error handling.
+      valuePreview = `<COULD_NOT_EVALUATE exception="${JSON.stringify(await this.protocolValueToText(exception) || "(unknown)")}"/>`;
       return null;
     } else {
       valuePreview = "<COULD_NOT_EVALUATE/>";
