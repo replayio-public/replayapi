@@ -103,19 +103,6 @@ export default class DynamicCFGBuilder {
       s => s.step.point,
       s => s.ownBlock
     );
-    // const stepsByBlockStartIndex = (() => {
-    //   const groups = groupBy(stepBlockParentStarts, "ownBlockIndex");
-    //   return Object.fromEntries(
-    //     Object.entries(groups).map(([ownBlockIndex, steps]) => {
-    //       return [
-    //         ownBlockIndex,
-    //         steps.map(v => ({
-    //           step: v.step,
-    //         })),
-    //       ];
-    //     })
-    //   );
-    // })();
 
     // 2. Group steps and BlockParents into iterations.
     let stack: CFGBlock[] = [];
@@ -161,8 +148,8 @@ export default class DynamicCFGBuilder {
 
           // Three types of CFG block transitions:
           // 1. Step into nested block. (Creates new block.)
-          // 2. Step into sibling block. (Creates new block.)
-          // 3. Step out of nested block. (Does not create new block.)
+          // 2. Step out of nested block. (Does not create new block.)
+          // 3. Step to sibling block. (Creates new block.)
           if (isStepIntoNestedBlock) {
             // 1. Step in.
             blockForStep = currentBlock;
@@ -266,15 +253,15 @@ export default class DynamicCFGBuilder {
     return undefined;
   }
 
-  /**
-   * Lines of blocks that had no steps.
-   */
-  async replaceUnsteppedBlocksInRange(startLine: number, labeledCode: string[]): Promise<void> {
-    const [parser] = await Promise.all([this.pointQueries.parseSource()]);
-    // const functionInfo = (await this.pointQueries.queryFunctionInfo())!;
-    // const
-    // StepAnnotationLabelPrefix
-  }
+  // /**
+  //  * Lines of blocks that had no steps.
+  //  */
+  // async replaceUnsteppedBlocksInRange(startLine: number, labeledCode: string[]): Promise<void> {
+  //   const [parser] = await Promise.all([this.pointQueries.parseSource()]);
+  //   // const functionInfo = (await this.pointQueries.queryFunctionInfo())!;
+  //   // const
+  //   // StepAnnotationLabelPrefix
+  // }
 
   // /**
   //  * Render a summarized version of the CFG.
