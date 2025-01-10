@@ -1,8 +1,9 @@
 import { NodePath } from "@babel/traverse";
 import { ExecutionPoint } from "@replayio/protocol";
-import { groupBy } from "lodash";
+import { isBabelLocContained } from "@replayio/source-parser/src/babel/babelLocations";
 
 import { assert } from "../util/assert";
+import { groupByUnique } from "../util/groupByUnique";
 import PointQueries from "./PointQueries";
 import ReplaySession from "./ReplaySession";
 import { FrameStep } from "./types";
@@ -31,7 +32,7 @@ const StepAnnotationLabelPrefix = "POINT";
  */
 export type CFGIteration = {
   /**
-   * Steps of
+   * Steps of one iteration.
    */
   steps: (FrameStep | CFGBlock)[];
 };
@@ -45,10 +46,17 @@ export type CFGBlock = {
   staticBlock: NodePath;
   /** Start index in source code. */
   blockIndex: number;
-  iterations?: CFGIteration[];
+  /**
+   * Index of the first step in the iteration that is repeated.
+   * This is undefined in 2 cases:
+   * * Block is not a loop.
+   * * Block is a DoWhile loop that was executed once.
+   */
+  firstRepeatedStep?: FrameStep;
+  // TODO: Add decision step information.
+  // decisionStep?: TODO;
 
-  // TODO: Add condition information.
-  // condition?: TODO;
+  iterations?: CFGIteration[];
 };
 
 export default class DynamicCFGBuilder {
@@ -63,12 +71,12 @@ export default class DynamicCFGBuilder {
   }
 
   /**
-   * Compute a partial dynamic control flow graph (CFG), for the function, centered
+   * Compute a partial dynamic control flow graph (CFG), for the frame, centered
    * around `this.point`.
    * It is projected onto the source code, which means that there
    * is max one step per source location.
    */
-  async computeProjectedFunctionCFG(): Promise<CFGBlock> {
+  async buildProjectedFrameCFG(): Promise<CFGBlock> {
     const [thisLocation, parser] = await Promise.all([
       this.pointQueries.getSourceLocation(),
       this.pointQueries.parseSource(),
@@ -85,89 +93,58 @@ export default class DynamicCFGBuilder {
     assert(staticBlockParents.length, "No block parents found in function.");
 
     // 1. Group all steps by their inner most BlockParent's start index.
-    const stepBlockParentStarts = frameSteps.map(step => ({
+    const stepBlocks = frameSteps.map(step => ({
       step,
-      // The last containing BlockParent is also the innermost.
-      innerMostBlockIndex: staticBlockParents.findLast(
-        block =>
-          block.node!.loc!.start.index <= step.index && block.node!.loc!.end.index >= step.index
-      )?.node!.loc!.start.index,
+      // The "own" block is the innermost block, aka the last seen BlockParent that contains the step.
+      ownBlock: staticBlockParents.findLast(b => isBabelLocContained(step.index, b.node!))!,
     }));
-    const blocksByIndex = groupBy(staticBlockParents, block => block.node!.loc!.start.index);
-    const blockGroupByStepPoint = groupBy(stepBlockParentStarts, s => s.step.point);
-    const stepsByBlockStartIndex = (() => {
-      const groups = groupBy(stepBlockParentStarts, "innerMostBlockIndex");
-      return Object.fromEntries(
-        Object.entries(groups).map(([key, values]) => [
-          key,
-          values.map(v => ({
-            step: v.step,
-            // The step that is called most often shall be our iteration divider.
-            mostRepeatedIndex: 
-          })),
-        ])
-      );
-    })();
+    const blocksByPoint = groupByUnique(
+      stepBlocks,
+      s => s.step.point,
+      s => s.ownBlock
+    );
+    // const stepsByBlockStartIndex = (() => {
+    //   const groups = groupBy(stepBlockParentStarts, "ownBlockIndex");
+    //   return Object.fromEntries(
+    //     Object.entries(groups).map(([ownBlockIndex, steps]) => {
+    //       return [
+    //         ownBlockIndex,
+    //         steps.map(v => ({
+    //           step: v.step,
+    //         })),
+    //       ];
+    //     })
+    //   );
+    // })();
 
     // 2. Group steps and BlockParents into iterations.
-    // TODO: Determine if a block was executed:
-    //    IfStatement, CatchStatement, TryStatement's finally: Check which blocks have any steps.
-    //    DoWhile: Will always iterate at least once.
-    //    Other LoopStatements: Check if the block has any steps.
-    TODO;
-
     let stack: CFGBlock[] = [];
     for (let i = 0; i < frameSteps.length; ++i) {
       const step = frameSteps[i];
-      const newBlockIndex = blockGroupByStepPoint[step.point][0].innerMostBlockIndex!;
-      const newStaticBlock = blocksByIndex[newBlockIndex][0]!;
-      const allStepsOfBlock = stepsByBlockStartIndex[newBlockIndex].map(g => g.step);
-
-      // TODO: Get the first step that is called most often to skip initializer steps.
-      //     DoWhile: Always the first step.
-      //     Other LoopStatements: Take the first step within the loop's block? But then all condition steps, except the first, have the wrong iteration index.
-      // TODO: For this, we will have to look ahead in the frameSteps of the loop's current dynamic block execution:
-      //   → stop when stepping outside the block
-      //   → ignore steps of nested blocks
-      const loopEntryStepOfBlock = TODO; // allStepsOfBlock[0].index;
+      const newStaticBlock = blocksByPoint[step.point]!;
+      const newBlockIndex = newStaticBlock.node!.start!;
       const currentBlock = stack.length ? stack[stack.length - 1] : null;
 
       let newBlock: CFGBlock | null = null;
       if (newStaticBlock === currentBlock?.staticBlock) {
-        // Same block: Add step to current iteration.
-        const blockForStep = currentBlock!;
-        let currentIteration: CFGIteration;
-        if (!blockForStep.iterations?.length) {
-          // First step of block.
-          currentIteration = { steps: [] };
-          (blockForStep.iterations ||= []).push(currentIteration);
-        } else {
-          // TODO: Determine if this is the first iteration.
-          // TODO: Put the initializer steps in the first iteration,
-          //      but use `loopEntryStepOfBlock` to determine repetition.
-          TODO;
-          // Not the first step of block.
-          currentIteration = blockForStep.iterations[blockForStep.iterations.length - 1];
-          if (step.index === loopEntryStepOfBlock && TODO) {
-            // Assume that the (statically) first step gets executed in every iteration.
-            // If we see it again, we are in a new iteration.
-            currentIteration = { steps: [] };
-            blockForStep.iterations.push(currentIteration);
-          }
-        }
-        currentIteration.steps.push(step);
+        // Add step to same block.
+        // TODO: Handle the case where the repeated step is inside a nested block inside a DoWhileStatement:
+        //    → Need to add Iteration objects to parent blocks as well.
+        this.addIterationStep(step, currentBlock);
       } else {
-        // New block contains new step.
+        // Not the same block.
         const isStepOutOfNestedBlock =
           currentBlock &&
           currentBlock.blockIndex > newStaticBlock.node!.start! &&
           currentBlock.blockIndex < newStaticBlock.node!.end!;
         if (!isStepOutOfNestedBlock) {
-          // Create new block if we are not stepping out into an existing block.
+          // We are in a new block (because we are not stepping out into an existing block).
+          const firstRepeatedStep = this.getFirstRepeatedStepAt(frameSteps, i, blocksByPoint);
           newBlock = {
             parent: currentBlock,
             staticBlock: newStaticBlock,
             blockIndex: newBlockIndex,
+            firstRepeatedStep,
             iterations: [{ steps: [step] }],
           };
         }
@@ -175,49 +152,118 @@ export default class DynamicCFGBuilder {
           // Root node.
           stack.push(newBlock!);
         } else {
-          // Step through the CFG:
-          // 1. Step into nested block.
-          // 2. Step out of nested block.
-          // 3. Step into sibling block.
           const isStepIntoNestedBlock =
             newBlockIndex > currentBlock.staticBlock.node!.start! &&
             newBlockIndex < currentBlock.staticBlock.node!.end!;
 
-          // const isStepIntoSiblingBlock = !isStepIntoNestedBlock && !isStepOutOfNestedBlock;
-          // The parent block whose iterations contains the new block.
-          let parentBlockGroup: CFGBlock;
+          // The block whose iterations contains the new block and the step.
+          let blockForStep: CFGBlock;
+
+          // Three types of CFG block transitions:
+          // 1. Step into nested block. (Creates new block.)
+          // 2. Step into sibling block. (Creates new block.)
+          // 3. Step out of nested block. (Does not create new block.)
           if (isStepIntoNestedBlock) {
             // 1. Step in.
-            parentBlockGroup = currentBlock;
+            blockForStep = currentBlock;
           } else if (isStepOutOfNestedBlock) {
             // 2. Step out.
             do {
               stack.pop();
             } while (stack.length && stack[stack.length - 1].blockIndex !== newBlockIndex);
             assert(stack.length, "Stack was empty upon CFG step out.");
-            parentBlockGroup = stack[stack.length - 1];
+            blockForStep = stack[stack.length - 1];
           } else {
             // 3. Step sideways.
             stack.pop();
             assert(stack.length, "Stack was empty upon CFG step out.");
-            parentBlockGroup = stack[stack.length - 1];
+            blockForStep = stack[stack.length - 1];
           }
 
-          const iterations = (parentBlockGroup.iterations ||= []);
-          let iteration = iterations.length ? iterations[iterations.length - 1] : null;
-          if (!iteration) {
-            iteration = { steps: [] };
-            iterations.push(iteration);
-          }
+          const currentIteration = this.addIterationStep(step, blockForStep);
           if (newBlock) {
             stack.push(newBlock);
-            iteration.steps.push(newBlock);
+            currentIteration.steps.push(newBlock);
           }
         }
       }
     }
     assert(stack.length, "Stack was empty upon CFG completion.");
     return stack[0]!;
+  }
+
+  /**
+   * 1. Add iteration if this step is the first or the first repeated step.
+   * 2. Add step to that iteration.
+   */
+  private addIterationStep(step: FrameStep, blockForStep: CFGBlock) {
+    let currentIteration: CFGIteration;
+    if (!blockForStep.iterations?.length) {
+      // First step of block.
+      currentIteration = { steps: [] };
+      (blockForStep.iterations ||= []).push(currentIteration);
+    } else {
+      // Not the first step of block.
+      currentIteration = blockForStep.iterations[blockForStep.iterations.length - 1];
+
+      // Check if we are re-entering.
+      // NOTE: We put initializer steps into the first iteration.
+      const isNewIteration =
+        blockForStep.firstRepeatedStep &&
+        step.index === blockForStep.firstRepeatedStep.index &&
+        step.point !== blockForStep.firstRepeatedStep.point;
+
+      if (isNewIteration) {
+        currentIteration = { steps: [] };
+        blockForStep.iterations.push(currentIteration);
+      }
+    }
+    currentIteration.steps.push(step);
+    return currentIteration;
+  }
+
+  /** ###########################################################################
+   * Utilities.
+   * ##########################################################################*/
+
+  /**
+   * Get the first step that is repeated.
+   */
+  getFirstRepeatedStepAt(
+    steps: FrameStep[],
+    i: number,
+    blocksByPoint: Record<string, NodePath>
+  ): FrameStep | undefined {
+    const baseStep = steps[i];
+    const baseBlock = blocksByPoint[baseStep.point]!;
+
+    // DoWhile: Always the first step.
+    if (baseBlock.isDoWhileStatement()) {
+      return steps[i];
+    }
+
+    // Find the first repeated step by looking ahead in the frameSteps of the loop's current dynamic block execution.
+    const seenIndexes = new Map<number, FrameStep>([[baseStep.index, baseStep]]);
+    for (i += 1; i < steps.length; ++i) {
+      const step = steps[i];
+      const block = blocksByPoint[step.point]!;
+      if (!isBabelLocContained(step.index, baseBlock.node!)) {
+        // Stepped out of block.
+        return undefined;
+      }
+      if (block !== baseBlock) {
+        // Ignore nested blocks.
+        continue;
+      }
+
+      // Find first repeated step.
+      const seenStep = seenIndexes.get(step.index);
+      if (seenStep) {
+        return seenStep;
+      }
+      seenIndexes.set(step.index, step);
+    }
+    return undefined;
   }
 }
 
@@ -279,7 +325,11 @@ export default class DynamicCFGBuilder {
 //     // TODO: Don't stub out the function header itself.
 //     const missingPreviousLines = startLine - functionInfo.lines.start;
 //     const missingNextLines = functionInfo.lines.end - endLine;
-//     // TODO: stub our
+
+//     // TODO: For every Block: Determine if it was executed at all based on their parent AST node:
+//     //    IfStatement, CatchStatement, TryStatement's finally: Check which blocks have any steps.
+//     //    DoWhile: Will always iterate at least once.
+//     //    Other LoopStatement: Block is executed if there are any repeated steps.
 
 //     // Add comments to inform about omissions.
 //     if (missingPreviousLines) {

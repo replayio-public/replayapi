@@ -99,5 +99,12 @@ export type FrameStep = SourceLocation & {
   /** 1-dimensional index into the source code. */
   index: number;
   point: ExecutionPoint;
+
+  // TODO: add a FrameStep type to distinguish between:
+  //   * DecisionStep
+  //   * CallStep
+  //   * ReturnStep
+  //   * CompletionStep (return, break, continue)
+  //   * etc.
 };
 export type UniqueFrameStep = FrameStep & { hits: number };

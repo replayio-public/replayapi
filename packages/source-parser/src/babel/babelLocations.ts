@@ -15,6 +15,11 @@ export interface BabelPosition {
   index: number;
 }
 
+export interface BabelRange {
+  start?: number | null;
+  end?: number | null;
+}
+
 export function getNodeRange(path: NodePath): CodeLocRange {
   return {
     start: path.node.loc!.start.index,
@@ -36,4 +41,8 @@ export function removeNestedPaths(paths: NodePath[]): NodePath[] {
     }
   }
   return result;
+}
+
+export function isBabelLocContained(index: number, outer: BabelRange): boolean {
+  return index >= outer.start! && index <= outer.end!;
 }

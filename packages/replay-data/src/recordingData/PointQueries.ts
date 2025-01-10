@@ -203,7 +203,7 @@ export default class PointQueries {
     );
   }
 
-  async getUniqueFrameSteps(steps: FrameStep[]): Promise<UniqueFrameStep[]> {
+  async countStepHits(steps: FrameStep[]): Promise<UniqueFrameStep[]> {
     const [parser] = await Promise.all([this.parseSource()]);
     // Count unique steps by their location index
     const uniqueSteps = new Map<number, UniqueFrameStep>();
