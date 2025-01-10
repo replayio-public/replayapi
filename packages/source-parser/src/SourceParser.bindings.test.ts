@@ -1,6 +1,31 @@
 import SourceParser from "./SourceParser";
 
 describe("getBindingAt", () => {
+  test("resolves a top-level variable binding", () => {
+    const code = `
+      // line 1
+      const y = 10;
+      console.log(y);
+    `;
+
+    const parser = new SourceParser("test.ts", code);
+    parser.parse();
+
+    // We expect the reference to "y" on line 3 to map back to line 2
+    const loc = { line: 3, column: 13 }; // Inside "console.log(y);"
+    const binding = parser.getBindingAt(loc, "y");
+
+    expect(binding).toBeTruthy(); // or not.toBeNull()
+    expect(binding).toMatchObject({
+      kind: "const",
+      declaration: {
+        line: 3,
+        code: expect.stringContaining("const y = 10;"),
+        // It's top-level, so no functionName here
+      },
+    });
+  });
+  
   test("returns null if there's no binding at the specified location", () => {
     const code = `
       const x = 42;
@@ -17,31 +42,6 @@ describe("getBindingAt", () => {
     const loc = { line: 6, column: 4 }; // On the comment line
     const binding = parser.getBindingAt(loc, "doesNotExist");
     expect(binding).toBeNull();
-  });
-
-  test("resolves a top-level variable binding", () => {
-    const code = `
-      // line 1
-      const y = 10;
-      console.log(y);
-    `;
-
-    const parser = new SourceParser("test.ts", code);
-    parser.parse();
-
-    // We expect the reference to "y" on line 3 to map back to line 2
-    const loc = { line: 3, column: 14 }; // Inside "console.log(y);"
-    const binding = parser.getBindingAt(loc, "y");
-
-    expect(binding).toBeTruthy(); // or not.toBeNull()
-    expect(binding).toMatchObject({
-      kind: "const",
-      declaration: {
-        line: 3,
-        code: expect.stringContaining("const y = 10;"),
-        // It's top-level, so no functionName here
-      },
-    });
   });
 
   test("resolves a function parameter binding", () => {

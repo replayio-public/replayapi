@@ -97,7 +97,7 @@ export class BabelParser {
 
   private assertTypeOrAliasExist(...babelTypeOrAliases: string[]) {
     if (
-      babelTypeOrAliases &&
+      babelTypeOrAliases.length &&
       // Little trick: NodePath prototype has a check for each type or alias.
       !babelTypeOrAliases.some(t => (NodePath.prototype as any)["is" + t])
     ) {
@@ -120,7 +120,7 @@ export class BabelParser {
         }
         const start = node.start!,
           end = node.end!;
-        if (babelTypeOrAliases && !babelTypeOrAliases.some(t => path.isNodeType(t))) {
+        if (babelTypeOrAliases.length && !babelTypeOrAliases.some(t => path.isNodeType(t))) {
           return;
         }
 
