@@ -14,7 +14,7 @@ describe("initialAnalysisAction integration", () => {
     const result = getCommandResult() as CommandOutputSuccess;
 
     expect(result).toEqual({
-      status: "Success",
+      status: "success",
       result: expect.objectContaining({
         commentText: expect.stringMatching(/^The /),
         reactComponentName: "InheritanceRenderer",

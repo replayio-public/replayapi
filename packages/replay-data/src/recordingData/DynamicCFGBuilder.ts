@@ -86,13 +86,11 @@ export default class DynamicCFGBuilder {
     // const { point } = this.pointQueries;
     // const idx = steps.findIndex(step => step.point === point);
 
-    // 0. Get all BlockParents within the function that contains the point.
-    //    NOTE: This is simplifying things, as we are not adding non-block CFG nodes
-    //          (but their execution or non-execution is visible in this CFG).
+    // 0. Get all BlockParents in the frame's function.
     const staticBlockParents = parser.babelParser!.getAllBlockParentsInFunctionAt(thisLocation);
     assert(staticBlockParents.length, "No block parents found in function.");
 
-    // 1. Group all steps by their inner most BlockParent's start index.
+    // 1. Group all steps by their innermost BlockParent's start index.
     const stepBlocks = frameSteps.map(step => ({
       step,
       // The "own" block is the innermost block, aka the last seen BlockParent that contains the step.
@@ -104,7 +102,7 @@ export default class DynamicCFGBuilder {
       s => s.ownBlock
     );
 
-    // 2. Group steps and BlockParents into iterations.
+    // 2. Group steps and BlockParents into CFGBlock and CFGIterations.
     let stack: CFGBlock[] = [];
     for (let i = 0; i < frameSteps.length; ++i) {
       const step = frameSteps[i];
@@ -193,7 +191,7 @@ export default class DynamicCFGBuilder {
       // Not the first step of block.
       currentIteration = blockForStep.iterations[blockForStep.iterations.length - 1];
 
-      // Check if we are re-entering.
+      // Check if we are re-entering by checking if we hit the location of the `firstRepeatedStep`.
       // NOTE: We put initializer steps into the first iteration.
       const isNewIteration =
         blockForStep.firstRepeatedStep &&
