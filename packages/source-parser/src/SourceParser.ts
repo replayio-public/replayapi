@@ -18,8 +18,8 @@ import {
 } from "./tree-sitter-locations";
 import { LanguageInfo, TypeCover } from "./tree-sitter-nodes";
 import { createTreeSitterParser } from "./tree-sitter-setup";
-import { truncateAround } from "./util/truncateCenter";
 import { CodeAtLocation, StaticFunctionInfo } from "./types";
+import { truncateAround } from "./util/truncateCenter";
 
 const FailBabelParseSilently = process.env.NODE_ENV === "production";
 
@@ -232,27 +232,44 @@ export default class SourceParser {
     return truncateAround(node.text, relativeIndex);
   }
 
-  /**
-   * @returns The relevant node text, as well as the node's start location.
-   */
   getAnnotatedNodeTextAt(
-    loc: SourceLocation,
-    pointAnnotation: String
+    nodeOrLocation: SyntaxNode | SourceLocation,
+    pointAnnotation: string,
+    targetLoc: SourceLocation | null = null,
+    maxLines = 20
   ): [string, SourceLocation] | null {
-    const node = this.getRelevantContainingNodeAt(loc);
-    if (!node) {
-      return null;
-    }
-
     // Add `pointAnnotation` to `result.text` at `position`.
+    if (!targetLoc) {
+      if ("line" in nodeOrLocation) {
+        targetLoc = nodeOrLocation;
+      } else {
+        throw new Error("targetLoc is required if nodeOrLocation is not a location.");
+      }
+    }
+    const node =
+      "children" in nodeOrLocation
+        ? nodeOrLocation
+        : this.getRelevantContainingNodeAt(nodeOrLocation);
+    if (!node) {
+      throw new Error(`Node not found at ${JSON.stringify(nodeOrLocation)}`);
+    }
     const startLoc = treeSitterPointToSourceLocation(node.startPosition);
-    const annotationIndex = this.code.getRelativeIndex(loc, startLoc);
+    const relativeIndex = this.code.getRelativeIndex(targetLoc, startLoc);
     let text = node.text;
 
-    const before = text.slice(0, annotationIndex);
-    const after = text.slice(annotationIndex);
+    const before = text.slice(0, relativeIndex);
+    const after = text.slice(relativeIndex);
+    let code = `${before}${pointAnnotation}${after}`;
+    const source = new SourceContents("", code);
+    if (source.rows.length > maxLines) {
+      const targetLoc = source.indexToLocation(relativeIndex);
+      const targetLineIndex = targetLoc.line - 1; // lines are 1-based
+      const startLine = Math.max(targetLineIndex - Math.floor(maxLines / 2), 0);
+      const endLine = Math.min(startLine + maxLines, source.rows.length - 1);
+      code = source.rows.slice(startLine, endLine).join("\n");
+    }
 
-    return [`${before}${pointAnnotation}${after}`, startLoc];
+    return [code, startLoc];
   }
 
   /** ###########################################################################
@@ -375,7 +392,9 @@ export default class SourceParser {
       kind: binding.kind,
       // NOTE: We don't need declaration info for params, since those can be inferred from function and caller info.
       declaration:
-        binding.kind !== "param" ? this.getBabelCodeAtLocation(binding.identifier as BabelNode) : undefined,
+        binding.kind !== "param"
+          ? this.getBabelCodeAtLocation(binding.identifier as BabelNode)
+          : undefined,
       writes,
     };
   }

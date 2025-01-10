@@ -221,13 +221,8 @@ export default class PointQueries {
   }
 
   /** ###########################################################################
-   * Other high-level Queries.
+   * Code rendering.
    * ##########################################################################*/
-
-  async shouldIncludeThisPoint(): Promise<boolean> {
-    const thisLocation = await this.getSourceLocation();
-    return shouldSourceBeIncluded(thisLocation.url);
-  }
 
   /**
    * Get data for the statement at `point`.
@@ -259,6 +254,36 @@ export default class PointQueries {
       code: statementCode,
       functionName: functionInfo?.name || undefined,
     };
+  }
+
+  async queryFrameCodeAndLocation(): Promise<CodeAtLocation> {
+    const [thisLocation, functionInfo, codeSummary, parser] = await Promise.all([
+      this.getSourceLocation(),
+      this.queryFunctionInfo(),
+      this.queryCodeAndLocation(),
+      this.parseSource(),
+    ]);
+    if (functionInfo?.name === "ElementStyle.populate") {
+      // TODO: Remove this hardcoded data piece (10608 test).
+      const functionNode = parser.getInnermostFunction(thisLocation)!;
+
+      // Put the whole function in.
+      codeSummary.code = parser.getAnnotatedNodeTextAt(
+        functionNode,
+        POINT_ANNOTATION,
+        thisLocation
+      )![0];
+    }
+    return codeSummary;
+  }
+
+  /** ###########################################################################
+   * Other high-level Queries.
+   * ##########################################################################*/
+
+  async shouldIncludeThisPoint(): Promise<boolean> {
+    const thisLocation = await this.getSourceLocation();
+    return shouldSourceBeIncluded(thisLocation.url);
   }
 
   async queryStackAndEvents(): Promise<[boolean, RichStackFrame[]]> {
@@ -546,7 +571,7 @@ export default class PointQueries {
   async inspectPoint(): Promise<InspectPointResult> {
     const [location, functionInfo, inputDependencies, [stackTruncated, stackAndEvents]] =
       await Promise.all([
-        this.queryCodeAndLocation(),
+        this.queryFrameCodeAndLocation(),
         this.queryFunctionInfo(),
         this.queryInputDependencies(),
         // null,

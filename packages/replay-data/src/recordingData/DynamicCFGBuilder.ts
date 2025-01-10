@@ -265,81 +265,44 @@ export default class DynamicCFGBuilder {
     }
     return undefined;
   }
+
+  /**
+   * Lines of blocks that had no steps.
+   */
+  async replaceUnsteppedBlocksInRange(startLine: number, labeledCode: string[]): Promise<void> {
+    const [parser] = await Promise.all([this.pointQueries.parseSource()]);
+    // const functionInfo = (await this.pointQueries.queryFunctionInfo())!;
+    // const
+    // StepAnnotationLabelPrefix
+  }
+
+  // /**
+  //  * Render a summarized version of the CFG.
+  //  */
+  // async render(): Promise<string> {
+  //   const [thisLocation, parser] = await Promise.all([
+  //     this.pointQueries.getSourceLocation(),
+  //     this.pointQueries.parseSource(),
+  //   ]);
+  //   if (!parser.babelParser) {
+  //     return "(TODO: unknown)";
+  //   }
+  //   const functionInfo = (await this.pointQueries.queryFunctionInfo())!;
+  //   const { point } = this;
+
+  //   // 1. Build CFG.
+  //   const cfgRoot = await this.buildProjectedFrameCFG();
+
+  //   // TODO:
+  //   // 1. Render all lines of the point's own block iteration.
+  //   // 2. Render all ancestor block start + end lines.
+  //   // 3. Render all direct children and sibling blocks start + end lines, with information on whether their body was executed.
+  //   // 3. Render "..." where lines were omitted.
+
+  //   // Get labeled lines of code from the source.
+  //   const labeledCode = [TODO];
+
+  //   // Render final code.
+  //   return labeledCode.join("\n");
+  // }
 }
-
-//   /**
-//    * Lines of blocks that had no steps.
-//    */
-//   async replaceUnsteppedBlocksInRange(startLine: number, labeledCode: string[]): Promise<void> {
-//     const [parser] = await Promise.all([this.pointQueries.parseSource()]);
-//     // const functionInfo = (await this.pointQueries.queryFunctionInfo())!;
-//     // const
-//     // StepAnnotationLabelPrefix
-//   }
-
-//   /**
-//    * Render a summarized version of the code graph:
-//    * 1. Render up to `maxLines` in both directions from startLoc with  frame steps annotated as block comments.
-//    * 2. Try to render entire basic blocks (even statements without hits), but omit parts if they exceed max length.
-//    * 3. Omit multi-statement basic blocks that were not taken.
-//    * 4a. Loops: Always render each line only once
-//    * 4b. Render a comment inside loops to indicate other iterations.
-//    *
-//    * NOTE: We are rendering line-by-line, rather than statement-by-statement because the
-//    * straight-forward solution for the latter would require code modifications with babel,
-//    * which would produce output code different from the input code.
-//    */
-//   async render(): Promise<string> {
-//     const [thisLocation, parser] = await Promise.all([
-//       this.pointQueries.getSourceLocation(),
-//       this.pointQueries.parseSource(),
-//     ]);
-//     if (!parser.babelParser) {
-//       return "(TODO: unknown)";
-//     }
-//     const functionInfo = (await this.pointQueries.queryFunctionInfo())!;
-//     const { point } = this;
-
-//     // 1. Get BlockParents, and all their frame steps, grouped by iterations.
-//     const blockParents = await this.computeCFG();
-
-//     // 2. Select the closest iteration for each BlockParent.
-//     const rangeStartLine = Math.max(functionInfo.lines.start, thisLocation.line - MaxRenderLines);
-//     const rangeEndLine = Math.min(functionInfo.lines.end, thisLocation.line + MaxRenderLines);
-//     const rangeStartIndex = parser.code.locationToIndex({ line: rangeStartLine, column: 0 });
-//     const rangeEndIndex = parser.code.locationToIndex({ line: rangeEndLine + 1, column: 0 });
-//     const blockParentsInRange = blockParents.filter(
-//       bp => bp.endIndex >= rangeStartIndex && bp.startIndex <= rangeEndIndex
-//     );
-//     const selectedIterations = blockParents.map(block => ({
-//       block,
-//       iteration: minBy(block.iterations!, i =>
-//         minBy(i.steps, s => BigInt(s.point) - BigInt(point))
-//       ),
-//     }));
-
-//     // Get labeled lines of code from the source.
-//     const labeledCode = [TODO];
-
-//     // Stub out all ancestor node headers of the node that contains the earliest line of code.
-//     // TODO: Don't stub out the function header itself.
-//     const missingPreviousLines = startLine - functionInfo.lines.start;
-//     const missingNextLines = functionInfo.lines.end - endLine;
-
-//     // TODO: For every Block: Determine if it was executed at all based on their parent AST node:
-//     //    IfStatement, CatchStatement, TryStatement's finally: Check which blocks have any steps.
-//     //    DoWhile: Will always iterate at least once.
-//     //    Other LoopStatement: Block is executed if there are any repeated steps.
-
-//     // Add comments to inform about omissions.
-//     if (missingPreviousLines) {
-//       labeledCode.unshift(...TODO);
-//     }
-//     if (missingNextLines) {
-//       labeledCode.push(...TODO);
-//     }
-
-//     // Render final code.
-//     return labeledCode.join("\n");
-//   }
-// }

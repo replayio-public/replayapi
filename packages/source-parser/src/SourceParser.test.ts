@@ -242,3 +242,31 @@ export function RulesList({
     );
   });
 });
+
+describe("code annotations", () => {
+  test("basics", () => {
+    const code = `return /**BREAK*/ {
+      declarations: rule.declarations.map((declaration) =>
+        getDeclarationState(declaration, rule.domRule.objectId())
+      ),
+      id: rule.domRule.objectId(),
+      inheritance: rule.inheritance,
+      isUnmatched: rule.isUnmatched,
+      isUserAgentStyle: rule.domRule.isSystem,
+      pseudoElement: rule.pseudoElement,
+      selector: rule.selector,
+      sourceLink: rule.sourceLink,
+      type: rule.domRule.type,
+    };
+    `;
+    const parser = new SourceParser("test.ts", code);
+    parser.parse();
+
+    const lines = code.split("\n");
+    const line = 5;
+    const N = 3;
+    expect(
+      parser.getAnnotatedNodeTextAt(parser.tree.rootNode, "", { line, column: 0 }, 2 * N)![0]
+    ).toEqual(lines.slice(line - 1 - N, line - 1 + N).join("\n"));
+  });
+});
