@@ -2,15 +2,16 @@ import { mkdir, mkdtemp, writeFile } from "fs/promises";
 import os from "os";
 import path from "path";
 
+import createDebug from "debug";
+
 import ReplaySession from "../recordingData/ReplaySession";
 import NestedError from "../util/NestedError";
+import { withTimeout } from "../util/timerUtil";
 import { AnalysisType } from "./dependencyGraphShared";
 import { AnalysisInput } from "./dgSpecs";
 import { AnalysisResult } from "./specs";
 
-// import createDebug from "debug";
-
-// const debug = createDebug("replay:runAnalysis");
+const debug = createDebug("replay:runAnalysis");
 
 async function prepareAnalysisBase(): Promise<{ replayDir: string }> {
   if (!process.env.DATABASE_URL) {
@@ -77,11 +78,16 @@ export async function runAnalysis<TResult extends AnalysisResult>(
   input: AnalysisInput
 ): Promise<TResult> {
   try {
-    return (await session.experimentalCommand(
-      analysisExperimentalCommandMapInverted[input.analysisType],
-      input.spec
-    )) as TResult;
+    const command = analysisExperimentalCommandMapInverted[input.analysisType];
+    debug(JSON.stringify({ experimentalCommand: { command, spec: input.spec } }) + "\n");
+
+    // const timeout = 15 * 1000;
+    const timeout = 30 * 1000;
+    return await withTimeout(
+      timeout,
+      () => session.experimentalCommand(command, input.spec) as Promise<TResult>
+    );
   } catch (err: any) {
-    throw new NestedError(`runAnalysis failed with input=${JSON.stringify(input)}\n  ${err.stack}`);
+    throw new NestedError(`runAnalysis failed with input=${JSON.stringify(input)}`, err);
   }
 }

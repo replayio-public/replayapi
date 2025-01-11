@@ -4,7 +4,6 @@ import {
   ExecutionPoint,
   Frame,
   PauseId,
-  PointDescription,
   NamedValue as ProtocolNamedValue,
   Value as ProtocolValue,
 } from "@replayio/protocol";
@@ -47,7 +46,11 @@ import {
   SimpleValuePreviewResult,
   UniqueFrameStep,
 } from "./types";
-import { compileGetTypeName } from "./values/previewValueUtil";
+import {
+  compileGetTypeName,
+  compileMakePreview,
+  compileMakePreviews,
+} from "./values/previewValueUtil";
 
 const debug = createDebug("replay:PointQueries");
 
@@ -340,7 +343,7 @@ export default class PointQueries {
   }
 
   private async _makeValuePreview(expression: string): Promise<SimpleValuePreviewResult> {
-    const valueEval = await this.evaluate(expression);
+    const valueEval = await this.evaluate(`${compileMakePreview(expression)}`);
     const { returned: value, exception } = valueEval;
     let valuePreview: string | null = null;
     let typePreview: string | null = null;
@@ -355,7 +358,7 @@ export default class PointQueries {
           null,
       ]);
     } else if (exception) {
-      valuePreview = `<COULD_NOT_EVALUATE exception="${JSON.stringify(await this.protocolValueToText(exception) || "(unknown)")}"/>`;
+      valuePreview = `<COULD_NOT_EVALUATE exception="${JSON.stringify((await this.protocolValueToText(exception)) || "(unknown)")}"/>`;
       return null;
     } else {
       valuePreview = "<COULD_NOT_EVALUATE/>";
@@ -427,7 +430,7 @@ export default class PointQueries {
       );
       if (isEmpty(hardcodedCreationSite)) {
         console.error(
-          `❌ [REPLAY_DATA_MISSING] Hardcoded for expression "${expression}" (POINT=${this.point}) missing.`
+          `❌ [REPLAY_DATA_MISSING] Hardcoded objectCreationSite for expression "${expression}" (POINT=${this.point}) missing.`
         );
       } else {
         res = { ...res, objectCreationSite: hardcodedCreationSite };
@@ -466,8 +469,8 @@ export default class PointQueries {
 
     return {
       expression,
-      ...valuePreview,
       ...dataFlow,
+      ...valuePreview,
     };
   }
 
@@ -517,9 +520,6 @@ export default class PointQueries {
         deps.map(async dep => {
           const expression = dep.text;
           const info = await this.queryExpressionInfo(expression, dataFlowResult);
-          if (info.value === undefined) {
-            return null;
-          }
           return {
             ...info,
           };

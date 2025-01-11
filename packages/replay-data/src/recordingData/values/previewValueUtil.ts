@@ -2,11 +2,6 @@ import { ArrayPreview, DefaultPreview, ObjectPreview, ValuePreview } from "./val
 
 type AnyValue = any;
 
-interface TypeDescription {
-  name: string;
-  methods: ValuePreview;
-}
-
 function isObject(x: AnyValue): x is object {
   return typeof x === "object" && x !== null;
 }
@@ -14,8 +9,6 @@ function isObject(x: AnyValue): x is object {
 function isFunction(x: AnyValue): x is Function {
   return typeof x === "function";
 }
-
-const sharedUtilities = [isObject, isFunction];
 
 function getTypeName(x: AnyValue): string {
   if (x === null) {
@@ -33,27 +26,13 @@ function getTypeName(x: AnyValue): string {
   return typeof x;
 }
 
-function makePreviews(inputs: string[]): Record<string, ValuePreview> {
-  const MaxOutLength = 20000;
+const sharedUtilities = [isObject, isFunction, getTypeName];
+
+function makePreviews(inputs: string[] | string): Record<string, ValuePreview> | ValuePreview {
+  // NOTE: Replay has a hardcoded limit of 10k.
+  const MaxOutLength = 8000;
   const MaxStringLength = 60;
   const MaxTruncatedChildren = 50;
-
-  function describeElaborateObjectType(x: AnyValue): TypeDescription | null {
-    if (typeof x === "object" && x?.constructor && x.constructor !== Object) {
-      if (
-        (!Object.prototype.hasOwnProperty.call(globalThis, x.constructor.name) ||
-          globalThis[x.constructor.name as keyof typeof globalThis] !== x.constructor) &&
-        x.constructor.prototype
-      ) {
-        /* Describe methods of complex non-builtin type */
-        return {
-          name: x.constructor.name,
-          methods: previewValue(Object.getOwnPropertyNames(x.constructor.prototype)),
-        };
-      }
-    }
-    return null;
-  }
 
   /** ###########################################################################
    * Utilities
@@ -144,7 +123,7 @@ function makePreviews(inputs: string[]): Record<string, ValuePreview> {
     return keys ? Object.fromEntries(processedValues.map((v, i) => [keys[i], v])) : processedValues;
   }
 
-  function stringifyObjectPreview(keys: string[] | null, processedValues: string[]): string {
+  function buildStringifiedObjectOrArray(keys: string[] | null, processedValues: string[]): string {
     return keys
       ? `{${processedValues.map((v, i) => `${keys[i]}: ${v}`).join(", ")}}`
       : `[${processedValues.join(", ")}]`;
@@ -200,7 +179,7 @@ function makePreviews(inputs: string[]): Record<string, ValuePreview> {
       /* Check if we need to truncate. */
       if (
         i >= MaxTruncatedChildren - 1 ||
-        stringifyObjectPreview(keys, processedValues).length >= MaxOutLength
+        buildStringifiedObjectOrArray(keys, processedValues).length >= MaxOutLength
       ) {
         /* Truncate. */
         const remaining = entries.length - i - 1;
@@ -235,7 +214,11 @@ function makePreviews(inputs: string[]): Record<string, ValuePreview> {
     return shortSummary(x);
   }
 
-  function previewValues(inputs: string[]): Record<string, ValuePreview> {
+  function previewValues(inputs: string[] | string): Record<string, ValuePreview> | ValuePreview {
+    if (typeof inputs === "string") {
+      const val = eval(inputs);
+      return previewValue(val);
+    }
     return Object.fromEntries(
       inputs.map(input => {
         try {
@@ -266,8 +249,12 @@ function compileCall(func: Function, input: string): CodeString {
 })()`;
 }
 
-export function compileMakePreviewsCall(expressions: string[]): CodeString {
-  return compileCall(makePreviews, `[${expressions.join(", ")}]`);
+export function compileMakePreviews(expressions: string[]): CodeString {
+  return compileCall(makePreviews, JSON.stringify(expressions));
+}
+
+export function compileMakePreview(expression: string): CodeString {
+  return compileCall(makePreviews, JSON.stringify(expression));
 }
 
 /**
