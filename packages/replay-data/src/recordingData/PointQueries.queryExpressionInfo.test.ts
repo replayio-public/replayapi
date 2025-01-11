@@ -26,7 +26,7 @@ const PointExpectations: TestData[] = [
         return {
           expression: "elementStyle.rules",
           type: "Array",
-          value: expect.stringContaining('elementStyle": {"nodeId"'),
+          value: expect.stringMatching(/"elementStyle".*"domRule"/s),
           staticBinding: undefined,
           objectCreationSite: {
             kind: "ArrayExpression",
@@ -53,7 +53,7 @@ const PointExpectations: TestData[] = [
           expression: "itemData",
           // NOTE: The stringifier util calls JSON.stringify on string values.
           type: "object",
-          value: expect.stringMatching(/rules.*?declarations.*?selector/s),
+          value: expect.stringMatching(/"rules":/s),
           staticBinding: {
             kind: "const",
             declaration: expect.objectContaining({

@@ -343,13 +343,15 @@ export default class PointQueries {
   }
 
   private async _makeValuePreview(expression: string): Promise<SimpleValuePreviewResult> {
-    const valueEval = await this.evaluate(`${compileMakePreview(expression)}`);
+    // const valueEval = await this.evaluate(`${compileMakePreview(expression)}`);
+    const valueEval = await this.evaluate(expression);
     const { returned: value, exception } = valueEval;
     let valuePreview: string | null = null;
     let typePreview: string | null = null;
     if (value) {
       const typeEval = await this.evaluate(`${compileGetTypeName(expression)}`);
       [valuePreview, typePreview] = await Promise.all([
+        // TODO: remove protocolValueToText since its previews are too long.
         this.protocolValueToText(value),
         (typeEval?.returned &&
           ("value" in typeEval.returned
