@@ -7,11 +7,11 @@ import { RecordingId } from "@replayio/protocol";
 import createDebug from "debug";
 import defaultsDeep from "lodash/defaultsDeep";
 
+import { isReplayDevMode } from "../devMode";
 import NestedError from "../util/NestedError";
 import { deterministicObjectHash } from "../util/objectUtil";
 import {
   DefaultHardcodedStubString,
-  DefaultHardcodedValueStub,
   HardcodedDir,
   HardcodedResult,
   importHardcodedData,
@@ -102,12 +102,14 @@ function checkHardcodedResult(
   }
 }
 
-export async function forceLookupHardcodedData(
+export async function tryForceLookupHardcodedData(
   recordingId: RecordingId,
   name: string,
   input: HardcodedResult | null
 ): Promise<HardcodedResult> {
-  return lookupHardcodedData(recordingId, name, input, undefined, true);
+  // We only force in dev mode.
+  const actualForce = isReplayDevMode();
+  return lookupHardcodedData(recordingId, name, input, undefined, actualForce);
 }
 
 async function lookupHardcodedData(

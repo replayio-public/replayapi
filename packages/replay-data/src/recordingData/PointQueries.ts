@@ -31,7 +31,7 @@ import { BigIntToPoint, ExecutionPointInfo } from "../util/points";
 import DynamicScope from "./bindings/DynamicScope";
 import DependencyChain, { RichStackFrame } from "./DependencyChain";
 import { isDefaultHardcodedValueStub } from "./hardcodedCore";
-import { forceLookupHardcodedData, wrapAsyncWithHardcodedData } from "./hardcodedResults";
+import { tryForceLookupHardcodedData, wrapAsyncWithHardcodedData } from "./hardcodedData";
 import ReplaySession from "./ReplaySession";
 import {
   DataFlowOrigin,
@@ -423,7 +423,7 @@ export default class PointQueries {
 
     // 2. Look up hardcoded object creation site when isValueReferenceType, but `origins` is empty.
     if ((await this.isValueReferenceType(expression)) && !res.origins?.length) {
-      const hardcodedCreationSite = await forceLookupHardcodedData(
+      const hardcodedCreationSite = await tryForceLookupHardcodedData(
         this.session.getRecordingId()!,
         "objectCreationSite",
         { expression, point: this.point }

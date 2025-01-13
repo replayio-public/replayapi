@@ -15,7 +15,7 @@ import { AnalysisType } from "../analysis/dependencyGraphShared";
 import { AnalysisInput } from "../analysis/dgSpecs";
 import { runAnalysis } from "../analysis/runAnalysis";
 import { ExecutionDataAnalysisResult } from "../analysis/specs/executionPoint";
-import { wrapAsyncWithHardcodedData } from "./hardcodedResults";
+import { wrapAsyncWithHardcodedData } from "./hardcodedData";
 import PointQueries from "./PointQueries";
 import ReplaySources from "./ReplaySources";
 
