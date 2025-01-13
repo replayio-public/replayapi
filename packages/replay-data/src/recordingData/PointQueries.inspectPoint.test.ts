@@ -24,6 +24,9 @@ const PointExpectations: Record<ExecutionPoint, InspectPointResult> = {
         "({\n  index,\n  inheritedSource,\n  style,\n}: {\n  index: number;\n  inheritedSource: string;\n  style: CSSProperties;\n})",
     },
     inputDependencies: [
+      expect.objectContaining({ expression: "div" }),
+      expect.objectContaining({ expression: "styles" }),
+      expect.objectContaining({ expression: "styles.Inheritance" }),
       {
         expression: "index",
         value: "7",
@@ -149,7 +152,10 @@ const PointExpectations: Record<ExecutionPoint, InspectPointResult> = {
       },
       params: "",
     },
-    inputDependencies: [],
+    inputDependencies: [
+      expect.objectContaining({ expression: "getRuleState" }),
+      expect.objectContaining({ expression: "rule" }),
+    ],
     stackAndEvents: [
       {
         kind: "StackFrame",
@@ -279,6 +285,10 @@ describe("PointQueries basics", () => {
       const qp = await session.queryPoint(point);
 
       const res = await qp.inspectPoint();
+      if (expected.inputDependencies) {
+        const inputExpressions = res.inputDependencies?.map((d: any) => d.expression);
+        expect(inputExpressions).toHaveLength(expected.inputDependencies.length);
+      }
       expect(res).toEqual(expected);
     }
   );
