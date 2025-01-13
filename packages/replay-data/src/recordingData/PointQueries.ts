@@ -11,6 +11,7 @@ import StaticScope from "@replayio/source-parser/src/bindings/StaticScope";
 import SourceParser from "@replayio/source-parser/src/SourceParser";
 import { CodeAtLocation, StaticFunctionInfo } from "@replayio/source-parser/src/types";
 import createDebug from "debug";
+import { isEqual } from "lodash";
 import groupBy from "lodash/groupBy";
 import isEmpty from "lodash/isEmpty";
 import sortBy from "lodash/sortBy";
@@ -29,6 +30,7 @@ import { ExecutionDataAnalysisResult, ExecutionDataEntry } from "../analysis/spe
 import { BigIntToPoint, ExecutionPointInfo } from "../util/points";
 import DynamicScope from "./bindings/DynamicScope";
 import DependencyChain, { RichStackFrame } from "./DependencyChain";
+import { isDefaultHardcodedValueStub } from "./hardcodedCore";
 import { forceLookupHardcodedData, wrapAsyncWithHardcodedData } from "./hardcodedResults";
 import ReplaySession from "./ReplaySession";
 import {
@@ -46,11 +48,7 @@ import {
   SimpleValuePreviewResult,
   UniqueFrameStep,
 } from "./types";
-import {
-  compileGetTypeName,
-  compileMakePreview,
-  compileMakePreviews,
-} from "./values/previewValueUtil";
+import { compileGetTypeName } from "./values/previewValueUtil";
 
 const debug = createDebug("replay:PointQueries");
 
@@ -430,11 +428,7 @@ export default class PointQueries {
         "objectCreationSite",
         { expression, point: this.point }
       );
-      if (isEmpty(hardcodedCreationSite)) {
-        console.error(
-          `❌ [REPLAY_DATA_MISSING] Hardcoded objectCreationSite for expression "${expression}" (POINT=${this.point}) missing.`
-        );
-      } else {
+      if (!isDefaultHardcodedValueStub(hardcodedCreationSite)) {
         res = { ...res, objectCreationSite: hardcodedCreationSite };
       }
     }

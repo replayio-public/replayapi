@@ -1,3 +1,5 @@
+/* Copyright 2020-2024 Record Replay Inc. */
+
 import fs from "fs/promises";
 import path from "path";
 
@@ -7,23 +9,30 @@ import defaultsDeep from "lodash/defaultsDeep";
 
 import NestedError from "../util/NestedError";
 import { deterministicObjectHash } from "../util/objectUtil";
+import {
+  DefaultHardcodedStubString,
+  DefaultHardcodedValueStub,
+  HardcodedDir,
+  HardcodedResult,
+  importHardcodedData,
+  isDefaultHardcodedValueStub,
+  sanitizeHardcodedPath,
+} from "./hardcodedCore";
 
 const debug = createDebug("replay:hardcodedResults");
 
-export type AnyInput = Record<string, any>;
-export type AnyResult = Record<string, any>;
-type HardcodedResult = AnyResult;
 type HardcodeHandler = (existingData: any) => Promise<HardcodedResult>;
 type HardcodeHandlerOrResult = HardcodedResult | HardcodeHandler;
 
 let _hardcodeHandlers = new Map<RecordingId, any>();
 
 function getHardcodedPath(recordingId: RecordingId, name: string, inputString: string | null) {
-  let filePath = path.join(__dirname, "hardcodedData", recordingId, name);
+  let filePath = path.join(HardcodedDir, recordingId, name);
   if (inputString) {
     filePath = path.join(filePath, inputString);
   }
   filePath += ".ts";
+  filePath = sanitizeHardcodedPath(filePath);
   return filePath;
 }
 
@@ -41,17 +50,19 @@ async function getHardcodeHandler(
   let result = _hardcodeHandlers.get(filePath);
   if (!result) {
     try {
-      const imported = await import(filePath);
-      if (
-        !imported?.default ||
-        (!(imported.default instanceof Function) && typeof imported.default !== "object")
-      ) {
+      result = await importHardcodedData(filePath);
+      if (!result || (!(result instanceof Function) && typeof result !== "object")) {
         throw new Error(
-          `Invalid override file must default-export an object or a function: ${imported}`
+          `Invalid hardcoded data file at "${filePath}" did not default-export an object or a function: ${await import(filePath)}`
         );
       }
-      result = imported.default;
-      debug(`✅ getHardcodedData ${filePath}`);
+      if (isDefaultHardcodedValueStub(result)) {
+        console.error(
+          `❌ [REPLAY_DATA_MISSING] hardcoded ${name} data at "${filePath}" is a stub.`
+        );
+      } else {
+        debug(`✅ getHardcodedData ${filePath}`);
+      }
       _hardcodeHandlers.set(filePath, result);
     } catch (err: any) {
       if (err.code === "ENOENT" || err.code?.includes("MODULE_NOT_FOUND")) {
@@ -60,9 +71,9 @@ async function getHardcodeHandler(
           // Data should exist.
           // Create a stub file.
           await fs.mkdir(path.dirname(filePath), { recursive: true });
-          await fs.writeFile(filePath, "export default {};", { mode: 0o666 });
+          await fs.writeFile(filePath, DefaultHardcodedStubString, { mode: 0o666 });
           console.error(
-            `❌ [REPLAY_DATA_MISSING] Hardcoded data not found for "${filePath}". Created stub.`
+            `❌ [REPLAY_DATA_MISSING] Hardcoded ${name} data not found for "${filePath}". Created stub.`
           );
         } else {
           debug(`❌ getHardcodedData ${filePath}`);
@@ -80,7 +91,7 @@ async function getHardcodeHandler(
 }
 
 function checkHardcodedResult(
-  res: AnyResult,
+  res: HardcodedResult,
   recordingId: RecordingId,
   name: string,
   inputString: string | null
@@ -94,22 +105,22 @@ function checkHardcodedResult(
 export async function forceLookupHardcodedData(
   recordingId: RecordingId,
   name: string,
-  input: AnyInput | null
-): Promise<AnyResult> {
+  input: HardcodedResult | null
+): Promise<HardcodedResult> {
   return lookupHardcodedData(recordingId, name, input, undefined, true);
 }
 
 async function lookupHardcodedData(
   recordingId: RecordingId,
   name: string,
-  input: AnyInput | null,
+  input: HardcodedResult | null,
   existingResult?: HardcodedResult,
   force?: boolean
-): Promise<AnyResult> {
+): Promise<HardcodedResult> {
   const inputString = input ? deterministicObjectHash(input) : null;
   const hardcodeResultOrHandler = await getHardcodeHandler(recordingId, name, inputString, !!force);
 
-  let res: AnyResult;
+  let res: HardcodedResult;
   if (hardcodeResultOrHandler instanceof Function) {
     // Hardcoded function, returining an object.
     res = await hardcodeResultOrHandler(existingResult);
@@ -126,40 +137,46 @@ async function lookupHardcodedData(
   return res;
 }
 
-export function wrapAsyncWithHardcodedData<I extends AnyInput, O extends AnyResult>(
+export function wrapAsyncWithHardcodedData<I extends HardcodedResult, O extends HardcodedResult>(
   recordingId: RecordingId,
   name: string,
-  input: AnyInput,
+  input: HardcodedResult,
   cb: (input: I) => Promise<O | undefined>
 ): Promise<O>;
 
-export function wrapAsyncWithHardcodedData<O extends AnyResult>(
+export function wrapAsyncWithHardcodedData<O extends HardcodedResult>(
   recordingId: RecordingId,
   name: string,
   cb: () => Promise<O | undefined>
 ): Promise<O>;
 
-export async function wrapAsyncWithHardcodedData<I extends AnyInput, O extends AnyResult>(
+export async function wrapAsyncWithHardcodedData<
+  I extends HardcodedResult,
+  O extends HardcodedResult,
+>(
   recordingId: RecordingId,
   name: string,
   inputOrCallback: I | (() => Promise<O | undefined>),
   cbWithInput?: (input: I) => Promise<O | undefined>
 ): Promise<O> {
   try {
+    let res: O;
+    let input: I | null = null;
     if (cbWithInput) {
       // Overload 1: Input given.
-      const input = inputOrCallback as I;
+      input = inputOrCallback as I;
       const existingResult = await cbWithInput(input);
-      return (await lookupHardcodedData(recordingId, name, input, existingResult)) as O;
+      res = (await lookupHardcodedData(recordingId, name, input, existingResult)) as O;
     } else {
       // Overload 2: No input given.
       const cbWithoutInput = inputOrCallback as () => Promise<O | undefined>;
       const existingResult = await cbWithoutInput();
-      return (await lookupHardcodedData(recordingId, name, null, existingResult)) as O;
+      res = (await lookupHardcodedData(recordingId, name, null, existingResult)) as O;
     }
+    return res;
   } catch (err: any) {
     console.error(
-      `❌ Failed to lookup hardcoded result (${recordingId}, ${name}, ${JSON.stringify(inputOrCallback)}): ${err.message}`
+      `❌ Failed to lookup hardcoded result (, ${name}, ${JSON.stringify(inputOrCallback)}): ${err.message}`
     );
     return (await lookupHardcodedData(
       recordingId,
