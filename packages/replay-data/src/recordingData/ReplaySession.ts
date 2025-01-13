@@ -2,9 +2,8 @@
 
 import "../bootstrap";
 
-import { debuglog } from "util";
-
 import { ExecutionPoint, RecordingId, SessionId } from "@replayio/protocol";
+import createDebug from "debug";
 import { sendMessage } from "protocol/socket";
 import { assert } from "protocol/utils";
 import { pauseIdCache } from "replay-next/src/suspense/PauseCache";
@@ -12,10 +11,17 @@ import { sourcesCache } from "replay-next/src/suspense/SourcesCache";
 import { ReplayClient } from "shared/client/ReplayClient";
 import { STATUS_PENDING } from "suspense";
 
+import { AnalysisType } from "../analysis/dependencyGraphShared";
+import { AnalysisInput } from "../analysis/dgSpecs";
+import { runAnalysis } from "../analysis/runAnalysis";
+import { ExecutionDataAnalysisResult } from "../analysis/specs/executionPoint";
+import { wrapAsyncWithHardcodedData } from "./hardcodedData";
 import PointQueries from "./PointQueries";
 import ReplaySources from "./ReplaySources";
 
-const debug = debuglog("replay:ReplaySession");
+const debug = createDebug("replay:ReplaySession");
+
+export type FindInitialPointResult = Omit<ExecutionDataAnalysisResult, "points">;
 
 /**
  * The devtools require a `time` value for managing pauses, but it is not necessary.
@@ -125,25 +131,51 @@ export default class ReplaySession extends ReplayClient {
    * Points.
    * ##########################################################################*/
 
+  async findInitialPoint(): Promise<FindInitialPointResult> {
+    const recordingId = this.getRecordingId()!;
+    const analysisInput: AnalysisInput = {
+      analysisType: AnalysisType.ExecutionPoint,
+      spec: { recordingId },
+    };
+    return await wrapAsyncWithHardcodedData(recordingId, "findInitialPoint", async () => {
+      const analysisResults = await runAnalysis<ExecutionDataAnalysisResult>(this, analysisInput);
+      const { point, commentText, consoleError, reactComponentName } = analysisResults;
+      return { point, commentText, consoleError, reactComponentName };
+    });
+  }
+
+  pointCache = new Map<string, Promise<PointQueries>>();
   async queryPoint(point: ExecutionPoint): Promise<PointQueries> {
-    const pauseId = await pauseIdCache.readAsync(this, point, DEFAULT_TIME);
-    return new PointQueries(this, point, pauseId);
+    let pq = this.pointCache.get(point);
+    if (!pq) {
+      const makePointQueries = async (): Promise<PointQueries> => {
+        debug(`queryPoint ${point}...`);
+        const pauseId = await pauseIdCache.readAsync(this, point, DEFAULT_TIME);
+        return new PointQueries(this, point, pauseId);
+      };
+      pq = makePointQueries();
+      this.pointCache.set(point, pq);
+    }
+    return pq;
   }
 }
 
-let replaySession: ReplaySession | null = null;
+let replaySessionPromise: Promise<ReplaySession> | null = null;
 
-export async function createReplaySession(recordingId: RecordingId): Promise<ReplaySession> {
-  if (replaySession) {
-    // This is a restriction on the devtools side.
-    throw new Error(
-      `A Replay session already existed for a different recordingId. The Replay API client currently only supports one session per process.`
+export async function getOrCreateReplaySession(recordingId: string): Promise<ReplaySession> {
+  if (!replaySessionPromise) {
+    const session = new ReplaySession();
+    await (replaySessionPromise = session.initialize(recordingId).then(() => session));
+    return session;
+  } else {
+    const session = await replaySessionPromise;
+
+    // NOTE: We cannot currently have multiple sessions for different recordings in the same process, since
+    // the client, as well as all cached data are globals.
+    assert(
+      session.getRecordingId() === recordingId,
+      `Cannot create multiple sessions for different recordings. Old: ${session.getRecordingId()} != new: ${recordingId}`
     );
+    return session;
   }
-  replaySession = new ReplaySession();
-  if (!recordingId) {
-    throw new Error(`recordingId not provided and session did not exist.`);
-  }
-  await replaySession.initialize(recordingId);
-  return replaySession;
 }

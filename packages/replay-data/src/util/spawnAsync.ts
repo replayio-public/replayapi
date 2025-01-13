@@ -4,11 +4,11 @@
 
 import { ChildProcess, SpawnOptions, spawn } from "child_process";
 import { Readable } from "stream";
-import { debuglog } from "util";
+import createDebug from 'debug';
 
 import NestedError from "./NestedError";
 
-const debug = debuglog("replay:spawn");
+const debug = createDebug("replay:spawn");
 
 export type SpawnAsyncOptions = SpawnOptions;
 
@@ -60,7 +60,7 @@ export async function spawnAsync(
 async function streamStdioToBuffer(stdio: Readable): Promise<string> {
   const chunks = [];
   for await (const chunk of stdio) {
-    debug(`  [stdio] ${chunk.toString()}`)
+    debug(`${chunk.toString()}`)
     // process.stdout.write(chunk);
     chunks.push(chunk);
   }

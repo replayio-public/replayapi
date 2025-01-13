@@ -13,6 +13,7 @@ export function assert(v: any, why = "", data?: any): asserts v {
   if (!v) {
     const error = new Error(`Assertion Failed: ${why} - ${JSON.stringify(data)}`);
     error.name = "AssertionFailure";
+    debugger;
     throw error;
   }
 }

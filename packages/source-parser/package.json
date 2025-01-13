@@ -3,12 +3,18 @@
   "name": "@replayio/source-parser",
   "version": "0.0.0",
   "dependencies": {
+    "@babel/parser": "^7.26.3",
+    "@babel/preset-env": "^7.26.0",
+    "@babel/traverse": "^7.26.4",
+    "@babel/types": "^7.26.3",
     "tree-sitter": "^0.22.1",
     "tree-sitter-html": "^0.23.2",
     "tree-sitter-javascript": "^0.23.1",
     "tree-sitter-typescript": "^0.23.2"
   },
   "devDependencies": {
+    "@types/babel__preset-env": "^7",
+    "@types/babel__traverse": "^7",
     "tree-sitter-cli": "^0.24.4"
   }
 }

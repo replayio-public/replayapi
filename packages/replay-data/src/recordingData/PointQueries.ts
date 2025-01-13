@@ -1,25 +1,62 @@
 /* Copyright 2020-2024 Record Replay Inc. */
 
+import {
+  ExecutionPoint,
+  Frame,
+  PauseId,
+  NamedValue as ProtocolNamedValue,
+  Value as ProtocolValue,
+} from "@replayio/protocol";
 import StaticScope from "@replayio/source-parser/src/bindings/StaticScope";
 import SourceParser from "@replayio/source-parser/src/SourceParser";
-import { ExecutionPoint, Frame, PauseId } from "@replayio/protocol";
+import { CodeAtLocation, StaticFunctionInfo } from "@replayio/source-parser/src/types";
+import createDebug from "debug";
+import { isEqual } from "lodash";
+import groupBy from "lodash/groupBy";
+import isEmpty from "lodash/isEmpty";
+import sortBy from "lodash/sortBy";
+import truncate from "lodash/truncate";
+import protocolValueToText from "replay-next/components/inspector/protocolValueToText";
 import { framesCache } from "replay-next/src/suspense/FrameCache";
+import { frameStepsCache } from "replay-next/src/suspense/FrameStepsCache";
 import { pointStackCache } from "replay-next/src/suspense/PointStackCache";
 import { FrameScopes, frameScopesCache } from "replay-next/src/suspense/ScopeCache";
+import { evaluate } from "replay-next/src/utils/evaluate";
 
+import { AnalysisType } from "../analysis/dependencyGraphShared";
+import { AnalysisInput } from "../analysis/dgSpecs";
+import { runAnalysis } from "../analysis/runAnalysis";
+import { ExecutionDataAnalysisResult, ExecutionDataEntry } from "../analysis/specs/executionPoint";
 import { BigIntToPoint, ExecutionPointInfo } from "../util/points";
 import DynamicScope from "./bindings/DynamicScope";
 import DependencyChain, { RichStackFrame } from "./DependencyChain";
+import { isDefaultHardcodedValueStub } from "./hardcodedCore";
+import { tryForceLookupHardcodedData, wrapAsyncWithHardcodedData } from "./hardcodedData";
 import ReplaySession from "./ReplaySession";
 import {
-  CodeAtPoint,
+  DataFlowOrigin,
+  EvaluateResult,
+  ExpressionAnalysisResult,
+  ExpressionDataFlowResult,
+  FrameStep,
   FrameWithPoint,
   IndexedPointStackFrame,
+  InputDependency,
+  InspectDataResult,
+  InspectPointResult,
   LocationWithUrl,
-  PointFunctionInfo,
+  SimpleValuePreviewResult,
+  UniqueFrameStep,
 } from "./types";
+import { compileGetTypeName } from "./values/previewValueUtil";
 
-const POINT_ANNOTATION = "/*BREAK*/";
+const debug = createDebug("replay:PointQueries");
+
+const POINT_ANNOTATION = "/*POINT*/";
+
+export interface BackendDataFlowAnalysisResult {
+  variablePointsByName: Record<string, ExecutionDataEntry[]>;
+}
 
 export default class PointQueries {
   readonly session: ReplaySession;
@@ -28,7 +65,8 @@ export default class PointQueries {
   readonly pauseId: PauseId;
   readonly dg: DependencyChain;
 
-  private parser: Promise<SourceParser> | null = null;
+  private parserPromise: Promise<SourceParser> | null = null;
+  private readonly valueLookupsByExpression = new Map<string, Promise<SimpleValuePreviewResult>>();
 
   constructor(session: ReplaySession, point: ExecutionPoint, pauseId: PauseId) {
     this.session = session;
@@ -75,6 +113,10 @@ export default class PointQueries {
     return thisFrame;
   }
 
+  /**
+   * NOTE: FrameScopes primarily provide values and nothing else.
+   * @returns The dynamic values mapped to the current frame's scope and its parent scopes.
+   */
   async thisFrameScopes(): Promise<FrameScopes> {
     const thisFrame = await this.thisFrame();
     return frameScopesCache.readAsync(this.session, this.pauseId, thisFrame.frameId);
@@ -99,71 +141,388 @@ export default class PointQueries {
   }
 
   async parseSource(): Promise<SourceParser> {
-    if (!this.parser) {
+    if (!this.parserPromise) {
       const [thisLocation, allSources] = await Promise.all([
         this.getSourceLocation(),
         this.session.getSources(),
       ]);
 
-      this.parser = allSources.parseContents(thisLocation.sourceId);
+      if (!this.parserPromise) {
+        this.parserPromise = allSources.parseContents(thisLocation.sourceId);
+      }
     }
-    return await this.parser;
+    return await this.parserPromise;
   }
 
   /** ###########################################################################
-   * High-level Queries.
+   * Function Queries.
+   * ##########################################################################*/
+
+  async queryFunctionInfo(): Promise<StaticFunctionInfo | null> {
+    const [thisLocation, parser] = await Promise.all([
+      this.getSourceLocation(),
+      this.parseSource(),
+    ]);
+    const functionInfo = parser.getFunctionInfoAt(thisLocation);
+    // const functionSkeleton = this.getFunctionSkeleton();
+    return functionInfo;
+  }
+
+  // async getFunctionSkeleton(): Promise<FunctionSkeleton | null> {
+  //   const [thisLocation, parser] = await Promise.all([
+  //     this.getSourceLocation(),
+  //     this.parseSource(),
+  //   ]);
+  //   const functionSkeleton = parser.getFunctionSkeleton(thisLocation);
+  //   return {};
+  // }
+
+  /** ###########################################################################
+   * Frame steps.
+   * ##########################################################################*/
+
+  async getFrameSteps(): Promise<FrameStep[] | undefined> {
+    const [frame, allSources, parser] = await Promise.all([
+      this.thisFrame(),
+      this.session.getSources(),
+      this.parseSource(),
+    ]);
+    const frameId = frame.frameId;
+    const pauseId = this.pauseId;
+    const rawSteps = await frameStepsCache.readAsync(this.session, pauseId, frameId);
+    return (
+      rawSteps
+        ?.filter(s => s.frame)
+        ?.map(s => {
+          const loc = allSources.getBestLocation(s.frame!);
+          return {
+            point: s.point,
+            ...loc,
+            index: parser.code.locationToIndex(loc),
+          };
+        }) || []
+    );
+  }
+
+  async countStepHits(steps: FrameStep[]): Promise<UniqueFrameStep[]> {
+    const [parser] = await Promise.all([this.parseSource()]);
+    // Count unique steps by their location index
+    const uniqueSteps = new Map<number, UniqueFrameStep>();
+    for (const step of steps) {
+      const index = parser.code.locationToIndex(step);
+      let existing = uniqueSteps.get(index);
+      if (existing) {
+        existing.hits++;
+      } else {
+        uniqueSteps.set(index, (existing = { ...step, hits: 1 }));
+      }
+    }
+
+    return Array.from(uniqueSteps.values());
+  }
+
+  /** ###########################################################################
+   * Code rendering.
    * ##########################################################################*/
 
   /**
    * Get data for the statement at `point`.
    */
-  async queryStatement(): Promise<CodeAtPoint> {
+  async queryCodeAndLocation(): Promise<CodeAtLocation> {
     const [thisLocation, parser] = await Promise.all([
       this.getSourceLocation(),
       this.parseSource(),
     ]);
 
-    const statementCode = parser.getAnnotatedNodeTextAt(thisLocation, POINT_ANNOTATION) || "";
+    const [statementCode, startLoc] = parser.getAnnotatedNodeTextAt(
+      thisLocation,
+      POINT_ANNOTATION
+    ) || ["", thisLocation];
+    const functionInfo = parser.getFunctionInfoAt(startLoc);
 
     if (!thisLocation.url) {
       console.warn(`[PointQueries] No source url found at point ${this.point}`);
     }
     if (!statementCode) {
-      console.warn(`[PointQueries] No statement code found at point ${this.point}`);
+      console.warn(
+        `[PointQueries] No statement code found at point ${this.point}, at:${JSON.stringify(thisLocation, null, 2)}`
+      );
     }
-
-    // TODO: Also provide hit index + hit count when necessary.
 
     return {
       line: thisLocation.line,
       url: thisLocation.url,
       code: statementCode,
+      functionName: functionInfo?.name || undefined,
     };
   }
 
-  async queryFunctionInfo(): Promise<PointFunctionInfo | null> {
+  async queryFrameCodeAndLocation(): Promise<CodeAtLocation> {
+    const [thisLocation, functionInfo, codeSummary, parser] = await Promise.all([
+      this.getSourceLocation(),
+      this.queryFunctionInfo(),
+      this.queryCodeAndLocation(),
+      this.parseSource(),
+    ]);
+    if (functionInfo?.name === "ElementStyle.populate") {
+      // HARDCODE-HACKFIX (for 10608)
+      // Just show the whole function to the agent.
+      // TODO: Replace this with a slice from our new dynamic CFG.
+      const functionNode = parser.getInnermostFunction(thisLocation)!;
+      codeSummary.code = parser.getAnnotatedNodeTextAt(
+        functionNode,
+        POINT_ANNOTATION,
+        thisLocation
+      )![0];
+    }
+    return codeSummary;
+  }
+
+  /** ###########################################################################
+   * Other high-level Queries.
+   * ##########################################################################*/
+
+  async shouldIncludeThisPoint(): Promise<boolean> {
+    const thisLocation = await this.getSourceLocation();
+    return shouldSourceBeIncluded(thisLocation.url);
+  }
+
+  async queryStackAndEvents(): Promise<[boolean, RichStackFrame[]]> {
+    return await this.dg.getNormalizedStackAndEventsAtPoint(this);
+  }
+
+  /** ###########################################################################
+   * Value Queries.
+   * ##########################################################################*/
+
+  async protocolValueToText(value: ProtocolValue | ProtocolNamedValue): Promise<string | null> {
+    try {
+      return await protocolValueToText(this.session, value, this.pauseId);
+    } catch (err: any) {
+      console.error(
+        `protocolValueToText ERROR: "${truncate(JSON.stringify(value), { length: 100 })}" → ${err.stack}`
+      );
+      return null;
+    }
+  }
+
+  async makeValuePreview(expression: string): Promise<SimpleValuePreviewResult> {
+    let res = this.valueLookupsByExpression.get(expression);
+    if (!res) {
+      this.valueLookupsByExpression.set(expression, (res = this._makeValuePreview(expression)));
+    } else {
+      // TODO: Also stub out nested repeated expressions.
+      return {
+        value: "<ALREADY_PREVIEWED/>",
+      };
+    }
+    return res;
+  }
+
+  _valueEvals = new Map<string, Promise<EvaluateResult>>();
+
+  async evaluate(expression: string): Promise<EvaluateResult> {
+    const frame = await this.thisFrame();
+    const frameId = frame.frameId;
+    const pauseId = this.pauseId;
+    let res = this._valueEvals.get(expression);
+    if (!res) {
+      this._valueEvals.set(
+        expression,
+        (res = evaluate({ replayClient: this.session, pauseId, text: expression, frameId }))
+      );
+    }
+    return res;
+  }
+
+  async isValueReferenceType(expression: string): Promise<boolean> {
+    const typeEval = await this.evaluate(expression);
+    return !!typeEval?.returned?.object;
+  }
+
+  private async _makeValuePreview(expression: string): Promise<SimpleValuePreviewResult> {
+    // const valueEval = await this.evaluate(`${compileMakePreview(expression)}`);
+    const valueEval = await this.evaluate(expression);
+    const { returned: value, exception } = valueEval;
+    let valuePreview: string | null = null;
+    let typePreview: string | null = null;
+    if (value) {
+      const typeEval = await this.evaluate(`${compileGetTypeName(expression)}`);
+      [valuePreview, typePreview] = await Promise.all([
+        // TODO: remove protocolValueToText since its previews are too long.
+        this.protocolValueToText(value),
+        (typeEval?.returned &&
+          ("value" in typeEval.returned
+            ? typeEval.returned.value // get value as-is
+            : this.protocolValueToText(typeEval.returned))) ||
+          null,
+      ]);
+    } else if (exception) {
+      valuePreview = `<COULD_NOT_EVALUATE exception="${JSON.stringify((await this.protocolValueToText(exception)) || "(unknown)")}"/>`;
+      return null;
+    } else {
+      valuePreview = "<COULD_NOT_EVALUATE/>";
+    }
+    return {
+      value: valuePreview || undefined,
+      type: typePreview || undefined,
+    };
+  }
+
+  /** ###########################################################################
+   * ExecutionPoint + Data Flow Queries.
+   * ##########################################################################*/
+
+  private async addLocationToOrigin({
+    point,
+    location,
+    ...other
+  }: DataFlowOrigin): Promise<DataFlowOrigin | null> {
+    if (!location) {
+      if (!point) {
+        return isEmpty(other) ? null : other;
+      }
+
+      // Look up location if not provided already.
+      const pointQuery = await this.session.queryPoint(point);
+      location = await pointQuery.queryCodeAndLocation();
+    }
+    return {
+      point,
+      location: location!,
+      ...other,
+    } as DataFlowOrigin;
+  }
+
+  private async queryDataFlow(
+    expression: string,
+    backendDataFlowResult: BackendDataFlowAnalysisResult
+  ): Promise<ExpressionDataFlowResult> {
     const [thisLocation, parser] = await Promise.all([
       this.getSourceLocation(),
       this.parseSource(),
     ]);
-    return parser.getFunctionInfoAt(thisLocation);
+
+    // 1. Get data flow points from backend data flow results, and/or hardcoded overrides.
+    let res = await wrapAsyncWithHardcodedData(
+      this.session.getRecordingId()!,
+      "dataFlowPoints",
+      { expression, point: this.point },
+      async ({ expression }): Promise<ExpressionDataFlowResult | undefined> => {
+        let dataFlowPoints =
+          backendDataFlowResult.variablePointsByName[expression]
+            ?.filter(p => !!p.associatedPoint)
+            .map(p => p.associatedPoint!) || [];
+        dataFlowPoints = sortBy(dataFlowPoints, p => BigInt(p), "desc");
+        if (dataFlowPoints?.length) {
+          return { origins: dataFlowPoints.map<DataFlowOrigin>(p => ({ point: p })) };
+        }
+        return undefined;
+      }
+    );
+
+    // 2. Look up hardcoded object creation site when isValueReferenceType, but `origins` is empty.
+    if ((await this.isValueReferenceType(expression)) && !res.origins?.length) {
+      const hardcodedCreationSite = await tryForceLookupHardcodedData(
+        this.session.getRecordingId()!,
+        "objectCreationSite",
+        { expression, point: this.point }
+      );
+      if (!isDefaultHardcodedValueStub(hardcodedCreationSite)) {
+        res = { ...res, objectCreationSite: hardcodedCreationSite };
+      }
+    }
+
+    const origins = (
+      await Promise.all(
+        (res.origins || []).map<Promise<DataFlowOrigin | null>>(o => this.addLocationToOrigin(o))
+      )
+    ).filter(x => !!x);
+
+    // 3. Try to guess missing `location`s.
+    return {
+      staticBinding: parser.getBindingAt(thisLocation, expression) || undefined,
+      objectCreationSite:
+        (res.objectCreationSite && (await this.addLocationToOrigin(res.objectCreationSite))) ||
+        undefined,
+      origins: origins.length ? origins : undefined,
+    };
   }
 
-  async queryRichStack(): Promise<RichStackFrame[]> {
-    return await this.dg.getNormalizedRichStackAtPoint(this);
+  /**
+   * Preview and trace the data flow of the value held by `expression`.
+   */
+  async queryExpressionInfo(
+    expression: string,
+    rawDataFlowResult?: BackendDataFlowAnalysisResult
+  ): Promise<ExpressionAnalysisResult> {
+    rawDataFlowResult ||= await this.runDataFlowAnalysis();
+    const [valuePreview, dataFlow]: [SimpleValuePreviewResult, ExpressionDataFlowResult] =
+      await Promise.all([
+        this.makeValuePreview(expression),
+        this.queryDataFlow(expression, rawDataFlowResult),
+      ]);
+
+    return {
+      expression,
+      ...dataFlow,
+      ...valuePreview,
+    };
   }
 
-  // async queryInputDependencies() {
-  //   const [thisLocation, parser] = await Promise.all([
-  //     this.getSourceLocation(),
-  //     this.parseSource(),
-  //   ]);
+  async runExecutionPointAnalysis(depth?: number): Promise<ExecutionDataAnalysisResult> {
+    debug(`run ExecutionPoint analysis (${depth})...`);
+    const analysisInput: AnalysisInput = {
+      analysisType: AnalysisType.ExecutionPoint,
+      spec: { recordingId: this.session.getRecordingId()!, point: this.point },
+    };
+    if (depth !== undefined) {
+      analysisInput.spec.depth = depth;
+    }
 
-  //   const deps = parser.getInterestingInputDependencies(thisLocation);
+    try {
+      return await runAnalysis<ExecutionDataAnalysisResult>(this.session, analysisInput);
+    } catch (err: any) {
+      console.error(`PointQueries.runExecutionPointAnalysis FAILED - ${err.stack}`);
+      return { points: [] };
+    }
+  }
 
-  //   // TODO: Also find bindings for each dep.
-  //   // TODO: Add relevant context for each dep.
-  // }
+  async runDataFlowAnalysis(): Promise<BackendDataFlowAnalysisResult> {
+    const analysisResults = await this.runExecutionPointAnalysis();
+    const { points } = analysisResults;
+    return {
+      variablePointsByName: groupBy<ExecutionDataEntry>(
+        points.flatMap(p => p.entries),
+        "value"
+      ),
+    };
+  }
+
+  /** ###########################################################################
+   * Input Dependencies Queries.
+   * ##########################################################################*/
+
+  async queryInputDependencies(): Promise<InputDependency[]> {
+    const [thisLocation, parser] = await Promise.all([
+      this.getSourceLocation(),
+      this.parseSource(),
+    ]);
+
+    const deps = parser.getInterestingInputDependenciesAt(thisLocation);
+    const dataFlowResult = await this.runDataFlowAnalysis();
+    return (
+      await Promise.all(
+        deps.map(async dep => {
+          const expression = dep.text;
+          const info = await this.queryExpressionInfo(expression, dataFlowResult);
+          return {
+            ...info,
+          };
+        })
+      )
+    ).filter(x => !!x);
+  }
 
   async queryDynamicScopes(): Promise<DynamicScope[]> {
     const [thisLocation, frameScopes, parser] = await Promise.all([
@@ -201,6 +560,43 @@ export default class PointQueries {
     return scopes;
   }
 
+  /** ###########################################################################
+   * High-level inspect* queries.
+   * ##########################################################################*/
+
+  async inspectPoint(): Promise<InspectPointResult> {
+    const [location, functionInfo, inputDependencies, [stackTruncated, stackAndEvents]] =
+      await Promise.all([
+        this.queryFrameCodeAndLocation(),
+        this.queryFunctionInfo(),
+        this.queryInputDependencies(),
+        // null,
+        this.queryStackAndEvents(),
+      ]);
+
+    return {
+      location,
+      function: functionInfo,
+      inputDependencies,
+      // TODO: directControlDependencies
+      // directControlDependencies,
+      stackAndEvents,
+      stackAndEventsTruncated: stackTruncated,
+    };
+  }
+
+  async inspectData(expression: string): Promise<InspectDataResult> {
+    // 1. First get expression info.
+    const expressionInfo = await this.queryExpressionInfo(expression);
+    // 2. Then get all other info.
+    const pointData = await this.inspectPoint();
+
+    return {
+      ...expressionInfo,
+      ...pointData,
+    };
+  }
+
   // /**
   //  * TODO: Replace this w/ a combination of (i) summarization + (ii) in-frame point mappings.
   //  * Dynamic control dependencies from `point` to `thisFrame.startPoint` that are not already in `scopes`.
@@ -215,4 +611,14 @@ export default class PointQueries {
   // async valuePreview(expression: string) {
   //   // TODO
   // }
+}
+
+/**
+ * Cull node_modules for now.
+ */
+function shouldSourceBeIncluded(url: string) {
+  if (url.includes("node_modules")) {
+    return false;
+  }
+  return true;
 }

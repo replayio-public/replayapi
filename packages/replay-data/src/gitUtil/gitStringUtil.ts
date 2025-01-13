@@ -12,7 +12,7 @@ export function extractRepoFolderName(url: string): string | null {
   return match?.groups?.["repo"] || null;
 }
 
-export function scanGitUrl(text: string):
+export type GitHubParseResult =
   | {
       repoUrl: string;
       owner: string;
@@ -21,7 +21,9 @@ export function scanGitUrl(text: string):
       commit?: string;
       tag?: string;
     }
-  | undefined {
+  | undefined;
+
+export function scanGitUrl(text: string): GitHubParseResult {
   const repoMatch = GitHubPatterns.REPO_URL.exec(text);
   if (repoMatch) {
     const baseUrl = repoMatch[0];

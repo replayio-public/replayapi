@@ -1,6 +1,6 @@
 /* Copyright 2020-2024 Record Replay Inc. */
 import { ExecutionPoint } from "@replayio/protocol";
-import merge from "lodash/merge";
+import { CodeAtLocation } from "@replayio/source-parser/src/types";
 import orderBy from "lodash/orderBy";
 
 import {
@@ -13,10 +13,12 @@ import { runAnalysis } from "../analysis/runAnalysis";
 import { AnalyzeDependenciesResult } from "../analysis/specs/analyzeDependencies";
 import PointQueries from "./PointQueries";
 import ReplaySession from "./ReplaySession";
-import { CodeAtPoint, FrameWithPoint } from "./types";
+import { FrameWithPoint } from "./types";
 
-const TargetDGEventCodes = ["ReactCreateElement", "PromiseSettled"] as const;
-export type RichStackFrameKind = "sync" | (typeof TargetDGEventCodes)[number];
+export const MaxEventChainLength = 10;
+
+const FilteredDGEventCodes = ["ReactCreateElement", "PromiseSettled"] as const;
+export type RichStackFrameKind = "StackFrame" | (typeof FilteredDGEventCodes)[number];
 
 export type RawRichStackFrame = {
   kind: RichStackFrameKind;
@@ -24,7 +26,7 @@ export type RawRichStackFrame = {
   functionName?: string;
 };
 
-export type RichStackFrame = CodeAtPoint & RawRichStackFrame;
+export type RichStackFrame = CodeAtLocation & RawRichStackFrame;
 
 /**
  * This wraps our DG analysis code (which for now primarily resides in the backend).
@@ -42,7 +44,7 @@ export default class DependencyChain {
       analysisType: AnalysisType.Dependency,
       spec,
     };
-    return await runAnalysis(this.session, input);
+    return await runAnalysis<AnalyzeDependenciesResult>(this.session, input);
   }
 
   private normalizeFrameForRichStack(frame: FrameWithPoint): RawRichStackFrame | null {
@@ -51,7 +53,7 @@ export default class DependencyChain {
       return null;
     }
     return {
-      kind: "sync",
+      kind: "StackFrame",
       point: frame.point?.point,
       functionName: frame.originalFunctionName || frame.functionName || "<anonymous>",
     };
@@ -63,7 +65,7 @@ export default class DependencyChain {
       return null;
     }
     return {
-      kind: event.code as (typeof TargetDGEventCodes)[number],
+      kind: event.code as (typeof FilteredDGEventCodes)[number],
       point: event.point,
       // NOTE: Only some events provide the `functionName`.
       functionName: "functionName" in event ? event.functionName : undefined,
@@ -71,10 +73,12 @@ export default class DependencyChain {
   }
 
   /**
-   * The "rich stack" is composed of the synchronous call stack interleaved with async events,
-   * possibly including high-level framework (e.g. React) events.
+   * The "rich stack" is not really a stack, but rather a mix of the synchronous call stack, interleaved with async events,
+   * including high-level framework (e.g. React) events, order by time (latest first).
    */
-  async getNormalizedRichStackAtPoint(pointQueries: PointQueries): Promise<RichStackFrame[]> {
+  async getNormalizedStackAndEventsAtPoint(
+    pointQueries: PointQueries
+  ): Promise<[boolean, RichStackFrame[]]> {
     const [frames, dgChain] = await Promise.all([
       pointQueries.getStackFramesWithPoint(),
       this.getDependencyChain(pointQueries.point),
@@ -82,32 +86,47 @@ export default class DependencyChain {
 
     const normalizedFrames = frames
       .map<RawRichStackFrame | null>(frame => this.normalizeFrameForRichStack(frame))
-      .filter(v => !!v);
+      .filter(v => !!v)
+      // Remove the current frame from stack. We already have that.
+      .filter(v => v.point !== pointQueries.point);
+
     const normalizedDGEvents = dgChain.dependencies
       .map<RawRichStackFrame | null>(event => this.normalizeDGEventForRichStack(event))
-      .filter(v => !!v);
+      .filter(v => !!v)
+      // We are only interested in a subset of event types.
+      .filter(DGEventTypeFilter);
 
     // Interweave the two, sorted by point.
     const rawFrames = orderBy(
-      merge([], normalizedFrames, normalizedDGEvents) as RawRichStackFrame[],
+      normalizedFrames.concat(normalizedDGEvents) as RawRichStackFrame[],
       [frame => BigInt(frame.point)],
       ["desc"]
-    ).filter(shouldIncludeRawRichStackFrame);
+    );
 
     // Annotate the frames with more relevant data.
     const richFrames = await Promise.all(
       rawFrames.map(async f => {
         const p = await this.session.queryPoint(f.point);
-        const code = await p.queryStatement();
-        const functionInfo = await p.queryFunctionInfo();
-        // TODO: add functionInfo
+        if (!(await p.shouldIncludeThisPoint())) {
+          return null;
+        }
+        const [code] = await Promise.all([
+          p.queryCodeAndLocation(),
+          // NOTE: queryCodeAndLocation already returns `functionName`.
+          // p.queryFunctionInfo(),
+        ]);
         return {
           ...f,
           ...code,
         } as RichStackFrame;
       })
     );
-    return richFrames.filter(shouldIncludeRichStackFrame);
+
+    const result = richFrames.filter(f => !!f);
+    if (result.length > MaxEventChainLength) {
+      return [true, result.slice(0, MaxEventChainLength)];
+    }
+    return [false, result];
   }
 }
 
@@ -119,16 +138,7 @@ export default class DependencyChain {
 /**
  * Cull before getting extra data.
  */
-function shouldIncludeRawRichStackFrame(frame: RawRichStackFrame) {
-  const includedEventCodes: readonly RichStackFrameKind[] = TargetDGEventCodes;
+function DGEventTypeFilter(frame: RawRichStackFrame) {
+  const includedEventCodes: readonly RichStackFrameKind[] = FilteredDGEventCodes;
   return includedEventCodes.includes(frame.kind);
-}
-/**
- * Cull after getting extra data.
- */
-function shouldIncludeRichStackFrame(frame: RichStackFrame) {
-  if (frame.url.includes("node_modules")) {
-    return false;
-  }
-  return true;
 }

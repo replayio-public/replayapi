@@ -24,4 +24,8 @@ module.exports = {
   isElement() {
     return false;
   },
+
+  memo() {
+    return {};
+  }
 };

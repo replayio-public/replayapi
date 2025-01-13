@@ -26,13 +26,13 @@ class NestedError extends Error {
     }
 
     // hackfix: we also nest `message`, because the custom `stack` is ignored in some environments (e.g. jest (i.e. vm2))
-    const nestedMsg = (cause.message && `\n  (Caused By: ${cause.message})`) || "";
+    const nestedMsg = (cause?.message && `\n  (Caused By: ${cause.message})`) || "";
     super(`${message}${nestedMsg}`);
 
     this.name = "NestedError";
     this.cause = cause;
 
-    const s = this.stack! + "\n\n  [Caused By] " + cause.stack!;
+    const s = this.stack! + "\n\n  [Caused By] " + cause?.stack;
 
     Object.defineProperty(this, "stack", {
       value: s,

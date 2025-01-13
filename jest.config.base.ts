@@ -28,6 +28,10 @@ const config: Config.InitialOptions = {
     "^.+\\.tsx?$": [
       "ts-jest",
       {
+        tsconfig: {
+          // Enable JSX parsing, so we don't error out on JSX syntax.
+          jsx: "react",
+        },
         // diagnostics: true,
         diagnostics: false,
       },
@@ -41,9 +45,15 @@ const config: Config.InitialOptions = {
   },
   setupFilesAfterEnv: ["jest-extended/all"],
   globalTeardown: RootDir + "/testing/globalTeardown.js",
-  moduleNameMapper: pathsToModuleNameMapper(tsconfig.compilerOptions.paths, {
-    prefix: RootDir + "/",
-  }),
+  moduleNameMapper: {
+    "\\.(css|less|scss|sass|svg|png|jpg|jpeg|gif|webp|mp4|mp3|wav)$": path.resolve(
+      RootDir,
+      "third-party/mocks/empty.js"
+    ),
+    ...pathsToModuleNameMapper(tsconfig.compilerOptions.paths, {
+      prefix: RootDir + "/",
+    }),
+  },
   transformIgnorePatterns: ["node_modules"],
 
   // 100s timeout for long-running API fetching tests.

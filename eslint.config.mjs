@@ -1,6 +1,6 @@
 import eslint from "@eslint/js";
-import eslintConfigPrettier from "eslint-config-prettier";
-import eslintPluginPrettierRecommended from "eslint-plugin-prettier/recommended";
+// import eslintConfigPrettier from "eslint-config-prettier";
+// import eslintPluginPrettierRecommended from "eslint-plugin-prettier/recommended";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
@@ -70,6 +70,9 @@ export default tseslint.config(
       "packages/replay-next/**/*",
       "**/*.config.js",
       "**/testing/samples/**/*",
+      "workspace-for-testing/**/*",
+      ".yalc/**/*",
+      "**/*.js",
     ],
   }
   // eslintConfigPrettier,
