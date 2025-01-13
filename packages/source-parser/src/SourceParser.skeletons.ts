@@ -126,7 +126,7 @@ describe("getBindingAt", () => {
     parser.parse();
 
     const locInner = { line: 6, column: 22 };
-    expect(parser.getInnermostStatement(locInner)?.text).toBe("console.log(x);");
+    expect(parser.getInnermostStatementInFunction(locInner)?.text).toBe("console.log(x);");
 
     const bindingInner = parser.getBindingAt(locInner, "x");
     expect(bindingInner).toBeTruthy();

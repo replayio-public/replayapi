@@ -67,29 +67,43 @@ export default class SourceParser {
     locOrNode: SyntaxNode | SourceLocation,
     filter?: (n: SyntaxNode) => boolean
   ): SyntaxNode | null;
+  getNodeAt(
+    locOrNode: SyntaxNode | SourceLocation,
+    topNode: SyntaxNode,
+    filter?: (n: SyntaxNode) => boolean
+  ): SyntaxNode | null;
 
   getNodeAt(
     locOrNode: SyntaxNode | SourceLocation,
+    topNodeOrFilter?: SyntaxNode | ((n: SyntaxNode) => boolean),
     filter?: (n: SyntaxNode) => boolean
   ): SyntaxNode | null {
+    const topNode =
+      topNodeOrFilter && "tree" in topNodeOrFilter ? topNodeOrFilter : this.tree.rootNode;
+    filter = topNodeOrFilter && "tree" in topNodeOrFilter ? filter : topNodeOrFilter;
     if ("tree" in locOrNode) {
+      // node = locOrNode;
+      assert(
+        topNode === this.tree.rootNode,
+        "NYI: topNode must currently always be root if locOrNode is a node."
+      );
       return locOrNode;
     }
 
     // 1. Try exact position:
     const treeSitterPoint = sourceLocationToTreeSitterPoint(locOrNode);
-    let node = this.tree.rootNode.descendantForPosition(treeSitterPoint);
+    let node = topNode.descendantForPosition(treeSitterPoint);
 
     if (!node) {
       // 2. If no exact match, scan the line, starting from column:
       let startPoint = { row: treeSitterPoint.row, column: treeSitterPoint.column };
       let endPoint = { row: treeSitterPoint.row, column: Number.MAX_SAFE_INTEGER };
-      let nodesOnLine = this.tree.rootNode.descendantsOfType("*", startPoint, endPoint);
+      let nodesOnLine = topNode.descendantsOfType("*", startPoint, endPoint);
       if (!nodesOnLine.length && treeSitterPoint.column) {
         // 3. Scan before the column:
         startPoint = { row: treeSitterPoint.row, column: 0 };
         endPoint = { row: treeSitterPoint.row, column: treeSitterPoint.column + 1 };
-        nodesOnLine = this.tree.rootNode.descendantsOfType("*", startPoint, endPoint);
+        nodesOnLine = topNode.descendantsOfType("*", startPoint, endPoint);
       }
       if (nodesOnLine) {
         [node] = nodesOnLine;
@@ -99,6 +113,10 @@ export default class SourceParser {
     while (node) {
       if (!filter || filter(node)) {
         return node;
+      }
+      if (node === topNode) {
+        // Don't go beyond the top node.
+        return null;
       }
       node = node.parent!;
     }
@@ -119,28 +137,70 @@ export default class SourceParser {
     return this.getInnermostNodeAt(locOrNode, this.language.expression);
   }
 
-  getInnermostFunction(loc: SourceLocation): SyntaxNode | null {
+  getInnermostFunction(loc: SyntaxNode | SourceLocation): SyntaxNode | null {
     return this.getInnermostNodeAt(loc, this.language.function);
   }
 
-  getInnermostStatement(loc: SyntaxNode | SourceLocation): SyntaxNode | null {
-    // NOTE: There is a `statement` supertype we can use for this instead.
-    return this.getInnermostNodeAt(loc, this.language.statement);
+  getInnermostStatementInFunction(loc: SyntaxNode | SourceLocation): SyntaxNode | null {
+    const topNode = this.getInnermostFunction(loc) || this.tree.rootNode;
+    return this.getNodeAt(loc, topNode, n => this.language.statement.has(n.type));
   }
 
-  getOutermostExpression(position: SyntaxNode | SourceLocation): SyntaxNode | null {
-    return this.getOuterMostTypeNode(position, "expression");
+  getOutermostExpressionInFunction(position: SyntaxNode | SourceLocation): SyntaxNode | null {
+    const topNode = this.getInnermostFunction(position) || this.tree.rootNode;
+    return this.getOuterMostTypeNode(position, "expression", topNode);
   }
 
-  getRelevantContainingNodeAt(loc: SyntaxNode | SourceLocation): SyntaxNode | null {
-    const statement = this.getInnermostStatement(loc);
-    const expression = this.getOutermostExpression(loc);
-
+  getRelevantContainingNodeAt(nodeOrLocation: SyntaxNode | SourceLocation): SyntaxNode | null {
+    const statement = this.getInnermostStatementInFunction(nodeOrLocation);
+    const expression = this.getOutermostExpressionInFunction(nodeOrLocation);
+    // let node: SyntaxNode | null = null;
+    // if (expression && statement) {
+    //   // Get the inner-most node (which is the one with the bigger index).
+    //   node = expression.startIndex > statement.startIndex ? expression : statement;
+    // } else {
+    //   node = expression || statement;
+    // }
     return statement || expression;
   }
 
-  getOuterMostTypeNode(loc: SyntaxNode | SourceLocation, queryType: string): SyntaxNode | null {
-    const root = this.tree.rootNode;
+  /**
+   * Find all functions within Node, that are not within another function.
+   */
+  getAllDirectlyNestedFunctions(node: SyntaxNode): SyntaxNode[] {
+    const traverse = (node: SyntaxNode, insideFunction = false): SyntaxNode[] => {
+      if (this.language.function.has(node.type)) {
+        return insideFunction ? [] : [node];
+      }
+      return node.children.flatMap(child =>
+        traverse(child, insideFunction || this.language.function.has(node.type))
+      );
+    };
+    return traverse(node);
+  }
+
+  filterNodesInSameFunction(
+    nodes: SyntaxNode[],
+    fnNode: SyntaxNode = this.tree.rootNode
+  ): SyntaxNode[] {
+    const nestedFunctions = this.getAllDirectlyNestedFunctions(fnNode);
+    return nodes.filter(n => {
+      // Include all nodes inside `fnNode` itself.
+      if (n.startIndex >= fnNode.startIndex || n.endIndex <= fnNode.endIndex) {
+        // Exclude if `n` is nested in any nested function.
+        return !nestedFunctions.some(
+          fn => fn !== fnNode && n.startIndex >= fn.startIndex && n.endIndex <= fn.endIndex
+        );
+      }
+      return false;
+    });
+  }
+
+  getOuterMostTypeNode(
+    loc: SyntaxNode | SourceLocation,
+    queryType: string,
+    topNode: SyntaxNode = this.tree.rootNode
+  ): SyntaxNode | null {
     const positionNode = this.getNodeAt(loc);
     const query = `(${queryType}) @result`;
     const q = new Parser.Query(this.parser.getLanguage(), query);
@@ -151,7 +211,7 @@ export default class SourceParser {
 
     let largestContainer: SyntaxNode | null = null;
 
-    for (const match of q.matches(root)) {
+    for (const match of q.matches(topNode)) {
       const node = match.captures[0].node;
       const containsTarget = node.startIndex <= targetStartIndex && node.endIndex >= targetEndIndex;
 
@@ -193,17 +253,7 @@ export default class SourceParser {
 
   queryExpressions(node = this.tree.rootNode): SyntaxNode[] {
     // Actual expressions.
-    const expressions = this.queryAllNodes(`(expression) @e`, node);
-
-    // // The actual expression inside jsx_expression is the 2nd child.
-    // // const jsx_expressions = this.queryAllNodes(`(jsx_expression) @je`, node);
-
-    // // Combine and deduplicate.
-    // return uniqBy(
-    //   expressions.concat(jsx_expressions.map(n => n.firstChild!.nextSibling!)),
-    //   n => `${n.startIndex};;${n.endIndex}`
-    // );
-    return expressions;
+    return this.queryAllNodes(`(expression) @e`, node);
   }
 
   /** ###########################################################################
@@ -232,13 +282,13 @@ export default class SourceParser {
     return truncateAround(node.text, relativeIndex);
   }
 
+  // Add `pointAnnotation` to `node.text` at `targetLoc`.
   getAnnotatedNodeTextAt(
     nodeOrLocation: SyntaxNode | SourceLocation,
     pointAnnotation: string,
     targetLoc: SourceLocation | null = null,
     maxLines = 40
   ): [string, SourceLocation] | null {
-    // Add `pointAnnotation` to `result.text` at `position`.
     if (!targetLoc) {
       if ("line" in nodeOrLocation) {
         targetLoc = nodeOrLocation;
@@ -297,11 +347,11 @@ export default class SourceParser {
    * ##########################################################################*/
 
   /**
-   * Heuristic subset of all "interesting" expression nodes within `node`.
+   * Heuristic subset of all "interesting" expression nodes within `node`, but not within or outside of nested functions.
    * @returns A list of nodes, but unique by text.
    */
-  getInterestingInputDependencies(nodeOrLocation: SyntaxNode | SourceLocation): SyntaxNode[] {
-    const node = this.getOutermostExpression(nodeOrLocation) || this.getNodeAt(nodeOrLocation);
+  getInterestingInputDependenciesAt(nodeOrLocation: SyntaxNode | SourceLocation): SyntaxNode[] {
+    const node = this.getRelevantContainingNodeAt(nodeOrLocation);
     if (!node) {
       return [];
     }
@@ -321,15 +371,29 @@ export default class SourceParser {
     // 1. Find all expressions.
     //    NOTE: tsx parsing is immature at this point.
     let expressions = this.queryExpressions(node);
-    // 2. Only pick the top-level expressions, including unwanted sub-trees.
+
+    // 2. Filter out expressions not at the same function or script level.
+    expressions = this.filterNodesInSameFunction(
+      expressions,
+      this.getInnermostFunction(node) || this.tree.rootNode
+    );
+
+    // 3. Only pick the top-level expressions, including unwanted sub-trees.
     expressions = Array.from(
       new Set(
-        expressions.map(
-          e => this.getOutermostExpression(treeSitterPointToSourceLocation(e.startPosition))!
-        )
+        expressions
+          .map(
+            e =>
+              this.getOutermostExpressionInFunction(
+                treeSitterPointToSourceLocation(e.startPosition)
+              )!
+          )
+          // 2b. Remove expressions not fulfilling all constraints.
+          .filter(e => !!e)
       )
     );
-    // 3. Find all nested expressions but cull unwanted sub-trees.
+
+    // 4. Find all nested expressions but cull unwanted sub-trees.
     const nodes: SyntaxNode[] = [];
     for (const expr of expressions) {
       const traverse = (node: SyntaxNode) => {

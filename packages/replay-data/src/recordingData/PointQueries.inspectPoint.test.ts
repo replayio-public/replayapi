@@ -25,8 +25,8 @@ const PointExpectations: Record<ExecutionPoint, InspectPointResult> = {
     },
     inputDependencies: [
       expect.objectContaining({ expression: "div" }),
-      expect.objectContaining({ expression: "styles" }),
       expect.objectContaining({ expression: "styles.Inheritance" }),
+      expect.objectContaining({ expression: "styles" }),
       {
         expression: "index",
         value: "7",
@@ -81,10 +81,12 @@ const PointExpectations: Record<ExecutionPoint, InspectPointResult> = {
       {
         kind: "ReactCreateElement",
         point: "78858008544035498108993299432865798",
-        functionName: "RulesPanelSuspends",
+        functionName: "<anonymous>",
         line: 70,
         url: "webpack://_N_E/src/devtools/client/inspector/markup/components/rules/RulesPanel.tsx?8b1e",
-        code: 'return (\n    <div\n      className={styles.RulesPanel}\n      data-test-id="RulesPanel"\n      data-is-pending={isPending || undefined}\n    >\n      <div className={styles.FilterRow}>\n        <Icon className={styles.FilterIcon} type="filter" />\n        <input\n          className={styles.FilterInput}\n          onChange={({ target }) => setSearchText(target.value)}\n          placeholder="Find Styles"\n          value={searchText}\n        />\n      </div>\n      <div className={styles.ListWrapper}>\n        <AutoSizer disableWidth>\n          {({ height }: { height: number }) => (\n            <RulesList\n              height={height}\n              noContentFallback={\n                /*POINT*/<div className={styles.NoStyles}>\n                  {selectedNodeId ? "No styles to display" : "No element selected"}\n                </div>\n              }\n              rules={cachedStyles?.rules ?? NO_RULES_AVAILABLE}\n              searchText={searchText}\n            />\n          )}\n        </AutoSizer>\n      </div>\n    </div>\n  );',
+        code: expect.stringContaining(
+          '<RulesList\n              height={height}\n              noContentFallback={\n                /*POINT*/<div className={styles.NoStyles}>\n                  {selectedNodeId ? "No styles to display" : "No element selected"}\n                </div>\n              }\n              rules={cachedStyles?.rules ?? NO_RULES_AVAILABLE}\n              searchText={searchText}\n            />'
+        ),
       },
       {
         kind: "ReactCreateElement",
@@ -97,10 +99,10 @@ const PointExpectations: Record<ExecutionPoint, InspectPointResult> = {
       {
         kind: "PromiseSettled",
         point: "78858008544010399007838635439423488",
-        functionName: "cssRulesCache.load",
+        functionName: "cssRulesCache.load.rules.<anonymous>",
         line: 302,
         url: "webpack://_N_E/src/ui/suspense/styleCaches.ts?52eb",
-        code: "return {\n      elementStyle,\n      rules: elementStyle.rules?.map(rule => getRuleState(/*POINT*/rule)) ?? [],\n    };",
+        code: "getRuleState(/*POINT*/rule)",
       },
       {
         kind: "PromiseSettled",
@@ -141,8 +143,8 @@ const PointExpectations: Record<ExecutionPoint, InspectPointResult> = {
     location: {
       line: 302,
       url: "webpack://_N_E/src/ui/suspense/styleCaches.ts?52eb",
-      code: "return {\n      elementStyle,\n      rules: elementStyle.rules?.map(rule => getRuleState(/*POINT*/rule)) ?? [],\n    };",
-      functionName: "cssRulesCache.load",
+      code: "getRuleState(/*POINT*/rule)",
+      functionName: "cssRulesCache.load.rules.<anonymous>",
     },
     function: {
       name: "cssRulesCache.load.rules.<anonymous>",
@@ -153,6 +155,7 @@ const PointExpectations: Record<ExecutionPoint, InspectPointResult> = {
       params: "",
     },
     inputDependencies: [
+      expect.objectContaining({ expression: "getRuleState(rule)" }),
       expect.objectContaining({ expression: "getRuleState" }),
       expect.objectContaining({ expression: "rule" }),
     ],
@@ -285,10 +288,24 @@ describe("PointQueries basics", () => {
       const qp = await session.queryPoint(point);
 
       const res = await qp.inspectPoint();
-      if (expected.inputDependencies) {
-        const inputExpressions = res.inputDependencies?.map((d: any) => d.expression);
-        expect(inputExpressions).toHaveLength(expected.inputDependencies.length);
-      }
+
+      Object.entries(expected ?? {}).forEach(([prop, expectedValue]) => {
+        const resultValue = (res as any)?.[prop];
+        if (Array.isArray(expectedValue)) {
+          const resultArray = resultValue?.map((item: any) =>
+            prop === "inputDependencies" ? item.expression : item
+          );
+          expect(resultArray).toHaveLength(expectedValue.length);
+
+          for (let i = 0; i < expectedValue.length; i++) {
+            const informativePropName = `${prop}[${i}]`;
+            expect({ [informativePropName]: resultValue?.[i] }).toEqual({
+              [informativePropName]: expectedValue[i],
+            });
+          }
+        }
+      });
+
       expect(res).toEqual(expected);
     }
   );

@@ -6,6 +6,26 @@ import { treeSitterPointToSourceLocation } from "./tree-sitter-locations";
 
 describe("Node extraction", () => {
   test("1", () => {
+    const fnText = `rule => 
+          getRuleState(rule)`;
+    const code = `
+    return {
+      elementStyle,
+      rules: elementStyle.rules?.map(
+        ${fnText}
+      )
+    };`;
+    const parser = new SourceParser("test.ts", code);
+    parser.parse();
+
+    const loc = { line: 6, column: 20 };
+    const fn = parser.getInnermostFunction(loc);
+    expect(fn?.text).toEqual(fnText);
+    const s = parser.getRelevantContainingNodeAt(loc);
+    expect(s?.text).toEqual("getRuleState(rule)");
+  });
+
+  test("2", () => {
     const code = `function foo() {
     return f(x, g("hello123qweSdfjnlsdfksjdnlsdgndf", 123));
   }`;
@@ -13,7 +33,7 @@ describe("Node extraction", () => {
     parser.parse();
 
     // Test innermost statement
-    const innermostStmt = parser.getInnermostStatement({ line: 2, column: 4 });
+    const innermostStmt = parser.getInnermostStatementInFunction({ line: 2, column: 4 });
     expect(innermostStmt?.text).toBe('return f(x, g("hello123qweSdfjnlsdfksjdnlsdgndf", 123));');
     const [annotatedTextAtReturn] = parser.getAnnotatedNodeTextAt(
       { line: 2, column: 4 },
@@ -22,7 +42,7 @@ describe("Node extraction", () => {
     expect(annotatedTextAtReturn).toContain("/*POINT*/return");
 
     // Test outermost expression
-    const outermostExpr = parser.getOutermostExpression({ line: 2, column: 30 });
+    const outermostExpr = parser.getOutermostExpressionInFunction({ line: 2, column: 30 });
     expect(outermostExpr?.text).toBe('f(x, g("hello123qweSdfjnlsdfksjdnlsdgndf", 123))');
 
     const [annotatedTextAtExpression] = parser.getAnnotatedNodeTextAt(
@@ -32,7 +52,7 @@ describe("Node extraction", () => {
     expect(annotatedTextAtExpression).toContain("qwe/*POINT*/Sdf");
   });
 
-  test("2", () => {
+  test("3", () => {
     const code =
       'createCache({\n  config: { immutable: true },\n  debugLabel: "AppliedRules",\n  getKey: ([replayClient, pauseId, nodeId]) => `${pauseId}:${nodeId}`,\n  load: async ([replayClient, pauseId, nodeId]) => {\n    const { rules, data } = await replayClient.getAppliedRules(pauseId, nodeId);\n\n    const uniqueRules = uniqBy(rules, rule => `${rule.rule}|${rule.pseudoElement}`);\n\n    const sources = await sourcesByIdCache.readAsync(replayClient);\n    cachePauseData(replayClient, sources, pauseId, data);\n\n    const stylePromises: Promise<ProtocolObject>[] = [];\n\n    const rulePreviews = await Promise.all(\n      uniqueRules.map(async appliedRule => {\n        return objectCache.readAsync(replayClient, pauseId, appliedRule.rule, "canOverflow");\n      })\n    );\n\n    for (let ruleObject of rulePreviews) {\n      if (ruleObject.preview?.rule?.style) {\n        stylePromises.push(\n          objectCache.readAsync(\n            replayClient,\n            pauseId,\n            ruleObject.preview.rule.style,\n            "canOverflow"\n          ) as Promise<ProtocolObject>\n        );\n      }\n\n      if (ruleObject.preview?.rule?.parentStyleSheet) {\n        stylePromises.push(\n          objectCache.readAsync(\n            replayClient,\n            pauseId,\n            ruleObject.preview?.rule?.parentStyleSheet,\n            "canOverflow"\n          ) as Promise<ProtocolObject>\n        );\n      }\n    }\n\n    if (stylePromises.length) {\n      await Promise.all(stylePromises);\n    }\n\n    const wiredRules: WiredAppliedRule[] = uniqueRules.map((appliedRule, i) => {\n      return {\n        rule: new RuleFront(pauseId, rulePreviews[i]),\n        pseudoElement: appliedRule.pseudoElement,\n      };\n    });\n    return wiredRules;\n  },\n})';
 
@@ -129,6 +149,48 @@ describe("extract functions and their names", () => {
 
 describe("input dependencies", () => {
   test("1", () => {
+    const code = `return /*POINT*/ {
+  declarations: rule.declarations.map((declaration) =>
+    getDeclarationState(declaration, rule.domRule.objectId())
+  ),
+  id: rule.domRule.objectId(),
+  inheritance: rule.inheritance,
+  isUnmatched: rule.isUnmatched,
+  isUserAgentStyle: rule.domRule.isSystem,
+  pseudoElement: rule.pseudoElement,
+  selector: rule.selector,
+  sourceLink: rule.sourceLink,
+  type: rule.domRule.type,
+};
+`;
+    const parser = new SourceParser("test.ts", code);
+    parser.parse();
+
+    const node = parser.tree.rootNode;
+    const dependencies = parser.getInterestingInputDependenciesAt(node).map(n => n.text);
+    expect(dependencies.sort()).toEqual(
+      [
+        "rule",
+        "rule.declarations",
+        "rule.declarations.map",
+        `rule.declarations.map((declaration) =>
+    getDeclarationState(declaration, rule.domRule.objectId())
+  )`,
+        "rule.domRule.objectId()",
+        "rule.domRule.objectId",
+        "rule.domRule",
+        "rule.inheritance",
+        "rule.isUnmatched",
+        "rule.domRule.isSystem",
+        "rule.pseudoElement",
+        "rule.selector",
+        "rule.sourceLink",
+        "rule.domRule.type",
+      ].sort()
+    );
+  });
+
+  test("2", () => {
     const code = `import { ReactElement, useMemo, useState } from "react";
 
 import { RulesListData } from "devtools/client/inspector/markup/components/rules/RulesListData";
@@ -184,7 +246,7 @@ export function RulesList({
     const parser = new SourceParser("test.ts", code);
     parser.parse();
 
-    const dependencies = parser.getInterestingInputDependencies(location).map(n => n.text);
+    const dependencies = parser.getInterestingInputDependenciesAt(location).map(n => n.text);
     expect(dependencies.sort()).toEqual(
       [
         "noContentFallback",
@@ -194,48 +256,6 @@ export function RulesList({
         "ITEM_SIZE",
         "rulesListData",
         "GenericList",
-      ].sort()
-    );
-  });
-
-  test("2", () => {
-    const code = `return /*POINT*/ {
-  declarations: rule.declarations.map((declaration) =>
-    getDeclarationState(declaration, rule.domRule.objectId())
-  ),
-  id: rule.domRule.objectId(),
-  inheritance: rule.inheritance,
-  isUnmatched: rule.isUnmatched,
-  isUserAgentStyle: rule.domRule.isSystem,
-  pseudoElement: rule.pseudoElement,
-  selector: rule.selector,
-  sourceLink: rule.sourceLink,
-  type: rule.domRule.type,
-};
-`;
-    const parser = new SourceParser("test.ts", code);
-    parser.parse();
-
-    const node = parser.tree.rootNode;
-    const dependencies = parser.getInterestingInputDependencies(node).map(n => n.text);
-    expect(dependencies.sort()).toEqual(
-      [
-        "rule",
-        "rule.declarations",
-        "rule.declarations.map",
-        `rule.declarations.map((declaration) =>
-    getDeclarationState(declaration, rule.domRule.objectId())
-  )`,
-        "rule.domRule.objectId()",
-        "rule.domRule.objectId",
-        "rule.domRule",
-        "rule.inheritance",
-        "rule.isUnmatched",
-        "rule.domRule.isSystem",
-        "rule.pseudoElement",
-        "rule.selector",
-        "rule.sourceLink",
-        "rule.domRule.type",
       ].sort()
     );
   });

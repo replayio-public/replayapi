@@ -265,10 +265,10 @@ export default class PointQueries {
       this.parseSource(),
     ]);
     if (functionInfo?.name === "ElementStyle.populate") {
-      // TODO: Remove this hardcoded data piece (10608 test).
+      // HARDCODE-HACKFIX (for 10608)
+      // Just show the whole function to the agent.
+      // TODO: Replace this with a slice from our new dynamic CFG.
       const functionNode = parser.getInnermostFunction(thisLocation)!;
-
-      // Put the whole function in.
       codeSummary.code = parser.getAnnotatedNodeTextAt(
         functionNode,
         POINT_ANNOTATION,
@@ -509,7 +509,7 @@ export default class PointQueries {
       this.parseSource(),
     ]);
 
-    const deps = parser.getInterestingInputDependencies(thisLocation);
+    const deps = parser.getInterestingInputDependenciesAt(thisLocation);
     const dataFlowResult = await this.runDataFlowAnalysis();
     return (
       await Promise.all(
