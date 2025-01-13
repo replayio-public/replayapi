@@ -7,7 +7,6 @@ import { runAnalysis } from "@replayio/data/src/analysis/runAnalysis";
 import { ExecutionDataAnalysisResult } from "@replayio/data/src/analysis/specs/executionPoint";
 import { scanGitUrl } from "@replayio/data/src/gitUtil/gitStringUtil";
 import LocalGitRepo from "@replayio/data/src/gitUtil/LocalGitRepo";
-import { InspectPointResult } from "@replayio/data/src/recordingData/types";
 import ReplaySession, {
   getOrCreateReplaySession,
 } from "@replayio/data/src/recordingData/ReplaySession";
@@ -15,6 +14,7 @@ import {
   scanAnnotationDataUrl,
   scanReplayUrl,
 } from "@replayio/data/src/recordingData/replayStringUtil";
+import { InspectPointResult } from "@replayio/data/src/recordingData/types";
 import { assert } from "@replayio/data/src/util/assert";
 import { program } from "commander";
 import createDebug from "debug";
@@ -43,7 +43,11 @@ export interface InitialAnalysisResult extends InspectPointResult {
   metadata: AnalysisToolMetadata;
 }
 
-const NewRecordingIds = ["011f1663-6205-4484-b468-5ec471dc5a31", "7dfc5103-8060-4128-a1b6-20d0a56aadcc"];
+const NewRecordingIds = [
+  "011f1663-6205-4484-b468-5ec471dc5a31",
+  "7dfc5103-8060-4128-a1b6-20d0a56aadcc",
+  "3e0a8f68-14e6-4809-bc72-dea0e0374c77",
+];
 function shouldUseLegacyMode(recordingId: string | undefined): boolean {
   if (!recordingId) {
     // If we have no recordingId from the problem description, default to new mode.
@@ -72,7 +76,7 @@ program
     false
   )
   .option("-f, --forceDelete", "Delete the target repo directory if it already exists.", false)
-  
+
   // Action handler.
   .action(async (options: InitialAnalysisCommandOptions & LegacyOptions) => {
     // We need a recordingId either from the legacy prompt or from the new mode.
@@ -186,7 +190,7 @@ async function annotateExecutionPointsAction({
 export async function initialAnalysisAction({
   prompt,
 }: InitialAnalysisCommandOptions): Promise<void> {
-  const { recordingId } = scanReplayUrl(prompt);
+  const { recordingId, point: promptPoint } = scanReplayUrl(prompt);
   if (!recordingId) {
     printCommandError("NoRecordingUrl");
     return;
@@ -195,14 +199,11 @@ export async function initialAnalysisAction({
   const session = await getOrCreateReplaySession(recordingId);
 
   try {
-    const { point, commentText, reactComponentName, consoleError } =
-      await session.findInitialPoint();
+    const { point: analysisPoint, commentText, reactComponentName, consoleError } =
+      await session.runInitialExecutionPointAnalysis(promptPoint);
+    const point = analysisPoint || promptPoint;
     if (!point) {
       printCommandError("CouldNotFindInitialPoint");
-      return;
-    }
-    if (!commentText) {
-      printCommandError("CouldNotFindUserCommentInRecording");
       return;
     }
 

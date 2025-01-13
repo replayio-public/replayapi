@@ -102,25 +102,21 @@ function checkHardcodedResult(
   }
 }
 
-export async function tryForceLookupHardcodedData(
-  recordingId: RecordingId,
-  name: string,
-  input: HardcodedResult | null
-): Promise<HardcodedResult> {
-  // We only force in dev mode.
-  const actualForce = isReplayDevMode();
-  return lookupHardcodedData(recordingId, name, input, undefined, actualForce);
-}
-
-async function lookupHardcodedData(
+export async function lookupHardcodedData(
   recordingId: RecordingId,
   name: string,
   input: HardcodedResult | null,
-  existingResult?: HardcodedResult,
+  existingResult: HardcodedResult | null,
   force?: boolean
 ): Promise<HardcodedResult> {
   const inputString = input ? deterministicObjectHash(input) : null;
-  const hardcodeResultOrHandler = await getHardcodeHandler(recordingId, name, inputString, !!force);
+  const actualForce = force && isReplayDevMode(); // We only force in dev mode.
+  const hardcodeResultOrHandler = await getHardcodeHandler(
+    recordingId,
+    name,
+    inputString,
+    !!actualForce
+  );
 
   let res: HardcodedResult;
   if (hardcodeResultOrHandler instanceof Function) {
@@ -139,52 +135,48 @@ async function lookupHardcodedData(
   return res;
 }
 
-export function wrapAsyncWithHardcodedData<I extends HardcodedResult, O extends HardcodedResult>(
-  recordingId: RecordingId,
-  name: string,
-  input: HardcodedResult,
-  cb: (input: I) => Promise<O | undefined>
-): Promise<O>;
-
-export function wrapAsyncWithHardcodedData<O extends HardcodedResult>(
-  recordingId: RecordingId,
-  name: string,
-  cb: () => Promise<O | undefined>
-): Promise<O>;
+export type WrapAsyncWithHardcodedDataParams<
+  I extends HardcodedResult | undefined,
+  O extends HardcodedResult,
+> = {
+  recordingId: RecordingId;
+  name: string;
+  force?: boolean;
+} & (I extends HardcodedResult
+  ? {
+      /** Case 1: Has `input` prop. */
+      input: I;
+      /** → `cb` must accept the `input` */
+      cb: (input: I) => Promise<O | undefined>;
+    }
+  : {
+      /** Case 2: No `input` prop */
+      cb: () => Promise<O | undefined>;
+    });
 
 export async function wrapAsyncWithHardcodedData<
   I extends HardcodedResult,
   O extends HardcodedResult,
->(
-  recordingId: RecordingId,
-  name: string,
-  inputOrCallback: I | (() => Promise<O | undefined>),
-  cbWithInput?: (input: I) => Promise<O | undefined>
-): Promise<O> {
+>(options: WrapAsyncWithHardcodedDataParams<I, O>): Promise<O> {
   try {
-    let res: O;
-    let input: I | null = null;
-    if (cbWithInput) {
-      // Overload 1: Input given.
-      input = inputOrCallback as I;
-      const existingResult = await cbWithInput(input);
-      res = (await lookupHardcodedData(recordingId, name, input, existingResult)) as O;
-    } else {
-      // Overload 2: No input given.
-      const cbWithoutInput = inputOrCallback as () => Promise<O | undefined>;
-      const existingResult = await cbWithoutInput();
-      res = (await lookupHardcodedData(recordingId, name, null, existingResult)) as O;
-    }
-    return res;
+    const existingResult: O | null = (await options.cb(options.input)) || null;
+    return (await lookupHardcodedData(
+      options.recordingId,
+      options.name,
+      options.input ?? null,
+      existingResult,
+      options.force
+    )) as O;
   } catch (err: any) {
     console.error(
-      `❌ Failed to lookup hardcoded result (, ${name}, ${JSON.stringify(inputOrCallback)}): ${err.message}`
+      `❌ Failed to lookup hardcoded result (${options.recordingId}, ${options.name}, ${JSON.stringify(options.input)}): ${err.message}`
     );
     return (await lookupHardcodedData(
-      recordingId,
-      name,
-      cbWithInput ? inputOrCallback : null,
-      undefined
+      options.recordingId,
+      options.name,
+      options.input ?? null,
+      null,
+      options.force
     )) as O;
   }
 }

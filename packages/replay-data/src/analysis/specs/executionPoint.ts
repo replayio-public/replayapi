@@ -11,6 +11,9 @@ export const ExecutionPointSpecSchema = AnalysisDefaultSpecSchema.extend({
 
   // Depth of associated points to recursively describe.
   depth: z.optional(z.number()),
+
+  /** Value expression to compute dataflow for. */
+  value: z.optional(z.string()),
 }).strict();
 export type ExecutionDataAnalysisSpec = z.infer<typeof ExecutionPointSpecSchema>;
 

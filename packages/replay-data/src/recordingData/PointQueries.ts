@@ -11,7 +11,6 @@ import StaticScope from "@replayio/source-parser/src/bindings/StaticScope";
 import SourceParser from "@replayio/source-parser/src/SourceParser";
 import { CodeAtLocation, StaticFunctionInfo } from "@replayio/source-parser/src/types";
 import createDebug from "debug";
-import { isEqual } from "lodash";
 import groupBy from "lodash/groupBy";
 import isEmpty from "lodash/isEmpty";
 import sortBy from "lodash/sortBy";
@@ -26,12 +25,16 @@ import { evaluate } from "replay-next/src/utils/evaluate";
 import { AnalysisType } from "../analysis/dependencyGraphShared";
 import { AnalysisInput } from "../analysis/dgSpecs";
 import { runAnalysis } from "../analysis/runAnalysis";
-import { ExecutionDataAnalysisResult, ExecutionDataEntry } from "../analysis/specs/executionPoint";
+import {
+  ExecutionDataAnalysisResult,
+  ExecutionDataAnalysisSpec,
+  ExecutionDataEntry,
+} from "../analysis/specs/executionPoint";
 import { BigIntToPoint, ExecutionPointInfo } from "../util/points";
 import DynamicScope from "./bindings/DynamicScope";
 import DependencyChain, { RichStackFrame } from "./DependencyChain";
 import { isDefaultHardcodedValueStub } from "./hardcodedCore";
-import { tryForceLookupHardcodedData, wrapAsyncWithHardcodedData } from "./hardcodedData";
+import { lookupHardcodedData, wrapAsyncWithHardcodedData } from "./hardcodedData";
 import ReplaySession from "./ReplaySession";
 import {
   DataFlowOrigin,
@@ -396,7 +399,7 @@ export default class PointQueries {
 
   private async queryDataFlow(
     expression: string,
-    backendDataFlowResult: BackendDataFlowAnalysisResult
+    force = false
   ): Promise<ExpressionDataFlowResult> {
     const [thisLocation, parser] = await Promise.all([
       this.getSourceLocation(),
@@ -404,13 +407,14 @@ export default class PointQueries {
     ]);
 
     // 1. Get data flow points from backend data flow results, and/or hardcoded overrides.
-    let res = await wrapAsyncWithHardcodedData(
-      this.session.getRecordingId()!,
-      "dataFlowPoints",
-      { expression, point: this.point },
-      async ({ expression }): Promise<ExpressionDataFlowResult | undefined> => {
+    let res = await wrapAsyncWithHardcodedData({
+      recordingId: this.session.getRecordingId()!,
+      name: "origins",
+      input: { expression, point: this.point },
+      cb: async ({ expression }): Promise<ExpressionDataFlowResult | undefined> => {
+        const rawDataFlowResult = await this.runDataFlowAnalysis(expression);
         let dataFlowPoints =
-          backendDataFlowResult.variablePointsByName[expression]
+          rawDataFlowResult.variablePointsByName[expression]
             ?.filter(p => !!p.associatedPoint)
             .map(p => p.associatedPoint!) || [];
         dataFlowPoints = sortBy(dataFlowPoints, p => BigInt(p), "desc");
@@ -418,15 +422,16 @@ export default class PointQueries {
           return { origins: dataFlowPoints.map<DataFlowOrigin>(p => ({ point: p })) };
         }
         return undefined;
-      }
-    );
+      },
+    });
 
     // 2. Look up hardcoded object creation site when isValueReferenceType, but `origins` is empty.
     if ((await this.isValueReferenceType(expression)) && !res.origins?.length) {
-      const hardcodedCreationSite = await tryForceLookupHardcodedData(
+      const hardcodedCreationSite = await lookupHardcodedData(
         this.session.getRecordingId()!,
         "objectCreationSite",
-        { expression, point: this.point }
+        { expression, point: this.point },
+        null
       );
       if (!isDefaultHardcodedValueStub(hardcodedCreationSite)) {
         res = { ...res, objectCreationSite: hardcodedCreationSite };
@@ -441,7 +446,8 @@ export default class PointQueries {
 
     // 3. Try to guess missing `location`s.
     return {
-      staticBinding: parser.getBindingAt(thisLocation, expression) || undefined,
+      staticBinding:
+        (!origins?.length && parser.getBindingAt(thisLocation, expression)) || undefined,
       objectCreationSite:
         (res.objectCreationSite && (await this.addLocationToOrigin(res.objectCreationSite))) ||
         undefined,
@@ -452,16 +458,9 @@ export default class PointQueries {
   /**
    * Preview and trace the data flow of the value held by `expression`.
    */
-  async queryExpressionInfo(
-    expression: string,
-    rawDataFlowResult?: BackendDataFlowAnalysisResult
-  ): Promise<ExpressionAnalysisResult> {
-    rawDataFlowResult ||= await this.runDataFlowAnalysis();
+  async queryExpressionInfo(expression: string, force = false): Promise<ExpressionAnalysisResult> {
     const [valuePreview, dataFlow]: [SimpleValuePreviewResult, ExpressionDataFlowResult] =
-      await Promise.all([
-        this.makeValuePreview(expression),
-        this.queryDataFlow(expression, rawDataFlowResult),
-      ]);
+      await Promise.all([this.makeValuePreview(expression), this.queryDataFlow(expression, force)]);
 
     return {
       expression,
@@ -470,15 +469,14 @@ export default class PointQueries {
     };
   }
 
-  async runExecutionPointAnalysis(depth?: number): Promise<ExecutionDataAnalysisResult> {
-    debug(`run ExecutionPoint analysis (${depth})...`);
+  async runExecutionPointAnalysis(
+    extraSpecFields?: Partial<ExecutionDataAnalysisSpec>
+  ): Promise<ExecutionDataAnalysisResult> {
+    debug(`run ExecutionPoint analysis (${JSON.stringify(extraSpecFields)})...`);
     const analysisInput: AnalysisInput = {
       analysisType: AnalysisType.ExecutionPoint,
-      spec: { recordingId: this.session.getRecordingId()!, point: this.point },
+      spec: { recordingId: this.session.getRecordingId()!, point: this.point, ...extraSpecFields },
     };
-    if (depth !== undefined) {
-      analysisInput.spec.depth = depth;
-    }
 
     try {
       return await runAnalysis<ExecutionDataAnalysisResult>(this.session, analysisInput);
@@ -488,8 +486,8 @@ export default class PointQueries {
     }
   }
 
-  async runDataFlowAnalysis(): Promise<BackendDataFlowAnalysisResult> {
-    const analysisResults = await this.runExecutionPointAnalysis();
+  async runDataFlowAnalysis(expression: string): Promise<BackendDataFlowAnalysisResult> {
+    const analysisResults = await this.runExecutionPointAnalysis({ value: expression });
     const { points } = analysisResults;
     return {
       variablePointsByName: groupBy<ExecutionDataEntry>(
@@ -510,12 +508,11 @@ export default class PointQueries {
     ]);
 
     const deps = parser.getInterestingInputDependenciesAt(thisLocation);
-    const dataFlowResult = await this.runDataFlowAnalysis();
     return (
       await Promise.all(
         deps.map(async dep => {
           const expression = dep.text;
-          const info = await this.queryExpressionInfo(expression, dataFlowResult);
+          const info = await this.queryExpressionInfo(expression);
           return {
             ...info,
           };

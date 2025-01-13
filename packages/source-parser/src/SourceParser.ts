@@ -22,6 +22,7 @@ import { CodeAtLocation, StaticFunctionInfo } from "./types";
 import { truncateAround } from "./util/truncateCenter";
 
 const FailBabelParseSilently = process.env.NODE_ENV === "production";
+const MaxNodeLength = 300;
 
 // Query API:
 //   * https://tree-sitter.github.io/tree-sitter/playground
@@ -279,7 +280,7 @@ export default class SourceParser {
       loc,
       treeSitterPointToSourceLocation(node.startPosition)
     );
-    return truncateAround(node.text, relativeIndex);
+    return truncateAround(node.text, relativeIndex, MaxNodeLength);
   }
 
   // Add `pointAnnotation` to `node.text` at `targetLoc`.
