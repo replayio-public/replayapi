@@ -14,7 +14,10 @@ import { STATUS_PENDING } from "suspense";
 import { AnalysisType } from "../analysis/dependencyGraphShared";
 import { AnalysisInput } from "../analysis/dgSpecs";
 import { runAnalysis } from "../analysis/runAnalysis";
-import { ExecutionDataAnalysisResult, ExecutionDataAnalysisSpec } from "../analysis/specs/executionPoint";
+import {
+  ExecutionDataAnalysisResult,
+  ExecutionDataAnalysisSpec,
+} from "../analysis/specs/executionPoint";
 import { wrapAsyncWithHardcodedData } from "./hardcodedData";
 import PointQueries from "./PointQueries";
 import ReplaySources from "./ReplaySources";
@@ -131,7 +134,9 @@ export default class ReplaySession extends ReplayClient {
    * Points.
    * ##########################################################################*/
 
-  async runInitialExecutionPointAnalysis(point?: ExecutionPoint): Promise<InitialExecutionPointResult> {
+  async runInitialExecutionPointAnalysis(
+    point?: ExecutionPoint
+  ): Promise<InitialExecutionPointResult> {
     const recordingId = this.getRecordingId()!;
     const spec: ExecutionDataAnalysisSpec = { recordingId };
     if (point) {
@@ -141,10 +146,14 @@ export default class ReplaySession extends ReplayClient {
       analysisType: AnalysisType.ExecutionPoint,
       spec,
     };
-    return await wrapAsyncWithHardcodedData(recordingId, "initialExecutionPointAnalysis", async () => {
-      const analysisResults = await runAnalysis<ExecutionDataAnalysisResult>(this, analysisInput);
-      const { point, commentText, consoleError, reactComponentName } = analysisResults;
-      return { point, commentText, consoleError, reactComponentName };
+    return await wrapAsyncWithHardcodedData({
+      recordingId,
+      name: "initialExecutionPointAnalysis",
+      cb: async () => {
+        const analysisResults = await runAnalysis<ExecutionDataAnalysisResult>(this, analysisInput);
+        const { point, commentText, consoleError, reactComponentName } = analysisResults;
+        return { point, commentText, consoleError, reactComponentName };
+      },
     });
   }
 

@@ -187,10 +187,15 @@ export default class SourceParser {
     const nestedFunctions = this.getAllDirectlyNestedFunctions(fnNode);
     return nodes.filter(n => {
       // Include all nodes inside `fnNode` itself.
-      if (n.startIndex >= fnNode.startIndex || n.endIndex <= fnNode.endIndex) {
-        // Exclude if `n` is nested in any nested function.
+      if (n.startIndex >= fnNode.startIndex && n.endIndex <= fnNode.endIndex) {
+        // Exclude if:
+        // 1. `n` is in a nested function.
+        // 2. a nested function is in `n`.
         return !nestedFunctions.some(
-          fn => fn !== fnNode && n.startIndex >= fn.startIndex && n.endIndex <= fn.endIndex
+          fn =>
+            fn !== fnNode &&
+            ((n.startIndex >= fn.startIndex && n.endIndex <= fn.endIndex) || // n is in fn
+              (fn.startIndex >= n.startIndex && fn.endIndex <= n.endIndex))  // fn is in n
         );
       }
       return false;

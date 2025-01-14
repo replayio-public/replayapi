@@ -1,5 +1,9 @@
 /* Copyright 2020-2024 Record Replay Inc. */
 
+/**
+ * @file Convenient wrapper for `main` to work better with AI agents. Operates on json files.
+ */
+
 import "tsconfig-paths/register";
 
 import { mkdirSync, readFileSync, writeFileSync } from "fs";
@@ -8,10 +12,6 @@ import path from "path";
 import { Command } from "commander";
 
 import { CommandOutputResult, getCommandResult } from "./commandsShared/commandOutput";
-
-/**
- * @file Convenient wrapper for `main` to work better with AI agents. Operates on json files.
- */
 
 interface InputSpec {
   command: string;

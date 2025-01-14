@@ -58,7 +58,7 @@ const debug = createDebug("replay:PointQueries");
 const POINT_ANNOTATION = "/*POINT*/";
 
 export interface BackendDataFlowAnalysisResult {
-  variablePointsByName: Record<string, ExecutionDataEntry[]>;
+  entries: ExecutionDataEntry[];
 }
 
 export default class PointQueries {
@@ -410,13 +410,13 @@ export default class PointQueries {
     let res = await wrapAsyncWithHardcodedData({
       recordingId: this.session.getRecordingId()!,
       name: "origins",
+      force,
       input: { expression, point: this.point },
       cb: async ({ expression }): Promise<ExpressionDataFlowResult | undefined> => {
         const rawDataFlowResult = await this.runDataFlowAnalysis(expression);
         let dataFlowPoints =
-          rawDataFlowResult.variablePointsByName[expression]
-            ?.filter(p => !!p.associatedPoint)
-            .map(p => p.associatedPoint!) || [];
+          rawDataFlowResult.entries.filter(p => !!p.associatedPoint).map(p => p.associatedPoint!) ||
+          [];
         dataFlowPoints = sortBy(dataFlowPoints, p => BigInt(p), "desc");
         if (dataFlowPoints?.length) {
           return { origins: dataFlowPoints.map<DataFlowOrigin>(p => ({ point: p })) };
@@ -431,7 +431,8 @@ export default class PointQueries {
         this.session.getRecordingId()!,
         "objectCreationSite",
         { expression, point: this.point },
-        null
+        null,
+        force
       );
       if (!isDefaultHardcodedValueStub(hardcodedCreationSite)) {
         res = { ...res, objectCreationSite: hardcodedCreationSite };
@@ -487,13 +488,12 @@ export default class PointQueries {
   }
 
   async runDataFlowAnalysis(expression: string): Promise<BackendDataFlowAnalysisResult> {
-    const analysisResults = await this.runExecutionPointAnalysis({ value: expression });
+    const analysisResults = await this.runExecutionPointAnalysis({ value: expression, depth: 10 });
+    // NOTE: `points` are all related to the given expression.
     const { points } = analysisResults;
     return {
-      variablePointsByName: groupBy<ExecutionDataEntry>(
-        points.flatMap(p => p.entries),
-        "value"
-      ),
+      // TODO: handle the nonlinear case (multiple `entries` per point).
+      entries: points.flatMap(p => p.entries),
     };
   }
 
@@ -583,8 +583,8 @@ export default class PointQueries {
   }
 
   async inspectData(expression: string): Promise<InspectDataResult> {
-    // 1. First get expression info.
-    const expressionInfo = await this.queryExpressionInfo(expression);
+    // 1. Get expression info first (so it won't be omitted).
+    const expressionInfo = await this.queryExpressionInfo(expression, true);
     // 2. Then get all other info.
     const pointData = await this.inspectPoint();
 

@@ -36,6 +36,8 @@ export interface ExecutionDataEntry {
 
   // Location in the recording of the associated execution point.
   associatedLocation?: URLLocationWithSource;
+
+  associatedDataflow?: string;
 }
 
 export interface ExecutionDataPoint {

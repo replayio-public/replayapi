@@ -135,46 +135,58 @@ export async function lookupHardcodedData(
   return res;
 }
 
-export type WrapAsyncWithHardcodedDataParams<
-  I extends HardcodedResult | undefined,
-  O extends HardcodedResult,
-> = {
+type WrapAsyncWithHardcodedDataParamsBase<O extends HardcodedResult> = {
   recordingId: RecordingId;
   name: string;
   force?: boolean;
-} & (I extends HardcodedResult
-  ? {
-      /** Case 1: Has `input` prop. */
-      input: I;
-      /** → `cb` must accept the `input` */
-      cb: (input: I) => Promise<O | undefined>;
-    }
-  : {
-      /** Case 2: No `input` prop */
-      cb: () => Promise<O | undefined>;
-    });
+};
+
+export type WrapAsyncWithHardcodedDataParamsWithInput<
+  I extends HardcodedResult | undefined,
+  O extends HardcodedResult,
+> = WrapAsyncWithHardcodedDataParamsBase<O> & {
+  input: I;
+  cb: (input: I) => Promise<O | undefined>;
+};
+
+export type WrapAsyncWithHardcodedDataParamsWithoutInput<O extends HardcodedResult> =
+  WrapAsyncWithHardcodedDataParamsBase<O> & {
+    cb: () => Promise<O | undefined>;
+  };
 
 export async function wrapAsyncWithHardcodedData<
-  I extends HardcodedResult,
+  I extends HardcodedResult | undefined,
   O extends HardcodedResult,
->(options: WrapAsyncWithHardcodedDataParams<I, O>): Promise<O> {
+>(options: WrapAsyncWithHardcodedDataParamsWithInput<I, O>): Promise<O>;
+export async function wrapAsyncWithHardcodedData<O extends HardcodedResult>(
+  options: WrapAsyncWithHardcodedDataParamsWithoutInput<O>
+): Promise<O>;
+export async function wrapAsyncWithHardcodedData<
+  I extends HardcodedResult | undefined,
+  O extends HardcodedResult,
+>(
+  options:
+    | WrapAsyncWithHardcodedDataParamsWithInput<I, O>
+    | WrapAsyncWithHardcodedDataParamsWithoutInput<O>
+): Promise<O> {
+  const input: I | undefined = "input" in options ? options.input : undefined;
   try {
-    const existingResult: O | null = (await options.cb(options.input)) || null;
+    const existingResult: O | null = (await ("input" in options ? options.cb(options.input) : options.cb())) || null;
     return (await lookupHardcodedData(
       options.recordingId,
       options.name,
-      options.input ?? null,
+      input ?? null,
       existingResult,
       options.force
     )) as O;
   } catch (err: any) {
     console.error(
-      `❌ Failed to lookup hardcoded result (${options.recordingId}, ${options.name}, ${JSON.stringify(options.input)}): ${err.message}`
+      `❌ Failed to lookup hardcoded result (${options.recordingId}, ${options.name}, ${JSON.stringify(input)}): ${err.message}`
     );
     return (await lookupHardcodedData(
       options.recordingId,
       options.name,
-      options.input ?? null,
+      input ?? null,
       null,
       options.force
     )) as O;
