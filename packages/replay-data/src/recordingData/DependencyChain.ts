@@ -11,6 +11,7 @@ import {
 import { AnalysisInput } from "../analysis/dgSpecs";
 import { runAnalysis } from "../analysis/runAnalysis";
 import { AnalyzeDependenciesResult } from "../analysis/specs/analyzeDependencies";
+import { wrapAsyncWithHardcodedData } from "./hardcodedData";
 import PointQueries from "./PointQueries";
 import ReplaySession from "./ReplaySession";
 import { FrameWithPoint } from "./types";
@@ -34,17 +35,28 @@ export type RichStackFrame = CodeAtLocation & RawRichStackFrame;
 export default class DependencyChain {
   constructor(public readonly session: ReplaySession) {}
 
-  async getDependencyChain(point: ExecutionPoint): Promise<AnalyzeDependenciesResult> {
+  async getDependencyChain(
+    point: ExecutionPoint,
+    forceLookup = false
+  ): Promise<AnalyzeDependenciesResult> {
     const spec = {
       recordingId: this.session.getRecordingId()!,
       point,
       mode: DependencyGraphMode.ReactOwnerRenders,
     };
-    const input: AnalysisInput = {
-      analysisType: AnalysisType.Dependency,
-      spec,
-    };
-    return await runAnalysis<AnalyzeDependenciesResult>(this.session, input);
+    return await wrapAsyncWithHardcodedData({
+      recordingId: this.session.getRecordingId()!,
+      name: "dgChain",
+      forceLookup,
+      input: spec,
+      cb: async (spec): Promise<AnalyzeDependenciesResult | undefined> => {
+        const analysisInput: AnalysisInput = {
+          analysisType: AnalysisType.Dependency,
+          spec,
+        };
+        return await runAnalysis<AnalyzeDependenciesResult>(this.session, analysisInput);
+      },
+    });
   }
 
   private normalizeFrameForRichStack(frame: FrameWithPoint): RawRichStackFrame | null {
@@ -77,11 +89,12 @@ export default class DependencyChain {
    * including high-level framework (e.g. React) events, order by time (latest first).
    */
   async getNormalizedStackAndEventsAtPoint(
-    pointQueries: PointQueries
+    pointQueries: PointQueries,
+    forceLookup = false
   ): Promise<[boolean, RichStackFrame[]]> {
     const [frames, dgChain] = await Promise.all([
       pointQueries.getStackFramesWithPoint(),
-      this.getDependencyChain(pointQueries.point),
+      this.getDependencyChain(pointQueries.point, forceLookup),
     ]);
 
     const normalizedFrames = frames
@@ -90,7 +103,7 @@ export default class DependencyChain {
       // Remove the current frame from stack. We already have that.
       .filter(v => v.point !== pointQueries.point);
 
-    const normalizedDGEvents = dgChain.dependencies
+    const normalizedDGEvents = (dgChain.dependencies || [])
       .map<RawRichStackFrame | null>(event => this.normalizeDGEventForRichStack(event))
       .filter(v => !!v)
       // We are only interested in a subset of event types.
@@ -99,7 +112,11 @@ export default class DependencyChain {
     // Interweave the two, sorted by point.
     const rawFrames = orderBy(
       normalizedFrames.concat(normalizedDGEvents) as RawRichStackFrame[],
-      [frame => BigInt(frame.point)],
+      [
+        frame => {
+          return BigInt(frame.point);
+        },
+      ],
       ["desc"]
     );
 

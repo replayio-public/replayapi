@@ -5,7 +5,6 @@ import path from "path";
 
 import { RecordingId } from "@replayio/protocol";
 import createDebug from "debug";
-import defaultsDeep from "lodash/defaultsDeep";
 
 import { isReplayDevMode } from "../devMode";
 import NestedError from "../util/NestedError";
@@ -107,10 +106,10 @@ export async function lookupHardcodedData(
   name: string,
   input: HardcodedResult | null,
   existingResult: HardcodedResult | null,
-  force?: boolean
+  forceLookup?: boolean
 ): Promise<HardcodedResult> {
   const inputString = input ? deterministicObjectHash(input) : null;
-  const actualForce = force && isReplayDevMode(); // We only force in dev mode.
+  const actualForce = forceLookup && isReplayDevMode(); // We only force in dev mode.
   const hardcodeResultOrHandler = await getHardcodeHandler(
     recordingId,
     name,
@@ -127,7 +126,8 @@ export async function lookupHardcodedData(
     // Hardcoded object.
     res = hardcodeResultOrHandler;
     checkHardcodedResult(res, recordingId, name, inputString);
-    res = defaultsDeep(existingResult || {}, res);
+    // Ignore existingResult instead of making bad merge moves.
+    // res = defaultsDeep(existingResult || {}, res);
   } else {
     // No hardcoded data.
     res = existingResult || {};
@@ -135,22 +135,22 @@ export async function lookupHardcodedData(
   return res;
 }
 
-type WrapAsyncWithHardcodedDataParamsBase<O extends HardcodedResult> = {
+type WrapAsyncWithHardcodedDataParamsBase = {
   recordingId: RecordingId;
   name: string;
-  force?: boolean;
+  forceLookup?: boolean;
 };
 
 export type WrapAsyncWithHardcodedDataParamsWithInput<
   I extends HardcodedResult | undefined,
   O extends HardcodedResult,
-> = WrapAsyncWithHardcodedDataParamsBase<O> & {
+> = WrapAsyncWithHardcodedDataParamsBase & {
   input: I;
   cb: (input: I) => Promise<O | undefined>;
 };
 
 export type WrapAsyncWithHardcodedDataParamsWithoutInput<O extends HardcodedResult> =
-  WrapAsyncWithHardcodedDataParamsBase<O> & {
+  WrapAsyncWithHardcodedDataParamsBase & {
     cb: () => Promise<O | undefined>;
   };
 
@@ -171,13 +171,14 @@ export async function wrapAsyncWithHardcodedData<
 ): Promise<O> {
   const input: I | undefined = "input" in options ? options.input : undefined;
   try {
-    const existingResult: O | null = (await ("input" in options ? options.cb(options.input) : options.cb())) || null;
+    const existingResult: O | null =
+      (await ("input" in options ? options.cb(options.input) : options.cb())) || null;
     return (await lookupHardcodedData(
       options.recordingId,
       options.name,
       input ?? null,
       existingResult,
-      options.force
+      options.forceLookup
     )) as O;
   } catch (err: any) {
     console.error(
@@ -188,7 +189,7 @@ export async function wrapAsyncWithHardcodedData<
       options.name,
       input ?? null,
       null,
-      options.force
+      options.forceLookup
     )) as O;
   }
 }

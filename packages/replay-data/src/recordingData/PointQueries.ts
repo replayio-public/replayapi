@@ -37,10 +37,10 @@ import { isDefaultHardcodedValueStub } from "./hardcodedCore";
 import { lookupHardcodedData, wrapAsyncWithHardcodedData } from "./hardcodedData";
 import ReplaySession from "./ReplaySession";
 import {
-  DataFlowOrigin,
+  DependencyEventNode,
   EvaluateResult,
   ExpressionAnalysisResult,
-  ExpressionDataFlowResult,
+  ExpressionDependencyResult,
   FrameStep,
   FrameWithPoint,
   IndexedPointStackFrame,
@@ -290,8 +290,8 @@ export default class PointQueries {
     return shouldSourceBeIncluded(thisLocation.url);
   }
 
-  async queryStackAndEvents(): Promise<[boolean, RichStackFrame[]]> {
-    return await this.dg.getNormalizedStackAndEventsAtPoint(this);
+  async queryStackAndEvents(forceLookup = false): Promise<[boolean, RichStackFrame[]]> {
+    return await this.dg.getNormalizedStackAndEventsAtPoint(this, forceLookup);
   }
 
   /** ###########################################################################
@@ -376,31 +376,37 @@ export default class PointQueries {
    * ExecutionPoint + Data Flow Queries.
    * ##########################################################################*/
 
-  private async addLocationToOrigin({
-    point,
-    location,
-    ...other
-  }: DataFlowOrigin): Promise<DataFlowOrigin | null> {
-    if (!location) {
-      if (!point) {
-        return isEmpty(other) ? null : other;
-      }
-
-      // Look up location if not provided already.
+  private async supplementMissingDependencyData<T extends DependencyEventNode>(
+    input: T
+  ): Promise<T | null> {
+    let { point, location, expression, value, ...other } = input;
+    if (!point && !location && !expression) {
+      return isEmpty(other) ? null : input;
+    }
+    if (point && (!location || !value)) {
       const pointQuery = await this.session.queryPoint(point);
-      location = await pointQuery.queryCodeAndLocation();
+      if (!location) {
+        // Look up location if not provided already.
+        location = await pointQuery.queryCodeAndLocation();
+      }
+      if (!value && expression) {
+        value = (await pointQuery.makeValuePreview(expression)) || undefined;
+      }
+      // TODO: calledFunction
     }
     return {
       point,
       location: location!,
+      expression,
+      value,
       ...other,
-    } as DataFlowOrigin;
+    } as T;
   }
 
   private async queryDataFlow(
     expression: string,
-    force = false
-  ): Promise<ExpressionDataFlowResult> {
+    forceLookup = false
+  ): Promise<ExpressionDependencyResult> {
     const [thisLocation, parser] = await Promise.all([
       this.getSourceLocation(),
       this.parseSource(),
@@ -409,50 +415,55 @@ export default class PointQueries {
     // 1. Get data flow points from backend data flow results, and/or hardcoded overrides.
     let res = await wrapAsyncWithHardcodedData({
       recordingId: this.session.getRecordingId()!,
-      name: "origins",
-      force,
+      name: "dependencyChain",
+      forceLookup,
       input: { expression, point: this.point },
-      cb: async ({ expression }): Promise<ExpressionDataFlowResult | undefined> => {
-        const rawDataFlowResult = await this.runDataFlowAnalysis(expression);
-        let dataFlowPoints =
-          rawDataFlowResult.entries.filter(p => !!p.associatedPoint).map(p => p.associatedPoint!) ||
-          [];
-        dataFlowPoints = sortBy(dataFlowPoints, p => BigInt(p), "desc");
-        if (dataFlowPoints?.length) {
-          return { origins: dataFlowPoints.map<DataFlowOrigin>(p => ({ point: p })) };
-        }
+      cb: async ({ expression }): Promise<ExpressionDependencyResult | undefined> => {
+        // TODO: Fix the analysis
+        // const rawDataFlowResult = await this.runDataFlowAnalysis(expression);
+        // let dataFlowPoints =
+        //   rawDataFlowResult.entries.filter(p => !!p.associatedPoint).map(p => p.associatedPoint!) ||
+        //   [];
+        // dataFlowPoints = sortBy(dataFlowPoints, p => BigInt(p), "desc");
+        // if (dataFlowPoints?.length) {
+        //   return { dependencyChain: dataFlowPoints.map<DependencyNode>(p => ({ point: p })) };
+        // }
+        // return undefined;
         return undefined;
       },
     });
 
-    // 2. Look up hardcoded object creation site when isValueReferenceType, but `origins` is empty.
-    if ((await this.isValueReferenceType(expression)) && !res.origins?.length) {
+    // 2. Look up hardcoded object creation site when isValueReferenceType, but `dependencyChain` is empty.
+    if ((await this.isValueReferenceType(expression)) && !res.dependencyChain?.length) {
       const hardcodedCreationSite = await lookupHardcodedData(
         this.session.getRecordingId()!,
         "objectCreationSite",
         { expression, point: this.point },
         null,
-        force
+        forceLookup
       );
       if (!isDefaultHardcodedValueStub(hardcodedCreationSite)) {
         res = { ...res, objectCreationSite: hardcodedCreationSite };
       }
     }
 
-    const origins = (
+    const dependencies = (
       await Promise.all(
-        (res.origins || []).map<Promise<DataFlowOrigin | null>>(o => this.addLocationToOrigin(o))
+        (res.dependencyChain || []).map<Promise<DependencyEventNode | null>>(o =>
+          this.supplementMissingDependencyData(o)
+        )
       )
     ).filter(x => !!x);
 
     // 3. Try to guess missing `location`s.
     return {
       staticBinding:
-        (!origins?.length && parser.getBindingAt(thisLocation, expression)) || undefined,
+        (!dependencies?.length && parser.getBindingAt(thisLocation, expression)) || undefined,
       objectCreationSite:
-        (res.objectCreationSite && (await this.addLocationToOrigin(res.objectCreationSite))) ||
+        (res.objectCreationSite &&
+          (await this.supplementMissingDependencyData(res.objectCreationSite))) ||
         undefined,
-      origins: origins.length ? origins : undefined,
+      dependencyChain: dependencies.length ? dependencies : undefined,
     };
   }
 
@@ -582,23 +593,25 @@ export default class PointQueries {
    * ##########################################################################*/
 
   async inspectPoint(): Promise<InspectPointResult> {
-    const [location, functionInfo, inputDependencies, [stackTruncated, stackAndEvents]] =
+    const [location, functionInfo, /* inputDependencies, */ [stackTruncated, stackAndEvents]] =
       await Promise.all([
         this.queryFrameCodeAndLocation(),
         this.queryFunctionInfo(),
-        this.queryInputDependencies(),
+        // this.queryInputDependencies(),
         // null,
-        this.queryStackAndEvents(),
+        this.queryStackAndEvents(true),
       ]);
 
     return {
       location,
       function: functionInfo,
-      inputDependencies,
+      // inputDependencies,
       // TODO: directControlDependencies
       // directControlDependencies,
-      stackAndEvents,
-      stackAndEventsTruncated: stackTruncated,
+      stackAndEvents: stackAndEvents.length ? stackAndEvents : undefined,
+      moreStackAndEvents: stackTruncated
+        ? "There are more stackAndEvents. Inspect earlier entries to see more."
+        : undefined,
     };
   }
 
