@@ -11,10 +11,10 @@ import StaticScope from "@replayio/source-parser/src/bindings/StaticScope";
 import SourceParser from "@replayio/source-parser/src/SourceParser";
 import { CodeAtLocation, StaticFunctionInfo } from "@replayio/source-parser/src/types";
 import createDebug from "debug";
-import groupBy from "lodash/groupBy";
 import isEmpty from "lodash/isEmpty";
 import sortBy from "lodash/sortBy";
 import truncate from "lodash/truncate";
+import uniqBy from "lodash/uniqBy";
 import protocolValueToText from "replay-next/components/inspector/protocolValueToText";
 import { framesCache } from "replay-next/src/suspense/FrameCache";
 import { frameStepsCache } from "replay-next/src/suspense/FrameStepsCache";
@@ -316,7 +316,7 @@ export default class PointQueries {
     } else {
       // TODO: Also stub out nested repeated expressions.
       return {
-        value: "<ALREADY_PREVIEWED/>",
+        value: "<ALREADY_SEEN/>",
       };
     }
     return res;
@@ -459,15 +459,32 @@ export default class PointQueries {
   /**
    * Preview and trace the data flow of the value held by `expression`.
    */
+  private expressionInfoCache = new Map<string, Promise<ExpressionAnalysisResult>>();
   async queryExpressionInfo(expression: string, force = false): Promise<ExpressionAnalysisResult> {
-    const [valuePreview, dataFlow]: [SimpleValuePreviewResult, ExpressionDataFlowResult] =
-      await Promise.all([this.makeValuePreview(expression), this.queryDataFlow(expression, force)]);
+    const cached = this.expressionInfoCache.get(expression);
+    if (await cached) {
+      return {
+        expression,
+        explanation: "<ALREADY_SEEN/>",
+      };
+    }
 
-    return {
-      expression,
-      ...dataFlow,
-      ...valuePreview,
+    const computeInfo = async () => {
+      const [valuePreview, dataFlow] = await Promise.all([
+        this.makeValuePreview(expression),
+        this.queryDataFlow(expression, force),
+      ]);
+
+      return {
+        expression,
+        ...dataFlow,
+        ...valuePreview,
+      };
     };
+
+    const infoPromise = computeInfo();
+    this.expressionInfoCache.set(expression, infoPromise);
+    return infoPromise;
   }
 
   async runExecutionPointAnalysis(
@@ -493,7 +510,10 @@ export default class PointQueries {
     const { points } = analysisResults;
     return {
       // TODO: handle the nonlinear case (multiple `entries` per point).
-      entries: points.flatMap(p => p.entries),
+      entries: uniqBy(
+        points.flatMap(p => p.entries),
+        e => e.associatedPoint
+      ),
     };
   }
 

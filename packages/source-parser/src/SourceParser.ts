@@ -180,6 +180,9 @@ export default class SourceParser {
     return traverse(node);
   }
 
+  /**
+   * Remove all nodes that are inside a nested function or contain a nested function.
+   */
   filterNodesInSameFunction(
     nodes: SyntaxNode[],
     fnNode: SyntaxNode = this.tree.rootNode
@@ -192,10 +195,10 @@ export default class SourceParser {
         // 1. `n` is in a nested function.
         // 2. a nested function is in `n`.
         return !nestedFunctions.some(
-          fn =>
-            fn !== fnNode &&
-            ((n.startIndex >= fn.startIndex && n.endIndex <= fn.endIndex) || // n is in fn
-              (fn.startIndex >= n.startIndex && fn.endIndex <= n.endIndex))  // fn is in n
+          nestedFn =>
+            nestedFn !== fnNode &&
+            ((n.startIndex >= nestedFn.startIndex && n.endIndex <= nestedFn.endIndex) || // n is in nestedFn
+              (nestedFn.startIndex >= n.startIndex && nestedFn.endIndex <= n.endIndex))  // nestedFn is in n
         );
       }
       return false;

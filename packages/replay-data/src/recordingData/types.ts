@@ -62,6 +62,7 @@ export type SimpleValuePreviewResult = SimpleValuePreview | null;
 
 export interface ExpressionAnalysisResult extends SimpleValuePreview, ExpressionDataFlowResult {
   expression: string;
+  explanation?: string;
 }
 
 export interface InspectPointResult {
