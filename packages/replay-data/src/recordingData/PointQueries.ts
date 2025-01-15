@@ -376,16 +376,18 @@ export default class PointQueries {
    * ExecutionPoint + Data Flow Queries.
    * ##########################################################################*/
 
-  private async supplementMissingDependencyData<T extends DependencyEventNode>(
-    input: T
-  ): Promise<T | null> {
-    let { point, location, expression, value, ...other } = input;
+  private async supplementMissingDependencyData(
+    node: DependencyEventNode,
+    lookupLocation = true
+  ): Promise<DependencyEventNode | null> {
+    let { point, location, expression, value, ...other } = node;
     if (!point && !location && !expression) {
-      return isEmpty(other) ? null : input;
+      return isEmpty(other) ? null : node;
     }
-    if (point && (!location || !value)) {
+    const locationMissing = !location && lookupLocation;
+    if (point && (locationMissing || !value)) {
       const pointQuery = await this.session.queryPoint(point);
-      if (!location) {
+      if (locationMissing) {
         // Look up location if not provided already.
         location = await pointQuery.queryCodeAndLocation();
       }
@@ -394,13 +396,21 @@ export default class PointQueries {
       }
       // TODO: calledFunction
     }
+    if (node.children) {
+      node.children = await Promise.all(
+        node.children.map(
+          async c =>
+            (await this.supplementMissingDependencyData(c, node.kind !== "CalledFunction"))!
+        )
+      );
+    }
     return {
       point,
       location: location!,
       expression,
       value,
       ...other,
-    } as T;
+    };
   }
 
   private async queryDataFlow(

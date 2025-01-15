@@ -49,6 +49,7 @@ export interface DependencyEventNode {
   expression?: string;
   value?: SimpleValuePreview;
   explanation?: string;
+  children?: DependencyEventNode[];
 }
 
 export interface ExpressionDependencyResult {
