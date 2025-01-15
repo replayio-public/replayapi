@@ -39,8 +39,7 @@ export default class DependencyChain {
     point: ExecutionPoint,
     forceLookup = false
   ): Promise<AnalyzeDependenciesResult> {
-    const spec = {
-      recordingId: this.session.getRecordingId()!,
+    const specNoRecordingId = {
       point,
       mode: DependencyGraphMode.ReactOwnerRenders,
     };
@@ -48,11 +47,11 @@ export default class DependencyChain {
       recordingId: this.session.getRecordingId()!,
       name: "dgChain",
       forceLookup,
-      input: spec,
-      cb: async (spec): Promise<AnalyzeDependenciesResult | undefined> => {
+      input: specNoRecordingId,
+      cb: async (specNoRecordingId): Promise<AnalyzeDependenciesResult | undefined> => {
         const analysisInput: AnalysisInput = {
           analysisType: AnalysisType.Dependency,
-          spec,
+          spec: { ...specNoRecordingId, recordingId: this.session.getRecordingId()! },
         };
         return await runAnalysis<AnalyzeDependenciesResult>(this.session, analysisInput);
       },
