@@ -8,7 +8,6 @@ export default {
       kind: "FunctionCall",
       point: "25312447185383432948810210512732191",
       calledFunction: "getMedian",
-      arguments: [TODO],
       params: "value: number, median: number",
       code: `export function getMedian(numbers: number[]): number {
   /*POINT:children[3]*/if (!numbers?.length) { /*<OmittedCode reason="BranchNotTaken"/>*/ }
