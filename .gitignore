@@ -2,6 +2,7 @@
 tmp
 tmp.*
 workspace-for-testing
+.toolCache
 
 # Yarn
 .yarn/*

@@ -6,49 +6,79 @@
 
 import "tsconfig-paths/register";
 
-import { mkdirSync, readFileSync, writeFileSync } from "fs";
-import path from "path";
-
 import { Command } from "commander";
+import createDebug from "debug";
 
 import { CommandOutputResult, getCommandResult } from "./commandsShared/commandOutput";
+import { parsePrompt } from "./parsePrompt";
+import {
+  cacheResponse,
+  clearCache,
+  isToolCacheEnabled,
+  readCachedResponse,
+} from "./tools/toolCache";
+import { InputSpec, readInputFile, writeOutput } from "./tools/toolWrapper";
 
-interface InputSpec {
-  command: string;
-  args: Record<string, any>;
-}
+const debug = createDebug("replay:main-tool");
 
-function readInputFile(inputPath: string): InputSpec {
-  let inputData: string | undefined;
-  try {
-    inputData = readFileSync(inputPath, "utf8");
-    const input = JSON.parse(inputData);
-    return input;
-  } catch (error: any) {
-    throw new Error(
-      `Error reading or parsing input file from "${inputPath}" (contents=${inputData}): ${error?.stack || error}`
-    );
-  }
-}
+const program = new Command();
 
-async function writeOutput(outputPath: string, result: CommandOutputResult | null): Promise<void> {
-  mkdirSync(path.dirname(outputPath), { recursive: true });
-  writeFileSync(outputPath, JSON.stringify(result, null, 2));
-  console.log(`Done. Result: ${outputPath}`);
-}
+// Default command
+program
+  .command("run", { isDefault: true })
+  .argument("<inputPath>", "Path to input JSON file")
+  .argument("<outputPath>", "Path to output directory")
+  .action(run);
+
+// Clear cache command
+program
+  .command("clear-cache")
+  .alias("c")
+  .description("Clear the cache")
+  .action(async () => {
+    await clearCache();
+  });
 
 async function main() {
-  // Set up wrapper command.
-  const program = new Command();
-  program.argument("<inputPath>", "Path to input JSON file.");
-  program.argument("<outputPath>", "Path to output directory.");
-
   // Parse and run.
   program.parse();
-  const [inputPath, outputPath] = program.args;
+}
 
+async function hashString(str: string, maxLen: number): Promise<string> {
+  return crypto.subtle.digest("SHA-256", new TextEncoder().encode(str)).then(hash =>
+    Array.from(new Uint8Array(hash))
+      .map(b => b.toString(16).padStart(2, ""))
+      .join("")
+      .slice(0, maxLen)
+  );
+}
+
+async function makeCacheInput(input: InputSpec): Promise<InputSpec | undefined> {
+  let recordingId: string | undefined = input.args.recordingId;
+  let cacheInput = input;
+  if (!recordingId && input.command === "initial-analysis" && input.args.prompt) {
+    // Quick hackfix for initial-analysis, which has prompt instead of recordingId:
+    recordingId = parsePrompt(input.args.prompt).recordingId;
+    const promptHash = await hashString(input.args.prompt, 32);
+    cacheInput = {
+      ...input,
+      args: {
+        ...input.args,
+        recordingId,
+        // Replace prompt with hash.
+        prompt: promptHash,
+      },
+    };
+  }
+  if (!recordingId) {
+    return undefined;
+  }
+  return cacheInput;
+}
+
+async function run(inputPath: string, outputPath: string) {
   try {
-    // 0. Read and prepare input.
+    // Read and prepare input.
     const input = readInputFile(inputPath);
     if (!input.command || !(typeof input.args === "object")) {
       throw new Error(`Invalid input file format: ${JSON.stringify(input || null, null, 2)}`);
@@ -58,18 +88,45 @@ async function main() {
       value === true ? [`--${key}`] : value === false ? [] : [`--${key}`, value + ""]
     );
 
-    // 1. Hackfix-override `argv`.
-    process.argv = [process.argv[0], process.argv[1], input.command, ...flattenedArgStrings];
-
-    // 2. Run the actual command.
+    // Prepare.
     const { main } = await import("./main.ts");
-    await main();
 
-    // 3. Write output.
-    const result = getCommandResult();
+    // Check cache.
+    let cachedResult: CommandOutputResult | null = null;
+    const cacheInput = await makeCacheInput(input);
+    const useCache = isToolCacheEnabled() && !!cacheInput;
+    if (useCache) {
+      cachedResult = await readCachedResponse(cacheInput);
+    }
+
+    // Run command.
+    let result: CommandOutputResult | null = cachedResult;
+    if (!cachedResult) {
+      debug(`Computing response...`);
+      // 1. Hackfix-override `argv`.
+      process.argv = [process.argv[0], process.argv[1], input.command, ...flattenedArgStrings];
+
+      // 2. Run the actual command.
+      await main();
+
+      // 3. Get output.
+      result = getCommandResult();
+      if (!result) {
+        throw new Error(
+          `No result from command. Make sure that the command uses the commandOutput tools to print results. Input=${JSON.stringify(input)}`
+        );
+      }
+
+      // 4. Cache output.
+      if (useCache && !cachedResult) {
+        await cacheResponse(cacheInput, result);
+      }
+    }
+
+    // Write output.
     await writeOutput(outputPath, result);
   } catch (error: any) {
-    console.error(error.message);
+    console.error(error.stack);
     process.exit(1);
   }
 }

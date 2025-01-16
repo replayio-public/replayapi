@@ -1,9 +1,7 @@
 /* Copyright 2020-2024 Record Replay Inc. */
 
 import { getOrCreateReplaySession } from "@replayio/data/src/recordingData/ReplaySession";
-import {
-  scanReplayUrl,
-} from "@replayio/data/src/recordingData/replayStringUtil";
+import { scanReplayUrl } from "@replayio/data/src/recordingData/replayStringUtil";
 import { InspectPointResult } from "@replayio/data/src/recordingData/types";
 import { program } from "commander";
 import createDebug from "debug";

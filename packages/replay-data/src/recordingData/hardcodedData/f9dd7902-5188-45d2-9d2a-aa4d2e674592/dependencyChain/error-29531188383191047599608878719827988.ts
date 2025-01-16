@@ -3,8 +3,7 @@ export default {
     {
       kind: "FunctionCall",
       calledFunction: "generateCompletion",
-      arguments: [],
-      params: "config: LLMConfig,  prompt: string,  apiKey: string",
+      arguments: ["config", "prompt", "apiKey"],
       code: `export async function generateCompletion(
   config: LLMConfig,
   prompt: string,
@@ -35,7 +34,7 @@ export default {
     if (error instanceof Error) {
       if (error.message.includes('401')) // <OmittedCode reason="NotExecuted" />
       if (error.message.includes('429')) // <OmittedCode reason="NotExecuted" />
-      /*POINT:children[0]*/throw new Error(\`\${config.provider} API error: \${error.message}\`);
+      /*POINT:29531188383191041835001355685593108*/throw new Error(\`\${config.provider} API error: \${error.message}\`);
     }
     // <OmittedCode reason="NotExecuted" />
   }
@@ -46,6 +45,7 @@ export default {
           // throw new Error(`${config.provider} API error: ${error.message}`);
           kind: "Throw",
           point: "29531188383191041835001355685593108",
+          inputs: ["config.provider", "error.message"]
         },
       ],
     },
