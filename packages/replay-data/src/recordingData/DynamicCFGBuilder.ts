@@ -92,10 +92,10 @@ export default class DynamicCFGBuilder {
       this.pointQueries.getSourceLocation(),
       this.pointQueries.parseSource(),
     ]);
-    const frameSteps = (await this.pointQueries.getFrameSteps())!;
-
-    // const { point } = this.pointQueries;
-    // const idx = steps.findIndex(step => step.point === point);
+    const frameSteps = (await this.pointQueries.getFrameSteps())!
+      // TODO: remove this hackfix!!!
+      // hackfix for 951: We don't handle stepping into multi-nested blocks yet.
+      .slice(1);
 
     // 0. Get all BlockParents in the frame's function.
     const staticBlockParents = parser.babelParser!.getAllBlockParentsInFunctionAt(thisLocation);
@@ -134,6 +134,8 @@ export default class DynamicCFGBuilder {
           currentBlock.blockIndex > newStaticBlock.node!.start! &&
           currentBlock.blockIndex < newStaticBlock.node!.end!;
         if (!isStepOutOfNestedBlock) {
+          // TODO1: Recursively add blocks for all static blocks that are not on stack yet.
+          // TODO2: and add all nested blocks to parent block iterations.
           // We are in a new block (because we are not stepping out into an existing block).
           const firstRepeatedStep = this.getFirstRepeatedStepAt(frameSteps, i, blocksByPoint);
           newBlock = {
@@ -312,6 +314,35 @@ export default class DynamicCFGBuilder {
       }
       return line;
     });
+
+    if (windowHalfSize > 0) {
+      // 5. If the earliest stepped line isn't the very first line, add the first step in that direction that is.
+      const firstStep = stepsInWindow[0];
+      const lastStep = stepsInWindow[stepsInWindow.length - 1];
+      const firstStepIndex = firstStep!.line - minLine;
+      const lastStepIndex = lastStep!.line - minLine;
+      const minStepWindowEdgeDistance = 2; // If lines this close to the edge don't have steps, add the next one over.
+
+      if (firstStepIndex >= minStepWindowEdgeDistance) {
+        // Add step at the beginning.
+        const newStep = TODO;
+        const newLine = TODO;
+        annotatedWindow.splice(0, minStepWindowEdgeDistance, newLine, "...");
+        stepsInWindow.unshift(newStep);
+      }
+      if (lastStepIndex < annotatedWindow.length - minStepWindowEdgeDistance) {
+        // Add step at the end.
+        const newStep = TODO;
+        const newLine = TODO;
+        annotatedWindow.splice(
+          annotatedWindow.length - 1 - minStepWindowEdgeDistance,
+          minStepWindowEdgeDistance,
+          "...",
+          newLine
+        );
+        stepsInWindow.push(newStep);
+      }
+    }
 
     // TODO: Omit code that untaken branches and other code that did not get executed; annotate correctly.
 
