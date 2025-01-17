@@ -71,8 +71,10 @@ export interface ExpressionAnalysisResult extends SimpleValuePreview, Expression
 }
 
 export interface InspectPointResult {
-  location: CodeAtLocation;
+  line: number;
+  url: string;
   function: PointFunctionInfo | null;
+  code?: string;
   // inputDependencies?: any;
   stackAndEvents?: RichStackFrame[];
   moreStackAndEvents?: string;

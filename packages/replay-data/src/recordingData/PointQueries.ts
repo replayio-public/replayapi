@@ -32,9 +32,11 @@ import {
 import { BigIntToPoint, ExecutionPointInfo } from "../util/points";
 import DynamicScope from "./bindings/DynamicScope";
 import DependencyChain, { RichStackFrame } from "./DependencyChain";
+import DynamicCFGBuilder, { CFGBlock } from "./DynamicCFGBuilder";
 import { isDefaultHardcodedValueStub } from "./hardcodedCore";
 import { lookupHardcodedData, wrapAsyncWithHardcodedData } from "./hardcodedData";
 import ReplaySession from "./ReplaySession";
+import { isThirdPartyUrl } from "./thirdParty";
 import {
   DependencyEventNode,
   EvaluateResult,
@@ -284,9 +286,9 @@ export default class PointQueries {
    * Other high-level Queries.
    * ##########################################################################*/
 
-  async shouldIncludeThisPoint(): Promise<boolean> {
+  async isThirdPartyCode(): Promise<boolean> {
     const thisLocation = await this.getSourceLocation();
-    return shouldSourceBeIncluded(thisLocation.url);
+    return isThirdPartyUrl(thisLocation.url);
   }
 
   async queryStackAndEvents(forceLookup = false): Promise<[boolean, RichStackFrame[]]> {
@@ -372,47 +374,22 @@ export default class PointQueries {
   }
 
   /** ###########################################################################
-   * ExecutionPoint + Data Flow Queries.
+   * CFG
    * ##########################################################################*/
 
-  private async supplementMissingDependencyData(
-    node: DependencyEventNode,
-    lookupLocation = true
-  ): Promise<DependencyEventNode | null> {
-    let { point, location, expression, value, ...other } = node;
-    if (!point && !location && !expression) {
-      return isEmpty(other) ? null : node;
-    }
-    const locationMissing = !location && lookupLocation;
-    if (point && (locationMissing || !value)) {
-      const pointQuery = await this.session.queryPoint(point);
-      if (locationMissing) {
-        // Look up location if not provided already.
-        location = await pointQuery.queryCodeAndLocation();
-      }
-      if (!value && expression) {
-        value = (await pointQuery.makeValuePreview(expression)) || undefined;
-      }
-      // TODO: calledFunction
-    }
-    if (node.children) {
-      node.children = await Promise.all(
-        node.children.map(
-          async c =>
-            // CalledFunction nodes already render relevant code.
-            // Their children don't need to render their own location data.
-            (await this.supplementMissingDependencyData(c, node.kind !== "CalledFunction"))!
-        )
-      );
-    }
-    return {
-      point,
-      location: location!,
-      expression,
-      value,
-      ...other,
-    };
+  async queryCFG(): Promise<DynamicCFGBuilder> {
+    return new DynamicCFGBuilder(this);
   }
+
+  async renderCFGCode(windowHalfSize: number): Promise<string> {
+    const cfgBuilder = await this.queryCFG();
+    const rendered = await cfgBuilder.render(windowHalfSize);
+    return rendered.annotatedCode;
+  }
+
+  /** ###########################################################################
+   * Data Flow Queries.
+   * ##########################################################################*/
 
   private async queryDataFlow(
     expression: string,
@@ -509,6 +486,23 @@ export default class PointQueries {
     return infoPromise;
   }
 
+  async runDataFlowAnalysis(expression: string): Promise<BackendDataFlowAnalysisResult> {
+    const analysisResults = await this.runExecutionPointAnalysis({ value: expression, depth: 10 });
+    // NOTE: `points` are all related to the given expression.
+    const { points } = analysisResults;
+    return {
+      // TODO: handle the nonlinear case (multiple `entries` per point).
+      entries: uniqBy(
+        points.flatMap(p => p.entries),
+        e => e.associatedPoint
+      ),
+    };
+  }
+
+  /** ###########################################################################
+   * Other Dependency Queries
+   * ##########################################################################*/
+
   async runExecutionPointAnalysis(
     extraSpecFields?: Partial<ExecutionDataAnalysisSpec>
   ): Promise<ExecutionDataAnalysisResult> {
@@ -526,16 +520,42 @@ export default class PointQueries {
     }
   }
 
-  async runDataFlowAnalysis(expression: string): Promise<BackendDataFlowAnalysisResult> {
-    const analysisResults = await this.runExecutionPointAnalysis({ value: expression, depth: 10 });
-    // NOTE: `points` are all related to the given expression.
-    const { points } = analysisResults;
+  public async supplementMissingDependencyData(
+    node: DependencyEventNode,
+    lookupLocation = true
+  ): Promise<DependencyEventNode | null> {
+    let { point, location, expression, value, ...other } = node;
+    if (!point && !location && !expression) {
+      return isEmpty(other) ? null : node;
+    }
+    const locationMissing = !location && lookupLocation;
+    if (point && (locationMissing || !value)) {
+      const pointQuery = await this.session.queryPoint(point);
+      if (locationMissing) {
+        // Look up location if not provided already.
+        location = await pointQuery.queryCodeAndLocation();
+      }
+      if (!value && expression) {
+        value = (await pointQuery.makeValuePreview(expression)) || undefined;
+      }
+      // TODO: calledFunction
+    }
+    if (node.children) {
+      node.children = await Promise.all(
+        node.children.map(
+          async c =>
+            // CalledFunction nodes already render relevant code.
+            // Their children don't need to render their own location data.
+            (await this.supplementMissingDependencyData(c, node.kind !== "CalledFunction"))!
+        )
+      );
+    }
     return {
-      // TODO: handle the nonlinear case (multiple `entries` per point).
-      entries: uniqBy(
-        points.flatMap(p => p.entries),
-        e => e.associatedPoint
-      ),
+      point,
+      location: location || undefined,
+      expression,
+      value,
+      ...other,
     };
   }
 
@@ -613,8 +633,13 @@ export default class PointQueries {
         this.queryStackAndEvents(true),
       ]);
 
+    const { line, url } = location;
+    const code = await this.renderCFGCode(10);
+
     return {
-      location,
+      line,
+      url,
+      code,
       function: functionInfo,
       // inputDependencies,
       // TODO: directControlDependencies
@@ -652,14 +677,4 @@ export default class PointQueries {
   // async valuePreview(expression: string) {
   //   // TODO
   // }
-}
-
-/**
- * Cull node_modules for now.
- */
-function shouldSourceBeIncluded(url: string) {
-  if (url.includes("node_modules")) {
-    return false;
-  }
-  return true;
 }

@@ -37,11 +37,12 @@ describe("PointQueries basics", () => {
 
     const cfgBuilder = new DynamicCFGBuilder(pq);
     const cfg = await cfgBuilder.buildProjectedFrameCFG();
+    const root = cfg.root;
 
     // Only one iteration of the function.
-    expect(cfg.iterations!.length).toEqual(1);
+    expect(root.iterations!.length).toEqual(1);
 
-    const functionNode = cfg.iterations![0];
+    const functionNode = root.iterations![0];
     const blocks = functionNode.steps.filter(s => "parent" in s);
 
     // 5 blocks directly inside the function.
@@ -66,11 +67,12 @@ describe("PointQueries basics", () => {
 
     const cfgBuilder = new DynamicCFGBuilder(pq);
     const cfg = await cfgBuilder.buildProjectedFrameCFG();
+    const root = cfg.root;
 
     // Only one iteration of the function.
-    expect(cfg.iterations!.length).toEqual(1);
+    expect(root.iterations!.length).toEqual(1);
 
-    const functionNode = cfg.iterations![0];
+    const functionNode = root.iterations![0];
     const topLevelBlocks = functionNode.steps.filter(s => "parent" in s);
     expect(mapBlocks(topLevelBlocks)).toHaveLength(5);
 
@@ -98,5 +100,22 @@ describe("PointQueries basics", () => {
     expect((nestedIf2.iterations![0].steps as FrameStep[]).map(s => s.point)).toContain(
       break3Point
     );
+
+    // Test render
+    const rendered = await cfgBuilder.render(5);
+
+    expect(rendered.annotatedCode.split("\n")).toEqual([
+      "          return;",
+      "        }",
+      "",
+      "        for (const { rule, pseudoElement/*POINT:69122451933109336961380259098263600*/ } of parentApplied) {",
+      "          /*POINT:69122451933109336961380259098263601*/if (!pseudoElement) {",
+      "            /*POINT:69122451933109336961380259098263602*/this._maybeAddRule(rule, elemNodeWithId);",
+      "          }",
+      "        }",
+      "      }",
+      "",
+      "      /*POINT:69122451933109430348022132252868660*/parentNodeId = elem.parentNode;",
+    ]);
   });
 });

@@ -3,6 +3,7 @@
 import { ExecutionPoint } from "@replayio/protocol";
 import { z } from "zod";
 
+import { DependencyEventNode } from "../../recordingData/types";
 import { AnalysisDefaultSpecSchema, URLLocation } from "../dependencyGraphShared";
 
 export const ExecutionPointSpecSchema = AnalysisDefaultSpecSchema.extend({
@@ -61,7 +62,7 @@ export interface ExecutionDataAnalysisResult {
   // Points which were described.
   points: ExecutionDataPoint[];
 
-  // If no point was provided, the comments are used to determine what point to use.
+  // The best entry point, as determined by the analysis.
   point?: ExecutionPoint;
 
   // Any comment text associated with the point.
@@ -70,10 +71,8 @@ export interface ExecutionDataAnalysisResult {
   // If the comment is on a React component, the name of the component.
   reactComponentName?: string;
 
-  firstReactRenderError?: {
-    point: ExecutionPoint;
+  firstReactRenderError?: DependencyEventNode & {
     message: string;
-    stack: string;
   };
 
   // If the point is for a console error, the error text.

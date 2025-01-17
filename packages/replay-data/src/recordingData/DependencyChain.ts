@@ -127,7 +127,9 @@ export default class DependencyChain {
     const richFrames = await Promise.all(
       rawFrames.map(async f => {
         const p = await this.session.queryPoint(f.point);
-        if (!(await p.shouldIncludeThisPoint())) {
+        if (await p.isThirdPartyCode()) {
+          // Ignore node_modules + friends for now.
+          // TODO: Instead of ignoring all, collapse multiple third-party code frames into one.
           return null;
         }
         const [code] = await Promise.all([

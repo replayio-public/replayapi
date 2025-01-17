@@ -2,7 +2,7 @@
 
 import { getOrCreateReplaySession } from "@replayio/data/src/recordingData/ReplaySession";
 import { scanReplayUrl } from "@replayio/data/src/recordingData/replayStringUtil";
-import { InspectPointResult } from "@replayio/data/src/recordingData/types";
+import { DependencyEventNode, InspectPointResult } from "@replayio/data/src/recordingData/types";
 import { program } from "commander";
 import createDebug from "debug";
 
@@ -58,17 +58,28 @@ export async function initialAnalysisAction({
       return;
     }
 
+    // Inspect the point.
     const p = await session.queryPoint(point);
     const pointInfo = await p.inspectPoint();
+
+    // Supplement missing dependency data for nodes with children.
+    const nodesWithChildren = Object.values(initialAnalysisData).filter(
+      o => o && typeof o === "object" && "children" in o
+    );
+    await Promise.all(
+      nodesWithChildren.map(n => p.supplementMissingDependencyData(n as DependencyEventNode))
+    );
+
+    // Prepare metadata.
     const metadata: AnalysisToolMetadata = { recordingId };
 
+    // Final result.
     const result: InitialAnalysisResult = {
       thisPoint: point,
       ...initialAnalysisData,
       ...pointInfo,
       metadata,
     };
-
     printCommandResult(result);
   } finally {
     session?.disconnect();

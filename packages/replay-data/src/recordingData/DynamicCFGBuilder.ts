@@ -1,6 +1,8 @@
 import { NodePath } from "@babel/traverse";
 import { ExecutionPoint } from "@replayio/protocol";
+import { annotateLine } from "@replayio/source-parser/src/annotations";
 import { isBabelLocContained } from "@replayio/source-parser/src/babel/babelLocations";
+import { groupBy, minBy } from "lodash";
 
 import { assert } from "../util/assert";
 import { groupByUnique } from "../util/groupByUnique";
@@ -15,7 +17,7 @@ import { FrameStep } from "./types";
 /**
  * Max number of lines to render in each direction.
  */
-const MaxRenderLines = 20;
+const DefaultWindowHalfSize = 20;
 
 /**
  * When rendering the summarized code, we add block comments at point
@@ -35,6 +37,10 @@ export type CFGIteration = {
    * Steps of one iteration.
    */
   steps: (FrameStep | CFGBlock)[];
+};
+
+export type ControlFlowGraph = {
+  root: CFGBlock;
 };
 
 /**
@@ -59,6 +65,11 @@ export type CFGBlock = {
   iterations?: CFGIteration[];
 };
 
+export interface CFGRenderOutput {
+  annotatedCode: string;
+  steps: FrameStep[];
+}
+
 export default class DynamicCFGBuilder {
   // uniqBy(steps.slice(0, idx).reverse(), s => s.)
   constructor(public readonly pointQueries: PointQueries) {}
@@ -76,7 +87,7 @@ export default class DynamicCFGBuilder {
    * It is projected onto the source code, which means that there
    * is max one step per source location.
    */
-  async buildProjectedFrameCFG(): Promise<CFGBlock> {
+  async buildProjectedFrameCFG(): Promise<ControlFlowGraph> {
     const [thisLocation, parser] = await Promise.all([
       this.pointQueries.getSourceLocation(),
       this.pointQueries.parseSource(),
@@ -174,7 +185,9 @@ export default class DynamicCFGBuilder {
       }
     }
     assert(stack.length, "Stack was empty upon CFG completion.");
-    return stack[0]!;
+    return {
+      root: stack[0]!,
+    };
   }
 
   /**
@@ -251,43 +264,189 @@ export default class DynamicCFGBuilder {
     return undefined;
   }
 
-  // /**
-  //  * Lines of blocks that had no steps.
-  //  */
-  // async replaceUnsteppedBlocksInRange(startLine: number, labeledCode: string[]): Promise<void> {
-  //   const [parser] = await Promise.all([this.pointQueries.parseSource()]);
-  //   // const functionInfo = (await this.pointQueries.queryFunctionInfo())!;
-  //   // const
-  //   // StepAnnotationLabelPrefix
-  // }
+  /**
+   * Render a summarized version of the CFG.
+   */
+  async render(windowHalfSize = DefaultWindowHalfSize): Promise<CFGRenderOutput> {
+    const [thisLocation, parser] = await Promise.all([
+      this.pointQueries.getSourceLocation(),
+      this.pointQueries.parseSource(),
+    ]);
+    if (!parser.babelParser) {
+      throw new Error(`TODO: check why babel parser failed`);
+    }
+    const functionInfo = await this.pointQueries.queryFunctionInfo();
+    assert(functionInfo, "Function info not found at point.");
+    const { point } = this;
 
-  // /**
-  //  * Render a summarized version of the CFG.
-  //  */
-  // async render(): Promise<string> {
-  //   const [thisLocation, parser] = await Promise.all([
-  //     this.pointQueries.getSourceLocation(),
-  //     this.pointQueries.parseSource(),
-  //   ]);
-  //   if (!parser.babelParser) {
-  //     return "(TODO: unknown)";
-  //   }
-  //   const functionInfo = (await this.pointQueries.queryFunctionInfo())!;
-  //   const { point } = this;
+    // 1. Build CFG.
+    const graph = await this.buildProjectedFrameCFG();
 
-  //   // 1. Build CFG.
-  //   const cfgRoot = await this.buildProjectedFrameCFG();
+    // 2. Get all executed lines within all current scopes.
+    const blockAtPoint = CFGQueries.getBlock(graph, point);
+    if (!blockAtPoint) {
+      throw new Error(`No block found for point ${point}`);
+    }
 
-  //   // TODO:
-  //   // 1. Render all lines of the point's own block iteration.
-  //   // 2. Render all ancestor block start + end lines.
-  //   // 3. Render all direct children and sibling blocks start + end lines, with information on whether their body was executed.
-  //   // 3. Render "..." where lines were omitted.
+    // 3. Select maxRenderLines in each direction.
+    const functionLine = functionInfo.lines.start;
+    const minLine = Math.max(functionInfo.lines.start, thisLocation.line - windowHalfSize);
+    const maxLine = Math.min(functionInfo.lines.end, thisLocation.line + windowHalfSize);
+    const windowStart = minLine - functionLine;
+    const windowEnd = maxLine - functionLine;
 
-  //   // Get labeled lines of code from the source.
-  //   const labeledCode = [TODO];
+    // 4. Use in-scope frames to annotate the lines.
+    const stepsByLineIndex = groupByUnique(
+      CFGQueries.getUniqueExecutedLineStepsInScope(graph, point),
+      s => s.line - functionLine
+    );
+    const functionCodeLines = parser.getInnermostFunction(thisLocation)!.text.split("\n");
+    const codeWindow = functionCodeLines.slice(windowStart, windowEnd + 1);
 
-  //   // Render final code.
-  //   return labeledCode.join("\n");
-  // }
+    const stepsInWindow: FrameStep[] = [];
+    const annotatedWindow = codeWindow.map((line, i) => {
+      const step = stepsByLineIndex[i + windowStart];
+      if (step) {
+        stepsInWindow.push(step);
+        line = annotateLine(line, `${StepAnnotationLabelPrefix}:${step.point}`, step.column);
+      }
+      return line;
+    });
+
+    // TODO: Omit code that untaken branches and other code that did not get executed; annotate correctly.
+
+    // Render final code.
+    return {
+      annotatedCode: annotatedWindow.join("\n"),
+      steps: stepsInWindow,
+    };
+  }
 }
+
+/**
+ * Helper type-guard to differentiate CFGBlock vs. FrameStep in 'steps'.
+ */
+function isCFGBlock(step: FrameStep | CFGBlock): step is CFGBlock {
+  return (step as CFGBlock).staticBlock !== undefined;
+}
+
+function pointDistance(a: ExecutionPoint, b: ExecutionPoint): number {
+  return Math.abs(Number(BigInt(a) - BigInt(b)));
+}
+
+/**
+ * This is just a namespace for querying `CFG*` objects.
+ * NOTE: We need a better approach, as we are mixing OOP and FP.
+ */
+export const CFGQueries = {
+  /**
+   * Find the CFGBlock that contains a FrameStep closest to given ExecutionPoint.
+   */
+  getBlock(cfg: ControlFlowGraph, point: ExecutionPoint): CFGBlock | null {
+    let closestBlock: CFGBlock | null = null;
+    let minDistance = Infinity;
+
+    function findBlock(block: CFGBlock) {
+      if (!block.iterations) return;
+
+      for (const iteration of block.iterations) {
+        for (const step of iteration.steps) {
+          if (!isCFGBlock(step)) {
+            const distance = pointDistance(step.point, point);
+            if (distance < minDistance) {
+              minDistance = distance;
+              closestBlock = block;
+            }
+          } else {
+            findBlock(step);
+          }
+        }
+      }
+    }
+
+    findBlock(cfg.root);
+    return closestBlock;
+  },
+
+  /**
+   * Find all parent blocks (direct and indirect) of the given block.
+   */
+  getParentBlocks(block: CFGBlock): CFGBlock[] {
+    const parents: CFGBlock[] = [];
+    let current = block.parent;
+    while (current) {
+      parents.push(current);
+      current = current.parent;
+    }
+    return parents;
+  },
+
+  /**
+   * Find all descendant blocks (in any iterations) of the given block.
+   */
+  getChildBlocks(block: CFGBlock): CFGBlock[] {
+    const result: CFGBlock[] = [];
+
+    function collectChildren(current: CFGBlock) {
+      if (!current.iterations) return;
+
+      for (const iteration of current.iterations) {
+        for (const step of iteration.steps) {
+          if (isCFGBlock(step)) {
+            result.push(step);
+            collectChildren(step);
+          }
+        }
+      }
+    }
+
+    collectChildren(block);
+    return result;
+  },
+
+  /**
+   * Get an array of steps, from the given block in the block's scope.
+   * That includes those of its asendants path to root and all descendants.
+   * Ancestor block steps should already have unique steps.
+   * For children, select the step of closest point for each unqiue line.
+   */
+  getUniqueExecutedLineStepsInScope(graph: ControlFlowGraph, point: ExecutionPoint): FrameStep[] {
+    // 1) Gather the set of blocks in all scopes of the given block's points.
+    const block = CFGQueries.getBlock(graph, point);
+    assert(block, "Block not found for point.");
+
+    const parents = CFGQueries.getParentBlocks(block);
+    const children = CFGQueries.getChildBlocks(block);
+    const ownScopeBlocks = [block, ...parents, ...children];
+
+    // 2) Collect all line numbers from these blocks' frame steps
+    const steps: FrameStep[] = [];
+
+    function collectSteps(b: CFGBlock) {
+      if (!b.iterations) return;
+
+      for (const iteration of b.iterations) {
+        for (const step of iteration.steps) {
+          if (!isCFGBlock(step)) {
+            // step is a FrameStep
+            steps.push(step);
+          } else {
+            // step is a CFGBlock, gather lines recursively from nested blocks
+            collectSteps(step);
+          }
+        }
+      }
+    }
+
+    for (const b of ownScopeBlocks) {
+      collectSteps(b);
+    }
+
+    // 3) Deduplicate by line.
+    const stepsByLines = groupBy(steps, s => s.line);
+    return Object.values(stepsByLines).map(
+      // Pick the step with the closest point to the given point.
+      steps => minBy(steps, s => pointDistance(s.point, point))!
+    );
+  },
+};
