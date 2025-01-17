@@ -28,6 +28,7 @@ program
   .command("run", { isDefault: true })
   .argument("<inputPath>", "Path to input JSON file")
   .argument("<outputPath>", "Path to output directory")
+  .option("-c, --clear-cache", "Clear the cache", false)
   .action(run);
 
 // Clear cache command
@@ -76,7 +77,11 @@ async function makeCacheInput(input: InputSpec): Promise<InputSpec | undefined> 
   return cacheInput;
 }
 
-async function run(inputPath: string, outputPath: string) {
+async function run(
+  inputPath: string,
+  outputPath: string,
+  { clearCache: shouldClearCache }: { clearCache: boolean }
+) {
   try {
     // Read and prepare input.
     const input = readInputFile(inputPath);
@@ -96,7 +101,14 @@ async function run(inputPath: string, outputPath: string) {
     const cacheInput = await makeCacheInput(input);
     const useCache = isToolCacheEnabled() && !!cacheInput;
     if (useCache) {
-      cachedResult = await readCachedResponse(cacheInput);
+      // Cache enabled.
+      if (shouldClearCache) {
+        // Clear cache for this particular run.
+        await clearCache(cacheInput);
+      } else {
+        // Read result.
+        cachedResult = await readCachedResponse(cacheInput);
+      }
     }
 
     // Run command.

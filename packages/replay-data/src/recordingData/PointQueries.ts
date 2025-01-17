@@ -12,7 +12,6 @@ import SourceParser from "@replayio/source-parser/src/SourceParser";
 import { CodeAtLocation, StaticFunctionInfo } from "@replayio/source-parser/src/types";
 import createDebug from "debug";
 import isEmpty from "lodash/isEmpty";
-import sortBy from "lodash/sortBy";
 import truncate from "lodash/truncate";
 import uniqBy from "lodash/uniqBy";
 import protocolValueToText from "replay-next/components/inspector/protocolValueToText";
@@ -400,6 +399,8 @@ export default class PointQueries {
       node.children = await Promise.all(
         node.children.map(
           async c =>
+            // CalledFunction nodes already render relevant code.
+            // Their children don't need to render their own location data.
             (await this.supplementMissingDependencyData(c, node.kind !== "CalledFunction"))!
         )
       );

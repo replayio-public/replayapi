@@ -70,6 +70,12 @@ export interface ExecutionDataAnalysisResult {
   // If the comment is on a React component, the name of the component.
   reactComponentName?: string;
 
+  firstReactRenderError?: {
+    point: ExecutionPoint;
+    message: string;
+    stack: string;
+  };
+
   // If the point is for a console error, the error text.
   consoleError?: string;
 }

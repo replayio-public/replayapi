@@ -100,6 +100,10 @@ export default class DependencyChain {
       .map<RawRichStackFrame | null>(frame => this.normalizeFrameForRichStack(frame))
       .filter(v => !!v)
       // Remove the current frame from stack. We already have that.
+      // TODO: Dedup.
+      //    * Multiple points can map to the same hit on the same breakable location.
+      //    * Especially bookmarks.
+      //    * TODO: Dedup those as well.
       .filter(v => v.point !== pointQueries.point);
 
     const normalizedDGEvents = (dgChain.dependencies || [])

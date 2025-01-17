@@ -50,12 +50,8 @@ export async function initialAnalysisAction({
   const session = await getOrCreateReplaySession(recordingId);
 
   try {
-    const {
-      point: analysisPoint,
-      commentText,
-      reactComponentName,
-      consoleError,
-    } = await session.runInitialExecutionPointAnalysis(promptPoint);
+    const { point: analysisPoint, ...initialAnalysisData } =
+      await session.runInitialExecutionPointAnalysis(promptPoint);
     const point = analysisPoint || promptPoint;
     if (!point) {
       printCommandError("CouldNotFindInitialPoint");
@@ -68,9 +64,7 @@ export async function initialAnalysisAction({
 
     const result: InitialAnalysisResult = {
       thisPoint: point,
-      commentText,
-      consoleError,
-      reactComponentName,
+      ...initialAnalysisData,
       ...pointInfo,
       metadata,
     };

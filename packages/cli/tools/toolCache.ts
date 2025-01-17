@@ -3,7 +3,7 @@ import path from "path";
 
 import { isTruthyEnvVar } from "@replayio/data/src/devMode";
 import { deterministicObjectHash } from "@replayio/data/src/util/objectUtil";
-import { ThisRepoRoot, getRepoLatestModificationDate } from "@replayio/data/src/util/repoUtil";
+import { getRepoLatestModificationDate } from "@replayio/data/src/util/repoUtil";
 import createDebug from "debug";
 
 import { CommandOutputResult } from "../commandsShared/commandOutput";
@@ -26,14 +26,14 @@ export function getCachePath(input: InputSpec): string {
   return path.join(folder, fname);
 }
 
-export async function clearCache(recordingId?: string): Promise<void> {
+export async function clearCache(input?: InputSpec): Promise<void> {
   try {
-    if (recordingId) {
-      // Clear specific recording cache
-      const folder = path.join(CacheFolder, recordingId);
-      await rm(folder, { recursive: true, force: true });
+    if (input) {
+      // Clear specific recording cache entry.
+      const targetPath = getCachePath(input);
+      await rm(targetPath, { recursive: true, force: true });
     } else {
-      // Clear entire cache
+      // Clear entire cache.
       await rm(CacheFolder, { recursive: true, force: true });
       await mkdir(CacheFolder, { recursive: true });
       console.log(`Cleared cache folder: "${CacheFolder}"`);
@@ -57,7 +57,7 @@ type CachedData = {
 };
 
 function makeKey(input: InputSpec) {
-  const codeLastModified = getRepoLatestModificationDate(ThisRepoRoot).getTime();
+  const codeLastModified = getRepoLatestModificationDate(__dirname).getTime();
   const key = {
     input,
     codeLastModified,
