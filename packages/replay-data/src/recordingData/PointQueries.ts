@@ -550,9 +550,9 @@ export default class PointQueries {
     }
     return {
       point,
-      location: location || undefined,
-      expression,
-      value,
+      ...(location && { location }),
+      ...(expression && { expression }),
+      ...(value && { value }),
       ...other,
     };
   }
@@ -632,7 +632,7 @@ export default class PointQueries {
       ]);
 
     const { line, url } = location;
-    const code = await this.renderExecutedCode({ windowHalfSize: 10 });
+    const code = await this.renderExecutedCode({ windowHalfSize: 3 });
 
     return {
       line,

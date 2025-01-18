@@ -26,7 +26,7 @@ describe("Render catch code", () => {
     // const root = cfg.root;
 
     // Render
-    const rendered = await cfgBuilder.renderCode({ windowHalfSize: 10 });
+    const rendered = await cfgBuilder.renderCode({ windowHalfSize: 5 });
 
     expect(rendered.annotatedCode.split("\n")).toEqual([
       "          padding: [50, 50],",

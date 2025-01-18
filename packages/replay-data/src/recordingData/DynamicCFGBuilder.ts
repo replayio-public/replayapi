@@ -40,9 +40,8 @@ export type CFGBlock = {
   blockIndex: number;
   /**
    * Index of the first step in the iteration that is repeated.
-   * This is undefined in 2 cases:
-   * * Block is not a loop.
-   * * Block is a DoWhile loop that was executed once.
+   * NOTE1: This is undefined if this is not a loop block.
+   * NOTE2: The firstRepeatedStep of a DoWhile loop might belong to a nested block.
    */
   firstRepeatedStep?: FrameStep;
   // TODO: Add decision step information.
@@ -116,7 +115,13 @@ export default class DynamicCFGBuilder {
       .slice(1);
 
     // 0. Get all BlockParents in the frame's function.
-    const staticBlockParents = parser.babelParser!.getAllBlockParentsInFunctionAt(thisLocation);
+    const functionStaticBlock = parser.babelParser!.getInnermostNodePathAt(
+      thisLocation,
+      "Function"
+    );
+    assert(functionStaticBlock, "Function not found at point.");
+    const staticBlockParents =
+      parser.babelParser!.getAllBlockParentsWithinFunction(functionStaticBlock);
     assert(staticBlockParents.length, "No block parents found in function.");
 
     // 1. Group all steps by their innermost BlockParent's start index.
@@ -130,6 +135,7 @@ export default class DynamicCFGBuilder {
       s => s.step.point,
       s => s.ownBlock
     );
+    const blockParentIndexSet = new Set(staticBlockParents.map(b => b.node!.start!));
 
     // 2. Group steps and BlockParents into CFGBlock and CFGIterations.
     let stack: CFGBlock[] = [];
@@ -138,42 +144,91 @@ export default class DynamicCFGBuilder {
       const newStaticBlock = blocksByPoint[step.point]!;
       const newBlockIndex = newStaticBlock.node!.start!;
       const currentBlock = stack.length ? stack[stack.length - 1] : null;
+      assert(currentBlock || i === 0, `Stack is empty when not at first step.`);
 
       let newBlock: CFGBlock | null = null;
       if (newStaticBlock === currentBlock?.staticBlock) {
-        // Add step to same block.
-        // TODO: Handle the case where the repeated step is inside a nested block inside a DoWhileStatement:
-        //    → Need to add Iteration objects to parent blocks as well.
-        this.addIterationStep(step, currentBlock);
+        // Same block:
+        //   → Add iteration.
+        this.addIterationForStep(step, currentBlock)
+          // → Add step to new iteration.
+          .steps.push(step);
       } else {
         // Not the same block.
         const isStepOutOfNestedBlock =
           currentBlock &&
-          currentBlock.blockIndex > newStaticBlock.node!.start! &&
+          currentBlock.blockIndex > newBlockIndex &&
           currentBlock.blockIndex < newStaticBlock.node!.end!;
+        const newBlocks: CFGBlock[] = [];
         if (!isStepOutOfNestedBlock) {
-          // TODO1: Recursively add blocks for all static blocks that are not on stack yet.
-          // TODO2: and add all nested blocks to parent block iterations.
           // We are in a new block (because we are not stepping out into an existing block).
+
+          let lastAddedBlock: CFGBlock | null = null;
+          const missingBlocks = newStaticBlock.getAncestry().filter(block => {
+            if (!blockParentIndexSet.has(block.node!.start!)) {
+              // Ignore unrelated blocks.
+              return false;
+            }
+            const blockIndex = block.node!.start!;
+            const isWedged =
+              // `block` is ancestor of newly entered block.
+              blockIndex < newBlockIndex &&
+              // `block` is descendant of currentBlock (which was on stack).
+              blockIndex >
+                ((currentBlock && currentBlock.blockIndex) || functionStaticBlock.node!.start!);
+            return isWedged;
+          });
+          // Recursively add blocks wedged between what is on stack and the new block.
+
+          missingBlocks
+            // Sort blocks in ascending (increasing nested) order.
+            .sort((a, b) => a.node!.start! - b.node!.start!)
+            .forEach(block => {
+              const blockIndex = block.node!.start!;
+              // Add wedged block to stack and previous block's iteration.
+              assert(
+                // The first step of a nested block scenario should only happen to DoWhile and non-loops.
+                block.isDoWhileStatement() || !block.isLoop(),
+                // eslint-disable-next-line @typescript-eslint/no-base-to-string
+                `DynamicCFGBuilder: First step of a (not DoWhile-) loop block is nested inside another block: ${block.parentPath!.toString()}`
+              );
+              const newBlock: CFGBlock = {
+                parent: lastAddedBlock || currentBlock,
+                staticBlock: block,
+                blockIndex,
+                firstRepeatedStep: block.isLoop() ? step : undefined,
+                iterations: [{ steps: [] }],
+              };
+              newBlocks.push(newBlock);
+              lastAddedBlock?.iterations![0].steps.push(newBlock);
+              lastAddedBlock = newBlock;
+            });
+
+          // Add new block.
+          if (step.point === "67824377718277678043592657817567259") {
+            console.log(step.point);
+          }
           const firstRepeatedStep = this.getFirstRepeatedStepAt(frameSteps, i, blocksByPoint);
+          const newSteps = lastAddedBlock ? [lastAddedBlock, step] : [step];
           newBlock = {
             parent: currentBlock,
             staticBlock: newStaticBlock,
             blockIndex: newBlockIndex,
             firstRepeatedStep,
-            iterations: [{ steps: [step] }],
+            iterations: [{ steps: newSteps }],
           };
+          newBlocks.push(newBlock);
         }
         if (!currentBlock) {
           // Root node.
-          stack.push(newBlock!);
+          stack.push(...newBlocks);
         } else {
           const isStepIntoNestedBlock =
             newBlockIndex > currentBlock.staticBlock.node!.start! &&
             newBlockIndex < currentBlock.staticBlock.node!.end!;
 
-          // The block whose iterations contains the new block and the step.
-          let blockForStep: CFGBlock;
+          // The block whose iterations contains the new block or the step.
+          let parentBlock: CFGBlock;
 
           // Three types of CFG block transitions:
           // 1. Step into nested block. (Creates new block.)
@@ -181,25 +236,35 @@ export default class DynamicCFGBuilder {
           // 3. Step to sibling block. (Creates new block.)
           if (isStepIntoNestedBlock) {
             // 1. Step in.
-            blockForStep = currentBlock;
+            parentBlock = currentBlock;
           } else if (isStepOutOfNestedBlock) {
             // 2. Step out.
             do {
               stack.pop();
             } while (stack.length && stack[stack.length - 1].blockIndex !== newBlockIndex);
-            assert(stack.length, "Stack was empty upon CFG step out.");
-            blockForStep = stack[stack.length - 1];
+            if (!stack.length) {
+              // eslint-disable-next-line @typescript-eslint/no-base-to-string
+              throw new Error(`Stack was empty upon CFG step out at: ${newStaticBlock.toString()}`);
+            }
+            parentBlock = stack[stack.length - 1];
           } else {
             // 3. Step sideways.
             stack.pop();
-            assert(stack.length, "Stack was empty upon CFG step out.");
-            blockForStep = stack[stack.length - 1];
+            if (!stack.length) {
+              throw new Error(
+                // eslint-disable-next-line @typescript-eslint/no-base-to-string
+                `Stack was empty upon CFG step to sibling at: ${newStaticBlock.toString()}`
+              );
+            }
+            parentBlock = stack[stack.length - 1];
           }
 
-          const currentIteration = this.addIterationStep(step, blockForStep);
+          const currentIteration = this.addIterationForStep(step, parentBlock);
           if (newBlock) {
-            stack.push(newBlock);
+            stack.push(...newBlocks);
             currentIteration.steps.push(newBlock);
+          } else {
+            currentIteration.steps.push(step);
           }
         }
       }
@@ -214,7 +279,7 @@ export default class DynamicCFGBuilder {
    * 1. Add iteration if this step is the first or the first repeated step.
    * 2. Add step to that iteration.
    */
-  private addIterationStep(step: FrameStep, blockForStep: CFGBlock) {
+  private addIterationForStep(step: FrameStep, blockForStep: CFGBlock) {
     let currentIteration: CFGIteration;
     if (!blockForStep.iterations?.length) {
       // First step of block.
@@ -236,7 +301,6 @@ export default class DynamicCFGBuilder {
         blockForStep.iterations.push(currentIteration);
       }
     }
-    currentIteration.steps.push(step);
     return currentIteration;
   }
 
@@ -255,9 +319,13 @@ export default class DynamicCFGBuilder {
     const baseStep = steps[i];
     const baseBlock = blocksByPoint[baseStep.point]!;
 
-    // DoWhile: Always the first step.
     if (baseBlock.isDoWhileStatement()) {
-      return steps[i];
+      // The first step of a DoWhile loop is also its firstRepeatedStep.
+      return baseStep;
+    }
+
+    if (!baseBlock.isLoop()) {
+      return undefined;
     }
 
     // Find the first repeated step by looking ahead in the frameSteps of the loop's current dynamic block execution.
@@ -269,8 +337,9 @@ export default class DynamicCFGBuilder {
         // Stepped out of block.
         return undefined;
       }
+
       if (block !== baseBlock) {
-        // Ignore nested blocks.
+        // Ignore nested loops.
         continue;
       }
 
