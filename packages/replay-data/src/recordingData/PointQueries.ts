@@ -105,13 +105,6 @@ export default class PointQueries {
     return frames.map((frame: Frame, i) => ({ ...frame, point: points[i]!.point }));
   }
 
-  async getAsyncStackFramesWithPoint(): Promise<FrameWithPoint[]> {
-    // TODO: also get async frames where available.
-    // NOTE: We have some rudimentary async stack support in devtools here:
-    //        https://github.com/replayio/devtools/blob/main/src/devtools/client/debugger/src/components/SecondaryPanes/Frames/NewFrames.tsx#L62
-    return [];
-  }
-
   async thisFrame(): Promise<Frame> {
     const [thisFrame] = await this.getStackFrames();
     return thisFrame;
@@ -124,6 +117,21 @@ export default class PointQueries {
   async thisFrameScopes(): Promise<FrameScopes> {
     const thisFrame = await this.thisFrame();
     return frameScopesCache.readAsync(this.session, this.pauseId, thisFrame.frameId);
+  }
+
+  async getFirstUserCodePointOnStack(): Promise<ExecutionPoint | undefined> {
+    const stack = await this.getStackFramesWithPoint();
+    const annotatedStack = await Promise.all([
+      ...stack.map(async f => {
+        const framePoint = f.point?.point;
+        const p = framePoint ? await this.session.queryPoint(framePoint) : null;
+        return {
+          ...f,
+          isUserCode: !!(p && !(await p.isThirdPartyCode())),
+        };
+      }),
+    ]);
+    return annotatedStack.find(f => f.isUserCode)?.point?.point;
   }
 
   /** ###########################################################################

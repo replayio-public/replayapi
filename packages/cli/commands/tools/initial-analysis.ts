@@ -52,14 +52,21 @@ export async function initialAnalysisAction({
   try {
     const { point: analysisPoint, ...initialAnalysisData } =
       await session.runInitialExecutionPointAnalysis(promptPoint);
-    const point = analysisPoint || promptPoint;
+    let point = analysisPoint || promptPoint;
     if (!point) {
       printCommandError("CouldNotFindInitialPoint");
       return;
     }
 
+    // NOTE: For initialAnalysis we ignore third party code, for now.
+    let p = await session.queryPoint(point);
+    const firstUserCodePoint = await p.getFirstUserCodePointOnStack();
+    if (firstUserCodePoint) {
+      point = firstUserCodePoint;
+      p = await session.queryPoint(point);
+    }
+
     // Inspect the point.
-    const p = await session.queryPoint(point);
     const pointInfo = await p.inspectPoint();
 
     // Supplement missing dependency data for nodes with children.
