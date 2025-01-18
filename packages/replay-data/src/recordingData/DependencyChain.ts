@@ -93,52 +93,55 @@ export default class DependencyChain {
     frames: RawOrOmittedStackFrame[],
     label: string
   ): Promise<RawOrOmittedStackFrame[]> {
-    const result: RawOrOmittedStackFrame[] = [];
-    let omittedCount = 0;
-    let firstOmittedPoint: ExecutionPoint | null = null;
+    // NOTE: Compression has not helped yet.
+    return frames;
 
-    const shouldOmitFrame = async (frame: RawOrOmittedStackFrame) => {
-      const p = await this.session.queryPoint(frame!.point);
-      return await p.isThirdPartyCode();
-    };
+    // const result: RawOrOmittedStackFrame[] = [];
+    // let omittedCount = 0;
+    // let firstOmittedPoint: ExecutionPoint | null = null;
 
-    const addOmittedFrame = (i: number) => {
-      if (omittedCount === 1) {
-        // Just one omitted frame: Add it instead.
-        result.push(frames[i - 1]);
-      } else {
-        result.push({
-          kind: "OmittedFrames",
-          point: firstOmittedPoint!,
-          explanation: `${omittedCount - 1} more ${label}(s) were omitted.`,
-        });
-      }
-      omittedCount = 0;
-      firstOmittedPoint = null;
-    };
+    // const shouldOmitFrame = async (frame: RawOrOmittedStackFrame) => {
+    //   const p = await this.session.queryPoint(frame!.point);
+    //   return await p.isThirdPartyCode();
+    // };
 
-    const frameOmissions: boolean[] = await Promise.all(frames.map(shouldOmitFrame));
+    // const addOmittedFrame = (i: number) => {
+    //   if (omittedCount === 1) {
+    //     // Just one omitted frame: Add it instead.
+    //     result.push(frames[i - 1]);
+    //   } else {
+    //     result.push({
+    //       kind: "OmittedFrames",
+    //       point: firstOmittedPoint!,
+    //       explanation: `${omittedCount - 1} more ${label}(s) were omitted.`,
+    //     });
+    //   }
+    //   omittedCount = 0;
+    //   firstOmittedPoint = null;
+    // };
 
-    // Interleave frames with omitted frames.
-    frames.forEach((frame, i) => {
-      if (!frameOmissions[i]) {
-        // Valid frame.
-        if (omittedCount) {
-          // Replace omitted frames with a single `OmittedFrames` object.
-          addOmittedFrame(i);
-        }
-        result.push(frame);
-      } else {
-        // Omitted frame.
-        firstOmittedPoint ||= frame.point;
-        omittedCount++;
-      }
-    });
+    // const frameOmissions: boolean[] = await Promise.all(frames.map(shouldOmitFrame));
 
-    // Add a final omitted frame if needed.
-    if (omittedCount) addOmittedFrame(frames.length);
+    // // Interleave frames with omitted frames.
+    // frames.forEach((frame, i) => {
+    //   if (!frameOmissions[i]) {
+    //     // Valid frame.
+    //     if (omittedCount) {
+    //       // Replace omitted frames with a single `OmittedFrames` object.
+    //       addOmittedFrame(i);
+    //     }
+    //     result.push(frame);
+    //   } else {
+    //     // Omitted frame.
+    //     firstOmittedPoint ||= frame.point;
+    //     omittedCount++;
+    //   }
+    // });
 
-    return result;
+    // // Add a final omitted frame if needed.
+    // if (omittedCount) addOmittedFrame(frames.length);
+
+    // return result;
   }
 
   /**
@@ -154,7 +157,7 @@ export default class DependencyChain {
       this.getDependencyChain(pointQueries.point, forceLookup),
     ]);
 
-    const rawStackFrames = unnormalizedStackFrames
+    let normalizedStackFrames = unnormalizedStackFrames
       .map<RawRichStackFrame | null>(frame => this.normalizeFrameForRichStack(frame))
       .filter(v => !!v)
       // Remove the current frame from stack. We already have that.
@@ -162,18 +165,18 @@ export default class DependencyChain {
       //    * Multiple points can map to the same hit on the same breakable location, especially bookmarks.
       //    * TODO: Dedup bookmark points against frame step points.
       .filter(v => v.point !== pointQueries.point);
+    const rawStackFrames = await this.compressFrames(normalizedStackFrames, "stack frame");
 
     const normalizedDGEvents = (dgChain.dependencies || [])
       .map<RawRichStackFrame | null>(event => this.normalizeDGEventForRichStack(event))
       .filter(v => !!v)
       // We are only interested in a subset of event types.
       .filter(DGEventTypeFilter);
+    const rawDGevents = await this.compressFrames(normalizedDGEvents, "event");
 
     // Interweave the two, sorted by point.
     const frames = orderBy(
-      (await this.compressFrames(rawStackFrames, "stack frame")).concat(
-        await this.compressFrames(normalizedDGEvents, "event")
-      ) as RawRichStackFrame[],
+      rawStackFrames.concat(rawDGevents) as RawRichStackFrame[],
       [
         frame => {
           return BigInt(frame.point);

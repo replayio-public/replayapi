@@ -1,9 +1,9 @@
 import { NodePath } from "@babel/traverse";
-import { ExecutionPoint, Location, SourceLocation } from "@replayio/protocol";
+import { ExecutionPoint } from "@replayio/protocol";
 import { annotateLine } from "@replayio/source-parser/src/annotations";
 import { isBabelLocContained } from "@replayio/source-parser/src/babel/babelLocations";
 import { truncateAround } from "@replayio/source-parser/src/util/truncateCenter";
-import { groupBy, minBy } from "lodash";
+import { groupBy, minBy, sortBy } from "lodash";
 
 import { assert } from "../util/assert";
 import { groupByUnique } from "../util/groupByUnique";
@@ -109,10 +109,7 @@ export default class DynamicCFGBuilder {
       this.pointQueries.getSourceLocation(),
       this.pointQueries.parseSource(),
     ]);
-    const frameSteps = (await this.pointQueries.getFrameSteps())!
-      // TODO: remove this hackfix!!!
-      // hackfix for 951: We don't handle stepping into multi-nested blocks yet.
-      .slice(1);
+    const frameSteps = (await this.pointQueries.getFrameSteps())!;
 
     // 0. Get all BlockParents in the frame's function.
     const functionStaticBlock = parser.babelParser!.getInnermostNodePathAt(
@@ -170,12 +167,13 @@ export default class DynamicCFGBuilder {
               return false;
             }
             const blockIndex = block.node!.start!;
-            const isWedged =
-              // `block` is ancestor of newly entered block.
-              blockIndex < newBlockIndex &&
-              // `block` is descendant of currentBlock (which was on stack).
-              blockIndex >
-                ((currentBlock && currentBlock.blockIndex) || functionStaticBlock.node!.start!);
+            const isWedged = !currentBlock
+              ? // Block is the root block itself, so it needs to be added.
+                blockIndex == functionStaticBlock.node!.start!
+              : // `block` is ancestor of newly entered block.
+                blockIndex < newBlockIndex &&
+                // `block` is descendant of currentBlock (which was on stack).
+                blockIndex > currentBlock.blockIndex;
             return isWedged;
           });
           // Recursively add blocks wedged between what is on stack and the new block.
@@ -205,11 +203,14 @@ export default class DynamicCFGBuilder {
             });
 
           // Add new block.
-          if (step.point === "67824377718277678043592657817567259") {
-            console.log(step.point);
-          }
           const firstRepeatedStep = this.getFirstRepeatedStepAt(frameSteps, i, blocksByPoint);
-          const newSteps = lastAddedBlock ? [lastAddedBlock, step] : [step];
+          let newSteps: FrameStep[] = [];
+          if (lastAddedBlock) {
+            newSteps = [lastAddedBlock];
+            (lastAddedBlock as CFGBlock).iterations![0].steps.push(step);
+          } else {
+            newSteps = [step];
+          }
           newBlock = {
             parent: currentBlock,
             staticBlock: newStaticBlock,
@@ -239,12 +240,15 @@ export default class DynamicCFGBuilder {
             parentBlock = currentBlock;
           } else if (isStepOutOfNestedBlock) {
             // 2. Step out.
+            const oldStack = [...stack];
             do {
               stack.pop();
             } while (stack.length && stack[stack.length - 1].blockIndex !== newBlockIndex);
             if (!stack.length) {
-              // eslint-disable-next-line @typescript-eslint/no-base-to-string
-              throw new Error(`Stack was empty upon CFG step out at: ${newStaticBlock.toString()}`);
+              throw new Error(
+                // eslint-disable-next-line @typescript-eslint/no-base-to-string
+                `Stack was empty (had ${oldStack.length}) upon CFG step out at: ${newStaticBlock.toString()}`
+              );
             }
             parentBlock = stack[stack.length - 1];
           } else {
@@ -353,20 +357,35 @@ export default class DynamicCFGBuilder {
     return undefined;
   }
 
+  renderLine(line: string, step: FrameStep, renderOptions: Required<CFGRenderOptions>): string {
+    const {
+      maxLineLength,
+      annotateOtherPoints,
+      annotationLabelPrefix: StepAnnotationLabelPrefix,
+    } = renderOptions;
+    let annotation: string | undefined;
+    const { point } = this;
+    if (step.point === point || annotateOtherPoints) {
+      annotation = `${StepAnnotationLabelPrefix}:${step.point}`;
+    }
+    if (maxLineLength && line.length > maxLineLength) {
+      line = truncateAround(line, step.column, maxLineLength);
+    }
+    if (annotation) {
+      line = annotateLine(line, annotation, step.column);
+    }
+    return line;
+  }
+
   /**
    * Render the in-frame code around `this.point`, focusing on and annotating steps within
    * all cascading scopes of `this.point`.
    * NOTE: This currently only works well for short lines.
    * TODO: In case of minified code, we need to work against AST nodes rather than lines.
    */
-  async renderCode(_renderOptions: CFGRenderOptions): Promise<CFGRenderOutput> {
+  async renderCode(_renderOptions?: CFGRenderOptions): Promise<CFGRenderOutput> {
     const renderOptions = { ...DefaultRenderOptions, ..._renderOptions };
-    const {
-      windowHalfSize,
-      maxLineLength,
-      annotateOtherPoints,
-      annotationLabelPrefix: StepAnnotationLabelPrefix,
-    } = renderOptions;
+    const { windowHalfSize } = renderOptions;
 
     const [thisLocation, parser] = await Promise.all([
       this.pointQueries.getSourceLocation(),
@@ -392,6 +411,8 @@ export default class DynamicCFGBuilder {
     // 2. Get all executed lines within all current scopes.
     const blockAtPoint = CFGQueries.getBlock(graph, point);
     if (!blockAtPoint) {
+      const graph = await this.buildProjectedFrameCFG();
+      const blockAtPoint = CFGQueries.getBlock(graph, point);
       throw new Error(`No block found for point ${point}`);
     }
 
@@ -407,58 +428,64 @@ export default class DynamicCFGBuilder {
     const codeWindow = functionCodeLines.slice(windowStart, windowEnd + 1);
 
     // 5. Use in-scope frames to annotate the lines.
-    const stepsByLineIndex = groupByUnique(
+    const uniqueLineSteps = sortBy(
       CFGQueries.getUniqueExecutedLineStepsInScope(graph, stepAtPoint),
-      s => s.line - functionLine
+      s => s.line
     );
+    const stepsByLineIndex = groupByUnique(uniqueLineSteps, s => s.line - functionLine);
     const stepsInWindow: FrameStep[] = [];
     const annotatedWindow = codeWindow.map((line, i) => {
       const step = stepsByLineIndex[i + windowStart];
       if (step) {
         stepsInWindow.push(step);
-        let annotation: string | undefined;
-        if (step.point === point || annotateOtherPoints) {
-          annotation = `${StepAnnotationLabelPrefix}:${step.point}`;
-        }
-        if (maxLineLength && line.length > maxLineLength) {
-          line = truncateAround(line, step.column, maxLineLength);
-        }
-        if (annotation) {
-          line = annotateLine(line, annotation, step.column);
-        }
+        line = this.renderLine(line, step, renderOptions);
       }
       return line;
     });
 
-    // TODO:
-    // if (windowHalfSize > 0) {
-    //   // 6. If the earliest stepped line isn't the very first line, add the first step in that direction that is.
-    //   const firstStep = stepsInWindow[0];
-    //   const lastStep = stepsInWindow[stepsInWindow.length - 1];
-    //   const firstStepIndex = firstStep!.line - minLine;
-    //   const lastStepIndex = lastStep!.line - minLine;
-    //   const minStepWindowEdgeDistance = 2; // If lines this close to the edge don't have steps, add the next one over.
+    if (windowHalfSize > 0) {
+      // 6. If the earliest stepped line isn't the very first line, add the first step in that direction that is.
+      const firstStep = stepsInWindow[0];
+      const lastStep = stepsInWindow[stepsInWindow.length - 1];
+      const firstStepIndex = firstStep!.line - minLine;
+      const lastStepIndex = lastStep!.line - minLine;
 
-    //   if (firstStepIndex >= minStepWindowEdgeDistance) {
-    //     // Add step at the beginning.
-    //     const newStep = TODO;
-    //     const newLine = TODO;
-    //     annotatedWindow.splice(0, minStepWindowEdgeDistance, newLine, "...");
-    //     stepsInWindow.unshift(newStep);
-    //   }
-    //   if (lastStepIndex < annotatedWindow.length - minStepWindowEdgeDistance) {
-    //     // Add step at the end.
-    //     const newStep = TODO;
-    //     const newLine = TODO;
-    //     annotatedWindow.splice(
-    //       annotatedWindow.length - 1 - minStepWindowEdgeDistance,
-    //       minStepWindowEdgeDistance,
-    //       "...",
-    //       newLine
-    //     );
-    //     stepsInWindow.push(newStep);
-    //   }
-    // }
+      const minStepWindowEdgeDistance = 2; // Look for this many lines.
+
+      if (firstStepIndex >= minStepWindowEdgeDistance) {
+        // Add step at the beginning.
+        const newStep = uniqueLineSteps.findLast(s => s.line < minLine);
+        if (newStep) {
+          const line = functionCodeLines[newStep.line - functionLine];
+          assert(
+            line,
+            `Line not found for step at line ${newStep.line} (functionLine=${functionLine}, functionCodeLines=${functionCodeLines.length})`
+          );
+          const newLine = this.renderLine(line, newStep, renderOptions);
+          annotatedWindow.splice(
+            0,
+            minStepWindowEdgeDistance,
+            newLine,
+            '// <OmittedCode reason="NotExecuted"/>'
+          );
+          stepsInWindow.unshift(newStep);
+        }
+      }
+      if (lastStepIndex < annotatedWindow.length - minStepWindowEdgeDistance) {
+        // Add step at the end.
+        const newStep = uniqueLineSteps.find(s => s.line > minLine);
+        if (newStep) {
+          const line = functionCodeLines[newStep.line - functionLine];
+          annotatedWindow.splice(
+            annotatedWindow.length - 1 - minStepWindowEdgeDistance,
+            minStepWindowEdgeDistance,
+            "...",
+            line
+          );
+          stepsInWindow.push(newStep);
+        }
+      }
+    }
 
     // TODO: Omit code that untaken branches and other code that did not get executed; annotate correctly.
 

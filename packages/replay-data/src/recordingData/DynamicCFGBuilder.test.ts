@@ -105,8 +105,8 @@ describe("PointQueries basics", () => {
     const rendered = await cfgBuilder.renderCode({ windowHalfSize: 5 });
 
     expect(rendered.annotatedCode.split("\n")).toEqual([
-      "          return;",
-      "        }",
+      "        /*POINT:69122451933107996113670401335230508*/if (parentApplied === null) {",
+      "// <OmittedCode reason=\"NotExecuted\"/>",
       "",
       "        for (const { rule, pseudoElement/*POINT:69122451933109336961380259098263600*/ } of parentApplied) {",
       "          /*POINT:69122451933109336961380259098263601*/if (!pseudoElement) {",

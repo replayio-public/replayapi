@@ -640,7 +640,7 @@ export default class PointQueries {
       ]);
 
     const { line, url } = location;
-    const code = await this.renderExecutedCode({ windowHalfSize: 3 });
+    const code = await this.renderExecutedCode({ windowHalfSize: 6 });
 
     return {
       line,
