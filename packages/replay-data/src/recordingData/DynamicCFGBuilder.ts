@@ -418,10 +418,10 @@ export default class DynamicCFGBuilder {
 
     // 3. Select maxRenderLines in each direction.
     const functionLine = functionInfo.lines.start;
-    const minLine = Math.max(functionInfo.lines.start, thisLocation.line - windowHalfSize);
-    const maxLine = Math.min(functionInfo.lines.end, thisLocation.line + windowHalfSize);
-    const windowStart = minLine - functionLine;
-    const windowEnd = maxLine - functionLine;
+    const windowMinLine = Math.max(functionInfo.lines.start, thisLocation.line - windowHalfSize);
+    const windowMaxLine = Math.min(functionInfo.lines.end, thisLocation.line + windowHalfSize);
+    const windowStart = windowMinLine - functionLine;
+    const windowEnd = windowMaxLine - functionLine;
 
     // 4. Get the source code.
     const functionCodeLines = parser.getInnermostFunction(thisLocation)!.text.split("\n");
@@ -447,14 +447,14 @@ export default class DynamicCFGBuilder {
       // 6. If the earliest stepped line isn't the very first line, add the first step in that direction that is.
       const firstStep = stepsInWindow[0];
       const lastStep = stepsInWindow[stepsInWindow.length - 1];
-      const firstStepIndex = firstStep!.line - minLine;
-      const lastStepIndex = lastStep!.line - minLine;
+      const firstStepIndex = firstStep!.line - windowMinLine;
+      const lastStepIndex = lastStep!.line - windowMinLine;
 
       const minStepWindowEdgeDistance = 2; // Look for this many lines.
 
       if (firstStepIndex >= minStepWindowEdgeDistance) {
         // Add step at the beginning.
-        const newStep = uniqueLineSteps.findLast(s => s.line < minLine);
+        const newStep = uniqueLineSteps.findLast(s => s.line < windowMinLine);
         if (newStep) {
           const line = functionCodeLines[newStep.line - functionLine];
           assert(
@@ -473,13 +473,13 @@ export default class DynamicCFGBuilder {
       }
       if (lastStepIndex < annotatedWindow.length - minStepWindowEdgeDistance) {
         // Add step at the end.
-        const newStep = uniqueLineSteps.find(s => s.line > minLine);
+        const newStep = uniqueLineSteps.find(s => s.line > windowMaxLine);
         if (newStep) {
           const line = functionCodeLines[newStep.line - functionLine];
           annotatedWindow.splice(
             annotatedWindow.length - 1 - minStepWindowEdgeDistance,
             minStepWindowEdgeDistance,
-            "...",
+            '// <OmittedCode reason="NotExecuted"/>',
             line
           );
           stepsInWindow.push(newStep);

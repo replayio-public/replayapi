@@ -60,16 +60,18 @@ export async function initialAnalysisAction({
 
     // NOTE: For initialAnalysis we ignore third party code, for now.
     let p = await session.queryPoint(point);
-    const firstUserCodePoint = await p.getFirstUserCodePointOnStack();
-    if (firstUserCodePoint) {
-      if (initialAnalysisData.firstReactRenderError?.point === point) {
-        // Fix up nested point as well.
-        initialAnalysisData.firstReactRenderError.point = firstUserCodePoint;
-      }
-      // Use this point instead.
-      point = firstUserCodePoint;
-      p = await session.queryPoint(point);
-    }
+
+    // Experiment: Focus on user code first. But then the error message does not match the point.
+    // const firstUserCodePoint = await p.getFirstUserCodePointOnStack();
+    // if (firstUserCodePoint) {
+    //   if (initialAnalysisData.firstReactRenderError?.point === point) {
+    //     // Fix up nested point as well.
+    //     initialAnalysisData.firstReactRenderError.point = firstUserCodePoint;
+    //   }
+    //   // Use this point instead.
+    //   point = firstUserCodePoint;
+    //   p = await session.queryPoint(point);
+    // }
 
     // Inspect the point.
     const pointInfo = await p.inspectPoint();

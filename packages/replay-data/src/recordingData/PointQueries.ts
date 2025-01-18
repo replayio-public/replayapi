@@ -636,7 +636,7 @@ export default class PointQueries {
         this.queryFunctionInfo(),
         // this.queryInputDependencies(),
         // null,
-        this.queryStackAndEvents(true),
+        this.queryStackAndEvents(false /* forceLookup */),
       ]);
 
     const { line, url } = location;
