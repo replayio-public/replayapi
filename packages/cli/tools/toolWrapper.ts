@@ -1,3 +1,5 @@
+/* Copyright 2020-2024 Record Replay Inc. */
+
 import { readFileSync, mkdirSync, writeFileSync } from "fs";
 import path from "path";
 import { CommandOutputResult } from "../commandsShared/commandOutput";

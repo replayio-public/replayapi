@@ -1,3 +1,4 @@
+/* Copyright 2020-2024 Record Replay Inc. */
 import {
   Result as EvaluationResult,
   ExecutionPoint,

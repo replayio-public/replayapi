@@ -1,7 +1,7 @@
 /* Copyright 2020-2024 Record Replay Inc. */
 
 /**
- * @file Convenient wrapper for our `experimentalCommand` API.
+ * @file Convenience script to run any `experimentalCommand` API command.
  */
 
 import "tsconfig-paths/register";
