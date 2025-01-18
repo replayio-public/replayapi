@@ -180,11 +180,14 @@ export class BabelParser {
    */
   getAllBlockParentsWithinFunction(path: NodePath): NodePath[] {
     // NOTE: IfStatement is not part of the BlockParent cover (must be a babel-types bug).
+    const ActualBlockParentSet = ["BlockParent", "IfStatement"];
+
+    // Ignore nested functions.
     const skipTypes = ["Function"];
     return (
-      this.getMatchingNodesWithin(path, ["BlockParent", "IfStatement"], skipTypes)
+      this.getMatchingNodesWithin(path, ActualBlockParentSet, skipTypes)
         // Remove all pure blocks: We only care about possibly conditional block parents.
-        .filter(b => !b.isBlock())
+        .filter(b => !b.isBlock() && !b.isBlockStatement())
     );
   }
 

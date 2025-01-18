@@ -11,6 +11,7 @@ import {
 import { AnalysisInput } from "../analysis/dgSpecs";
 import { runAnalysis } from "../analysis/runAnalysis";
 import { AnalyzeDependenciesResult } from "../analysis/specs/analyzeDependencies";
+import { wrapAsyncWithHardcodedData } from "./hardcodedData";
 import PointQueries from "./PointQueries";
 import ReplaySession from "./ReplaySession";
 import { FrameWithPoint } from "./types";
@@ -25,8 +26,14 @@ export type RawRichStackFrame = {
   point: ExecutionPoint;
   functionName?: string;
 };
+export type OmittedFrame = {
+  kind: "OmittedFrames";
+  point: ExecutionPoint;
+  explanation: string;
+};
+export type RawOrOmittedStackFrame = RawRichStackFrame | OmittedFrame;
 
-export type RichStackFrame = CodeAtLocation & RawRichStackFrame;
+export type RichStackFrame = (CodeAtLocation & RawRichStackFrame) | OmittedFrame;
 
 /**
  * This wraps our DG analysis code (which for now primarily resides in the backend).
@@ -34,17 +41,27 @@ export type RichStackFrame = CodeAtLocation & RawRichStackFrame;
 export default class DependencyChain {
   constructor(public readonly session: ReplaySession) {}
 
-  async getDependencyChain(point: ExecutionPoint): Promise<AnalyzeDependenciesResult> {
-    const spec = {
-      recordingId: this.session.getRecordingId()!,
+  async getDependencyChain(
+    point: ExecutionPoint,
+    forceLookup = false
+  ): Promise<AnalyzeDependenciesResult> {
+    const specNoRecordingId = {
       point,
       mode: DependencyGraphMode.ReactOwnerRenders,
     };
-    const input: AnalysisInput = {
-      analysisType: AnalysisType.Dependency,
-      spec,
-    };
-    return await runAnalysis<AnalyzeDependenciesResult>(this.session, input);
+    return await wrapAsyncWithHardcodedData({
+      recordingId: this.session.getRecordingId()!,
+      name: "dgChain",
+      forceLookup,
+      input: specNoRecordingId,
+      cb: async (specNoRecordingId): Promise<AnalyzeDependenciesResult | undefined> => {
+        const analysisInput: AnalysisInput = {
+          analysisType: AnalysisType.Dependency,
+          spec: { ...specNoRecordingId, recordingId: this.session.getRecordingId()! },
+        };
+        return await runAnalysis<AnalyzeDependenciesResult>(this.session, analysisInput);
+      },
+    });
   }
 
   private normalizeFrameForRichStack(frame: FrameWithPoint): RawRichStackFrame | null {
@@ -72,57 +89,112 @@ export default class DependencyChain {
     };
   }
 
+  async compressFrames(
+    frames: RawOrOmittedStackFrame[],
+    label: string
+  ): Promise<RawOrOmittedStackFrame[]> {
+    const result: RawOrOmittedStackFrame[] = [];
+    let omittedCount = 0;
+    let firstOmittedPoint: ExecutionPoint | null = null;
+
+    const shouldOmitFrame = async (frame: RawOrOmittedStackFrame) => {
+      const p = await this.session.queryPoint(frame!.point);
+      return await p.isThirdPartyCode();
+    };
+
+    const addOmittedFrame = (i: number) => {
+      if (omittedCount === 1) {
+        // Just one omitted frame: Add it instead.
+        result.push(frames[i - 1]);
+      } else {
+        result.push({
+          kind: "OmittedFrames",
+          point: firstOmittedPoint!,
+          explanation: `${omittedCount - 1} more ${label}(s) were omitted.`,
+        });
+      }
+      omittedCount = 0;
+      firstOmittedPoint = null;
+    };
+
+    const frameOmissions: boolean[] = await Promise.all(frames.map(shouldOmitFrame));
+
+    // Interleave frames with omitted frames.
+    frames.forEach((frame, i) => {
+      if (!frameOmissions[i]) {
+        // Valid frame.
+        if (omittedCount) {
+          // Replace omitted frames with a single `OmittedFrames` object.
+          addOmittedFrame(i);
+        }
+        result.push(frame);
+      } else {
+        // Omitted frame.
+        firstOmittedPoint ||= frame.point;
+        omittedCount++;
+      }
+    });
+
+    // Add a final omitted frame if needed.
+    if (omittedCount) addOmittedFrame(frames.length);
+
+    return result;
+  }
+
   /**
    * The "rich stack" is not really a stack, but rather a mix of the synchronous call stack, interleaved with async events,
    * including high-level framework (e.g. React) events, order by time (latest first).
    */
   async getNormalizedStackAndEventsAtPoint(
-    pointQueries: PointQueries
+    pointQueries: PointQueries,
+    forceLookup = false
   ): Promise<[boolean, RichStackFrame[]]> {
-    const [frames, dgChain] = await Promise.all([
+    const [unnormalizedStackFrames, dgChain] = await Promise.all([
       pointQueries.getStackFramesWithPoint(),
-      this.getDependencyChain(pointQueries.point),
+      this.getDependencyChain(pointQueries.point, forceLookup),
     ]);
 
-    const normalizedFrames = frames
+    let normalizedStackFrames = unnormalizedStackFrames
       .map<RawRichStackFrame | null>(frame => this.normalizeFrameForRichStack(frame))
       .filter(v => !!v)
       // Remove the current frame from stack. We already have that.
+      // TODO: Dedup.
+      //    * Multiple points can map to the same hit on the same breakable location, especially bookmarks.
+      //    * TODO: Dedup bookmark points against frame step points.
       .filter(v => v.point !== pointQueries.point);
+    const rawStackFrames = await this.compressFrames(normalizedStackFrames, "stack frame");
 
-    const normalizedDGEvents = dgChain.dependencies
+    const normalizedDGEvents = (dgChain.dependencies || [])
       .map<RawRichStackFrame | null>(event => this.normalizeDGEventForRichStack(event))
       .filter(v => !!v)
       // We are only interested in a subset of event types.
       .filter(DGEventTypeFilter);
+    const rawDGevents = await this.compressFrames(normalizedDGEvents, "event");
 
     // Interweave the two, sorted by point.
-    const rawFrames = orderBy(
-      normalizedFrames.concat(normalizedDGEvents) as RawRichStackFrame[],
-      [frame => BigInt(frame.point)],
+    const frames = orderBy(
+      rawStackFrames.concat(rawDGevents) as RawRichStackFrame[],
+      [
+        frame => {
+          return BigInt(frame.point);
+        },
+      ],
       ["desc"]
     );
 
-    // Annotate the frames with more relevant data.
-    const richFrames = await Promise.all(
-      rawFrames.map(async f => {
-        const p = await this.session.queryPoint(f.point);
-        if (!(await p.shouldIncludeThisPoint())) {
-          return null;
-        }
-        const [code] = await Promise.all([
-          p.queryCodeAndLocation(),
-          // NOTE: queryCodeAndLocation already returns `functionName`.
-          // p.queryFunctionInfo(),
-        ]);
-        return {
-          ...f,
-          ...code,
-        } as RichStackFrame;
-      })
+    // Annotate.
+    const annotatedFrames = await Promise.all(
+      frames
+        .filter(f => f !== null)
+        .map(async f => {
+          const p = await this.session.queryPoint(f.point);
+          const data = await p.supplementMissingDependencyData(f);
+          return data as RichStackFrame;
+        })
     );
 
-    const result = richFrames.filter(f => !!f);
+    // Collapse multiple omitted (e.g. third-party) frames into one `OmittedFrames` object.
+    const result = annotatedFrames.filter(f => !!f);
     if (result.length > MaxEventChainLength) {
       return [true, result.slice(0, MaxEventChainLength)];
     }

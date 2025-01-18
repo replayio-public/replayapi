@@ -11,11 +11,9 @@ import StaticScope from "@replayio/source-parser/src/bindings/StaticScope";
 import SourceParser from "@replayio/source-parser/src/SourceParser";
 import { CodeAtLocation, StaticFunctionInfo } from "@replayio/source-parser/src/types";
 import createDebug from "debug";
-import { isEqual } from "lodash";
-import groupBy from "lodash/groupBy";
 import isEmpty from "lodash/isEmpty";
-import sortBy from "lodash/sortBy";
 import truncate from "lodash/truncate";
+import uniqBy from "lodash/uniqBy";
 import protocolValueToText from "replay-next/components/inspector/protocolValueToText";
 import { framesCache } from "replay-next/src/suspense/FrameCache";
 import { frameStepsCache } from "replay-next/src/suspense/FrameStepsCache";
@@ -26,18 +24,24 @@ import { evaluate } from "replay-next/src/utils/evaluate";
 import { AnalysisType } from "../analysis/dependencyGraphShared";
 import { AnalysisInput } from "../analysis/dgSpecs";
 import { runAnalysis } from "../analysis/runAnalysis";
-import { ExecutionDataAnalysisResult, ExecutionDataEntry } from "../analysis/specs/executionPoint";
+import {
+  ExecutionDataAnalysisResult,
+  ExecutionDataAnalysisSpec,
+  ExecutionDataEntry,
+} from "../analysis/specs/executionPoint";
 import { BigIntToPoint, ExecutionPointInfo } from "../util/points";
 import DynamicScope from "./bindings/DynamicScope";
 import DependencyChain, { RichStackFrame } from "./DependencyChain";
+import DynamicCFGBuilder, { CFGRenderOptions } from "./DynamicCFGBuilder";
 import { isDefaultHardcodedValueStub } from "./hardcodedCore";
-import { tryForceLookupHardcodedData, wrapAsyncWithHardcodedData } from "./hardcodedData";
+import { lookupHardcodedData, wrapAsyncWithHardcodedData } from "./hardcodedData";
 import ReplaySession from "./ReplaySession";
+import { isThirdPartyUrl } from "./thirdParty";
 import {
-  DataFlowOrigin,
+  DependencyEventNode,
   EvaluateResult,
   ExpressionAnalysisResult,
-  ExpressionDataFlowResult,
+  ExpressionDependencyResult,
   FrameStep,
   FrameWithPoint,
   IndexedPointStackFrame,
@@ -55,7 +59,7 @@ const debug = createDebug("replay:PointQueries");
 const POINT_ANNOTATION = "/*POINT*/";
 
 export interface BackendDataFlowAnalysisResult {
-  variablePointsByName: Record<string, ExecutionDataEntry[]>;
+  entries: ExecutionDataEntry[];
 }
 
 export default class PointQueries {
@@ -101,13 +105,6 @@ export default class PointQueries {
     return frames.map((frame: Frame, i) => ({ ...frame, point: points[i]!.point }));
   }
 
-  async getAsyncStackFramesWithPoint(): Promise<FrameWithPoint[]> {
-    // TODO: also get async frames where available.
-    // NOTE: We have some rudimentary async stack support in devtools here:
-    //        https://github.com/replayio/devtools/blob/main/src/devtools/client/debugger/src/components/SecondaryPanes/Frames/NewFrames.tsx#L62
-    return [];
-  }
-
   async thisFrame(): Promise<Frame> {
     const [thisFrame] = await this.getStackFrames();
     return thisFrame;
@@ -120,6 +117,21 @@ export default class PointQueries {
   async thisFrameScopes(): Promise<FrameScopes> {
     const thisFrame = await this.thisFrame();
     return frameScopesCache.readAsync(this.session, this.pauseId, thisFrame.frameId);
+  }
+
+  async getFirstUserCodePointOnStack(): Promise<ExecutionPoint | undefined> {
+    const stack = await this.getStackFramesWithPoint();
+    const annotatedStack = await Promise.all([
+      ...stack.map(async f => {
+        const framePoint = f.point?.point;
+        const p = framePoint ? await this.session.queryPoint(framePoint) : null;
+        return {
+          ...f,
+          isUserCode: !!(p && !(await p.isThirdPartyCode())),
+        };
+      }),
+    ]);
+    return annotatedStack.find(f => f.isUserCode)?.point?.point;
   }
 
   /** ###########################################################################
@@ -225,20 +237,23 @@ export default class PointQueries {
    * Code rendering.
    * ##########################################################################*/
 
+  async renderExecutedCode(renderOptions: CFGRenderOptions): Promise<string> {
+    const cfgBuilder = await this.queryCFG();
+    const rendered = await cfgBuilder.renderCode(renderOptions);
+    return rendered.annotatedCode;
+  }
+
   /**
    * Get data for the statement at `point`.
    */
   async queryCodeAndLocation(): Promise<CodeAtLocation> {
-    const [thisLocation, parser] = await Promise.all([
+    const [thisLocation, statementCode, functionInfo] = await Promise.all([
       this.getSourceLocation(),
-      this.parseSource(),
+      // TODO: Don't render this if `thisLocation` is already contained in the baseline code snippet.
+      // TODO: Generally, merge multiple code snippets of different data sources when they overlap.
+      this.renderExecutedCode({ windowHalfSize: 3, annotateOtherPoints: false }),
+      this.queryFunctionInfo(),
     ]);
-
-    const [statementCode, startLoc] = parser.getAnnotatedNodeTextAt(
-      thisLocation,
-      POINT_ANNOTATION
-    ) || ["", thisLocation];
-    const functionInfo = parser.getFunctionInfoAt(startLoc);
 
     if (!thisLocation.url) {
       console.warn(`[PointQueries] No source url found at point ${this.point}`);
@@ -282,13 +297,13 @@ export default class PointQueries {
    * Other high-level Queries.
    * ##########################################################################*/
 
-  async shouldIncludeThisPoint(): Promise<boolean> {
+  async isThirdPartyCode(): Promise<boolean> {
     const thisLocation = await this.getSourceLocation();
-    return shouldSourceBeIncluded(thisLocation.url);
+    return isThirdPartyUrl(thisLocation.url);
   }
 
-  async queryStackAndEvents(): Promise<[boolean, RichStackFrame[]]> {
-    return await this.dg.getNormalizedStackAndEventsAtPoint(this);
+  async queryStackAndEvents(forceLookup = false): Promise<[boolean, RichStackFrame[]]> {
+    return await this.dg.getNormalizedStackAndEventsAtPoint(this, forceLookup);
   }
 
   /** ###########################################################################
@@ -313,7 +328,7 @@ export default class PointQueries {
     } else {
       // TODO: Also stub out nested repeated expressions.
       return {
-        value: "<ALREADY_PREVIEWED/>",
+        value: "<ALREADY_SEEN/>",
       };
     }
     return res;
@@ -370,115 +385,138 @@ export default class PointQueries {
   }
 
   /** ###########################################################################
-   * ExecutionPoint + Data Flow Queries.
+   * CFG
    * ##########################################################################*/
 
-  private async addLocationToOrigin({
-    point,
-    location,
-    ...other
-  }: DataFlowOrigin): Promise<DataFlowOrigin | null> {
-    if (!location) {
-      if (!point) {
-        return isEmpty(other) ? null : other;
-      }
-
-      // Look up location if not provided already.
-      const pointQuery = await this.session.queryPoint(point);
-      location = await pointQuery.queryCodeAndLocation();
-    }
-    return {
-      point,
-      location: location!,
-      ...other,
-    } as DataFlowOrigin;
+  async queryCFG(): Promise<DynamicCFGBuilder> {
+    return new DynamicCFGBuilder(this);
   }
+
+  /** ###########################################################################
+   * Data Flow Queries.
+   * ##########################################################################*/
 
   private async queryDataFlow(
     expression: string,
-    backendDataFlowResult: BackendDataFlowAnalysisResult
-  ): Promise<ExpressionDataFlowResult> {
+    forceLookup = false
+  ): Promise<ExpressionDependencyResult> {
     const [thisLocation, parser] = await Promise.all([
       this.getSourceLocation(),
       this.parseSource(),
     ]);
 
     // 1. Get data flow points from backend data flow results, and/or hardcoded overrides.
-    let res = await wrapAsyncWithHardcodedData(
-      this.session.getRecordingId()!,
-      "dataFlowPoints",
-      { expression, point: this.point },
-      async ({ expression }): Promise<ExpressionDataFlowResult | undefined> => {
-        let dataFlowPoints =
-          backendDataFlowResult.variablePointsByName[expression]
-            ?.filter(p => !!p.associatedPoint)
-            .map(p => p.associatedPoint!) || [];
-        dataFlowPoints = sortBy(dataFlowPoints, p => BigInt(p), "desc");
-        if (dataFlowPoints?.length) {
-          return { origins: dataFlowPoints.map<DataFlowOrigin>(p => ({ point: p })) };
-        }
+    let res = await wrapAsyncWithHardcodedData({
+      recordingId: this.session.getRecordingId()!,
+      name: "dependencyChain",
+      forceLookup,
+      input: { expression, point: this.point },
+      cb: async ({ expression }): Promise<ExpressionDependencyResult | undefined> => {
+        // TODO: Fix the analysis
+        // const rawDataFlowResult = await this.runDataFlowAnalysis(expression);
+        // let dataFlowPoints =
+        //   rawDataFlowResult.entries.filter(p => !!p.associatedPoint).map(p => p.associatedPoint!) ||
+        //   [];
+        // dataFlowPoints = sortBy(dataFlowPoints, p => BigInt(p), "desc");
+        // if (dataFlowPoints?.length) {
+        //   return { dependencyChain: dataFlowPoints.map<DependencyNode>(p => ({ point: p })) };
+        // }
+        // return undefined;
         return undefined;
-      }
-    );
+      },
+    });
 
-    // 2. Look up hardcoded object creation site when isValueReferenceType, but `origins` is empty.
-    if ((await this.isValueReferenceType(expression)) && !res.origins?.length) {
-      const hardcodedCreationSite = await tryForceLookupHardcodedData(
+    // 2. Look up hardcoded object creation site when isValueReferenceType, but `dependencyChain` is empty.
+    if ((await this.isValueReferenceType(expression)) && !res.dependencyChain?.length) {
+      const hardcodedCreationSite = await lookupHardcodedData(
         this.session.getRecordingId()!,
         "objectCreationSite",
-        { expression, point: this.point }
+        { expression, point: this.point },
+        null,
+        forceLookup
       );
       if (!isDefaultHardcodedValueStub(hardcodedCreationSite)) {
         res = { ...res, objectCreationSite: hardcodedCreationSite };
       }
     }
 
-    const origins = (
+    const dependencies = (
       await Promise.all(
-        (res.origins || []).map<Promise<DataFlowOrigin | null>>(o => this.addLocationToOrigin(o))
+        (res.dependencyChain || []).map<Promise<DependencyEventNode | null>>(o =>
+          this.supplementMissingDependencyData(o)
+        )
       )
     ).filter(x => !!x);
 
     // 3. Try to guess missing `location`s.
     return {
-      staticBinding: parser.getBindingAt(thisLocation, expression) || undefined,
+      // TODO: Use the new renderExecutedCode method to get the code.
+      // staticBinding:
+      //   (!dependencies?.length && parser.getBindingAt(thisLocation, expression)) || undefined,
       objectCreationSite:
-        (res.objectCreationSite && (await this.addLocationToOrigin(res.objectCreationSite))) ||
+        (res.objectCreationSite &&
+          (await this.supplementMissingDependencyData(res.objectCreationSite))) ||
         undefined,
-      origins: origins.length ? origins : undefined,
+      dependencyChain: dependencies.length ? dependencies : undefined,
     };
   }
 
   /**
    * Preview and trace the data flow of the value held by `expression`.
    */
-  async queryExpressionInfo(
-    expression: string,
-    rawDataFlowResult?: BackendDataFlowAnalysisResult
-  ): Promise<ExpressionAnalysisResult> {
-    rawDataFlowResult ||= await this.runDataFlowAnalysis();
-    const [valuePreview, dataFlow]: [SimpleValuePreviewResult, ExpressionDataFlowResult] =
-      await Promise.all([
+  private expressionInfoCache = new Map<string, Promise<ExpressionAnalysisResult>>();
+  async queryExpressionInfo(expression: string, force = false): Promise<ExpressionAnalysisResult> {
+    const cached = this.expressionInfoCache.get(expression);
+    if (await cached) {
+      return {
+        expression,
+        explanation: "<ALREADY_SEEN/>",
+      };
+    }
+
+    const computeInfo = async () => {
+      const [valuePreview, dataFlow] = await Promise.all([
         this.makeValuePreview(expression),
-        this.queryDataFlow(expression, rawDataFlowResult),
+        this.queryDataFlow(expression, force),
       ]);
 
+      return {
+        expression,
+        ...dataFlow,
+        ...valuePreview,
+      };
+    };
+
+    const infoPromise = computeInfo();
+    this.expressionInfoCache.set(expression, infoPromise);
+    return infoPromise;
+  }
+
+  async runDataFlowAnalysis(expression: string): Promise<BackendDataFlowAnalysisResult> {
+    const analysisResults = await this.runExecutionPointAnalysis({ value: expression, depth: 10 });
+    // NOTE: `points` are all related to the given expression.
+    const { points } = analysisResults;
     return {
-      expression,
-      ...dataFlow,
-      ...valuePreview,
+      // TODO: handle the nonlinear case (multiple `entries` per point).
+      entries: uniqBy(
+        points.flatMap(p => p.entries),
+        e => e.associatedPoint
+      ),
     };
   }
 
-  async runExecutionPointAnalysis(depth?: number): Promise<ExecutionDataAnalysisResult> {
-    debug(`run ExecutionPoint analysis (${depth})...`);
+  /** ###########################################################################
+   * Other Dependency Queries
+   * ##########################################################################*/
+
+  async runExecutionPointAnalysis(
+    extraSpecFields?: Partial<ExecutionDataAnalysisSpec>
+  ): Promise<ExecutionDataAnalysisResult> {
+    debug(`run ExecutionPoint analysis (${JSON.stringify(extraSpecFields)})...`);
     const analysisInput: AnalysisInput = {
       analysisType: AnalysisType.ExecutionPoint,
-      spec: { recordingId: this.session.getRecordingId()!, point: this.point },
+      spec: { recordingId: this.session.getRecordingId()!, point: this.point, ...extraSpecFields },
     };
-    if (depth !== undefined) {
-      analysisInput.spec.depth = depth;
-    }
 
     try {
       return await runAnalysis<ExecutionDataAnalysisResult>(this.session, analysisInput);
@@ -488,14 +526,42 @@ export default class PointQueries {
     }
   }
 
-  async runDataFlowAnalysis(): Promise<BackendDataFlowAnalysisResult> {
-    const analysisResults = await this.runExecutionPointAnalysis();
-    const { points } = analysisResults;
+  public async supplementMissingDependencyData(
+    node: DependencyEventNode,
+    lookupLocation = true
+  ): Promise<DependencyEventNode | null> {
+    let { point, location, expression, value, ...other } = node;
+    if (!point && !location && !expression) {
+      return isEmpty(other) ? null : node;
+    }
+    const locationMissing = !location && lookupLocation;
+    if (point && (locationMissing || !value)) {
+      const pointQuery = await this.session.queryPoint(point);
+      if (locationMissing) {
+        // Look up location if not provided already.
+        location = await pointQuery.queryCodeAndLocation();
+      }
+      if (!value && expression) {
+        value = (await pointQuery.makeValuePreview(expression)) || undefined;
+      }
+      // TODO: calledFunction
+    }
+    if (node.children) {
+      node.children = await Promise.all(
+        node.children.map(
+          async c =>
+            // CalledFunction nodes already render relevant code.
+            // Their children don't need to render their own location data.
+            (await this.supplementMissingDependencyData(c, node.kind !== "CalledFunction"))!
+        )
+      );
+    }
     return {
-      variablePointsByName: groupBy<ExecutionDataEntry>(
-        points.flatMap(p => p.entries),
-        "value"
-      ),
+      point,
+      ...(location && { location }),
+      ...(expression && { expression }),
+      ...(value && { value }),
+      ...other,
     };
   }
 
@@ -510,12 +576,11 @@ export default class PointQueries {
     ]);
 
     const deps = parser.getInterestingInputDependenciesAt(thisLocation);
-    const dataFlowResult = await this.runDataFlowAnalysis();
     return (
       await Promise.all(
         deps.map(async dep => {
           const expression = dep.text;
-          const info = await this.queryExpressionInfo(expression, dataFlowResult);
+          const info = await this.queryExpressionInfo(expression);
           return {
             ...info,
           };
@@ -565,29 +630,36 @@ export default class PointQueries {
    * ##########################################################################*/
 
   async inspectPoint(): Promise<InspectPointResult> {
-    const [location, functionInfo, inputDependencies, [stackTruncated, stackAndEvents]] =
+    const [location, functionInfo, /* inputDependencies, */ [stackTruncated, stackAndEvents]] =
       await Promise.all([
         this.queryFrameCodeAndLocation(),
         this.queryFunctionInfo(),
-        this.queryInputDependencies(),
+        // this.queryInputDependencies(),
         // null,
-        this.queryStackAndEvents(),
+        this.queryStackAndEvents(false /* forceLookup */),
       ]);
 
+    const { line, url } = location;
+    const code = await this.renderExecutedCode({ windowHalfSize: 6 });
+
     return {
-      location,
+      line,
+      url,
+      code,
       function: functionInfo,
-      inputDependencies,
+      // inputDependencies,
       // TODO: directControlDependencies
       // directControlDependencies,
-      stackAndEvents,
-      stackAndEventsTruncated: stackTruncated,
+      stackAndEvents: stackAndEvents.length ? stackAndEvents : undefined,
+      moreStackAndEvents: stackTruncated
+        ? "There are more stackAndEvents. Inspect earlier entries to see more."
+        : undefined,
     };
   }
 
   async inspectData(expression: string): Promise<InspectDataResult> {
-    // 1. First get expression info.
-    const expressionInfo = await this.queryExpressionInfo(expression);
+    // 1. Get expression info first (so it won't be omitted).
+    const expressionInfo = await this.queryExpressionInfo(expression, true);
     // 2. Then get all other info.
     const pointData = await this.inspectPoint();
 
@@ -611,14 +683,4 @@ export default class PointQueries {
   // async valuePreview(expression: string) {
   //   // TODO
   // }
-}
-
-/**
- * Cull node_modules for now.
- */
-function shouldSourceBeIncluded(url: string) {
-  if (url.includes("node_modules")) {
-    return false;
-  }
-  return true;
 }

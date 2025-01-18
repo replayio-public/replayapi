@@ -1,3 +1,4 @@
+/* Copyright 2020-2024 Record Replay Inc. */
 import {
   Result as EvaluationResult,
   ExecutionPoint,
@@ -40,17 +41,22 @@ export interface CodeAtPoint extends CodeAtLocation {
   point: ExecutionPoint;
 }
 
-export interface DataFlowOrigin {
+export interface DependencyEventNode {
+  // Sometimes, we only have a single point for multiple dependency events.
+  kind?: string | string[];
   point?: ExecutionPoint;
-  kind?: string;
   location?: CodeAtLocation;
+  inputs?: string[];
+  expression?: string;
+  value?: SimpleValuePreview;
   explanation?: string;
+  children?: DependencyEventNode[];
 }
 
-export interface ExpressionDataFlowResult {
+export interface ExpressionDependencyResult {
   staticBinding?: StaticBinding;
-  origins?: DataFlowOrigin[];
-  objectCreationSite?: DataFlowOrigin;
+  dependencyChain?: DependencyEventNode[];
+  objectCreationSite?: DependencyEventNode;
 }
 
 export interface SimpleValuePreview {
@@ -60,16 +66,19 @@ export interface SimpleValuePreview {
 
 export type SimpleValuePreviewResult = SimpleValuePreview | null;
 
-export interface ExpressionAnalysisResult extends SimpleValuePreview, ExpressionDataFlowResult {
+export interface ExpressionAnalysisResult extends SimpleValuePreview, ExpressionDependencyResult {
   expression: string;
+  explanation?: string;
 }
 
 export interface InspectPointResult {
-  location: CodeAtLocation;
+  line: number;
+  url: string;
   function: PointFunctionInfo | null;
-  inputDependencies: any; // TODO: Replace with proper type once implemented
-  stackAndEvents: RichStackFrame[];
-  stackAndEventsTruncated?: boolean;
+  code?: string;
+  // inputDependencies?: any;
+  stackAndEvents?: RichStackFrame[];
+  moreStackAndEvents?: string;
 }
 
 export type InspectDataResult = InspectPointResult & ExpressionAnalysisResult;

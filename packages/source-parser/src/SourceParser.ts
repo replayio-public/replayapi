@@ -22,6 +22,7 @@ import { CodeAtLocation, StaticFunctionInfo } from "./types";
 import { truncateAround } from "./util/truncateCenter";
 
 const FailBabelParseSilently = process.env.NODE_ENV === "production";
+const MaxNodeLength = 300;
 
 // Query API:
 //   * https://tree-sitter.github.io/tree-sitter/playground
@@ -179,6 +180,9 @@ export default class SourceParser {
     return traverse(node);
   }
 
+  /**
+   * Remove all nodes that are inside a nested function or contain a nested function.
+   */
   filterNodesInSameFunction(
     nodes: SyntaxNode[],
     fnNode: SyntaxNode = this.tree.rootNode
@@ -186,10 +190,15 @@ export default class SourceParser {
     const nestedFunctions = this.getAllDirectlyNestedFunctions(fnNode);
     return nodes.filter(n => {
       // Include all nodes inside `fnNode` itself.
-      if (n.startIndex >= fnNode.startIndex || n.endIndex <= fnNode.endIndex) {
-        // Exclude if `n` is nested in any nested function.
+      if (n.startIndex >= fnNode.startIndex && n.endIndex <= fnNode.endIndex) {
+        // Exclude if:
+        // 1. `n` is in a nested function.
+        // 2. a nested function is in `n`.
         return !nestedFunctions.some(
-          fn => fn !== fnNode && n.startIndex >= fn.startIndex && n.endIndex <= fn.endIndex
+          nestedFn =>
+            nestedFn !== fnNode &&
+            ((n.startIndex >= nestedFn.startIndex && n.endIndex <= nestedFn.endIndex) || // n is in nestedFn
+              (nestedFn.startIndex >= n.startIndex && nestedFn.endIndex <= n.endIndex)) // nestedFn is in n
         );
       }
       return false;
@@ -279,7 +288,7 @@ export default class SourceParser {
       loc,
       treeSitterPointToSourceLocation(node.startPosition)
     );
-    return truncateAround(node.text, relativeIndex);
+    return truncateAround(node.text, relativeIndex, MaxNodeLength);
   }
 
   // Add `pointAnnotation` to `node.text` at `targetLoc`.
@@ -310,13 +319,17 @@ export default class SourceParser {
     const before = text.slice(0, relativeIndex);
     const after = text.slice(relativeIndex);
     let code = `${before}${pointAnnotation}${after}`;
-    const source = new SourceContents("", code);
-    if (source.rows.length > maxLines) {
-      const targetLoc = source.indexToLocation(relativeIndex);
-      const targetLineIndex = targetLoc.line - 1; // lines are 1-based
-      const startLine = Math.max(targetLineIndex - Math.floor(maxLines / 2), 0);
-      const endLine = Math.min(startLine + maxLines, source.rows.length - 1);
-      code = source.rows.slice(startLine, endLine).join("\n");
+
+    if (maxLines >= 0) {
+      // Truncate around the annotation.
+      const source = new SourceContents("", code);
+      if (source.rows.length > maxLines) {
+        const targetLoc = source.indexToLocation(relativeIndex);
+        const targetLineIndex = targetLoc.line - 1; // lines are 1-based
+        const startLine = Math.max(targetLineIndex - Math.floor(maxLines / 2), 0);
+        const endLine = Math.min(startLine + maxLines, source.rows.length - 1);
+        code = source.rows.slice(startLine, endLine).join("\n");
+      }
     }
 
     return [code, startLoc];

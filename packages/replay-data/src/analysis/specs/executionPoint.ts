@@ -3,6 +3,7 @@
 import { ExecutionPoint } from "@replayio/protocol";
 import { z } from "zod";
 
+import { DependencyEventNode } from "../../recordingData/types";
 import { AnalysisDefaultSpecSchema, URLLocation } from "../dependencyGraphShared";
 
 export const ExecutionPointSpecSchema = AnalysisDefaultSpecSchema.extend({
@@ -11,6 +12,9 @@ export const ExecutionPointSpecSchema = AnalysisDefaultSpecSchema.extend({
 
   // Depth of associated points to recursively describe.
   depth: z.optional(z.number()),
+
+  /** Value expression to compute dataflow for. */
+  value: z.optional(z.string()),
 }).strict();
 export type ExecutionDataAnalysisSpec = z.infer<typeof ExecutionPointSpecSchema>;
 
@@ -33,6 +37,8 @@ export interface ExecutionDataEntry {
 
   // Location in the recording of the associated execution point.
   associatedLocation?: URLLocationWithSource;
+
+  associatedDataflow?: string;
 }
 
 export interface ExecutionDataPoint {
@@ -56,7 +62,7 @@ export interface ExecutionDataAnalysisResult {
   // Points which were described.
   points: ExecutionDataPoint[];
 
-  // If no point was provided, the comments are used to determine what point to use.
+  // The best entry point, as determined by the analysis.
   point?: ExecutionPoint;
 
   // Any comment text associated with the point.
@@ -64,6 +70,10 @@ export interface ExecutionDataAnalysisResult {
 
   // If the comment is on a React component, the name of the component.
   reactComponentName?: string;
+
+  firstReactRenderError?: DependencyEventNode & {
+    message: string;
+  };
 
   // If the point is for a console error, the error text.
   consoleError?: string;

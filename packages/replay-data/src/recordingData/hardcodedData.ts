@@ -5,7 +5,6 @@ import path from "path";
 
 import { RecordingId } from "@replayio/protocol";
 import createDebug from "debug";
-import defaultsDeep from "lodash/defaultsDeep";
 
 import { isReplayDevMode } from "../devMode";
 import NestedError from "../util/NestedError";
@@ -102,25 +101,21 @@ function checkHardcodedResult(
   }
 }
 
-export async function tryForceLookupHardcodedData(
-  recordingId: RecordingId,
-  name: string,
-  input: HardcodedResult | null
-): Promise<HardcodedResult> {
-  // We only force in dev mode.
-  const actualForce = isReplayDevMode();
-  return lookupHardcodedData(recordingId, name, input, undefined, actualForce);
-}
-
-async function lookupHardcodedData(
+export async function lookupHardcodedData(
   recordingId: RecordingId,
   name: string,
   input: HardcodedResult | null,
-  existingResult?: HardcodedResult,
-  force?: boolean
+  existingResult: HardcodedResult | null,
+  forceLookup?: boolean
 ): Promise<HardcodedResult> {
   const inputString = input ? deterministicObjectHash(input) : null;
-  const hardcodeResultOrHandler = await getHardcodeHandler(recordingId, name, inputString, !!force);
+  const actualForce = forceLookup && isReplayDevMode(); // We only force in dev mode.
+  const hardcodeResultOrHandler = await getHardcodeHandler(
+    recordingId,
+    name,
+    inputString,
+    !!actualForce
+  );
 
   let res: HardcodedResult;
   if (hardcodeResultOrHandler instanceof Function) {
@@ -131,7 +126,8 @@ async function lookupHardcodedData(
     // Hardcoded object.
     res = hardcodeResultOrHandler;
     checkHardcodedResult(res, recordingId, name, inputString);
-    res = defaultsDeep(existingResult || {}, res);
+    // Ignore existingResult instead of making bad merge moves.
+    // res = defaultsDeep(existingResult || {}, res);
   } else {
     // No hardcoded data.
     res = existingResult || {};
@@ -139,52 +135,61 @@ async function lookupHardcodedData(
   return res;
 }
 
-export function wrapAsyncWithHardcodedData<I extends HardcodedResult, O extends HardcodedResult>(
-  recordingId: RecordingId,
-  name: string,
-  input: HardcodedResult,
-  cb: (input: I) => Promise<O | undefined>
-): Promise<O>;
+type WrapAsyncWithHardcodedDataParamsBase = {
+  recordingId: RecordingId;
+  name: string;
+  forceLookup?: boolean;
+};
 
-export function wrapAsyncWithHardcodedData<O extends HardcodedResult>(
-  recordingId: RecordingId,
-  name: string,
-  cb: () => Promise<O | undefined>
-): Promise<O>;
+export type WrapAsyncWithHardcodedDataParamsWithInput<
+  I extends HardcodedResult | undefined,
+  O extends HardcodedResult,
+> = WrapAsyncWithHardcodedDataParamsBase & {
+  input: I;
+  cb: (input: I) => Promise<O | undefined>;
+};
+
+export type WrapAsyncWithHardcodedDataParamsWithoutInput<O extends HardcodedResult> =
+  WrapAsyncWithHardcodedDataParamsBase & {
+    cb: () => Promise<O | undefined>;
+  };
 
 export async function wrapAsyncWithHardcodedData<
-  I extends HardcodedResult,
+  I extends HardcodedResult | undefined,
+  O extends HardcodedResult,
+>(options: WrapAsyncWithHardcodedDataParamsWithInput<I, O>): Promise<O>;
+export async function wrapAsyncWithHardcodedData<O extends HardcodedResult>(
+  options: WrapAsyncWithHardcodedDataParamsWithoutInput<O>
+): Promise<O>;
+export async function wrapAsyncWithHardcodedData<
+  I extends HardcodedResult | undefined,
   O extends HardcodedResult,
 >(
-  recordingId: RecordingId,
-  name: string,
-  inputOrCallback: I | (() => Promise<O | undefined>),
-  cbWithInput?: (input: I) => Promise<O | undefined>
+  options:
+    | WrapAsyncWithHardcodedDataParamsWithInput<I, O>
+    | WrapAsyncWithHardcodedDataParamsWithoutInput<O>
 ): Promise<O> {
+  const input: I | undefined = "input" in options ? options.input : undefined;
   try {
-    let res: O;
-    let input: I | null = null;
-    if (cbWithInput) {
-      // Overload 1: Input given.
-      input = inputOrCallback as I;
-      const existingResult = await cbWithInput(input);
-      res = (await lookupHardcodedData(recordingId, name, input, existingResult)) as O;
-    } else {
-      // Overload 2: No input given.
-      const cbWithoutInput = inputOrCallback as () => Promise<O | undefined>;
-      const existingResult = await cbWithoutInput();
-      res = (await lookupHardcodedData(recordingId, name, null, existingResult)) as O;
-    }
-    return res;
+    const existingResult: O | null =
+      (await ("input" in options ? options.cb(options.input) : options.cb())) || null;
+    return (await lookupHardcodedData(
+      options.recordingId,
+      options.name,
+      input ?? null,
+      existingResult,
+      options.forceLookup
+    )) as O;
   } catch (err: any) {
     console.error(
-      `❌ Failed to lookup hardcoded result (, ${name}, ${JSON.stringify(inputOrCallback)}): ${err.message}`
+      `❌ Failed to lookup hardcoded result (${options.recordingId}, ${options.name}, ${JSON.stringify(input)}): ${err.message}`
     );
     return (await lookupHardcodedData(
-      recordingId,
-      name,
-      cbWithInput ? inputOrCallback : null,
-      undefined
+      options.recordingId,
+      options.name,
+      input ?? null,
+      null,
+      options.forceLookup
     )) as O;
   }
 }
