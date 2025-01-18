@@ -93,55 +93,52 @@ export default class DependencyChain {
     frames: RawOrOmittedStackFrame[],
     label: string
   ): Promise<RawOrOmittedStackFrame[]> {
-    // NOTE: Compression has not helped yet.
-    return frames;
+    const result: RawOrOmittedStackFrame[] = [];
+    let omittedCount = 0;
+    let firstOmittedPoint: ExecutionPoint | null = null;
 
-    // const result: RawOrOmittedStackFrame[] = [];
-    // let omittedCount = 0;
-    // let firstOmittedPoint: ExecutionPoint | null = null;
+    const shouldOmitFrame = async (frame: RawOrOmittedStackFrame) => {
+      const p = await this.session.queryPoint(frame!.point);
+      return await p.isThirdPartyCode();
+    };
 
-    // const shouldOmitFrame = async (frame: RawOrOmittedStackFrame) => {
-    //   const p = await this.session.queryPoint(frame!.point);
-    //   return await p.isThirdPartyCode();
-    // };
+    const addOmittedFrame = (i: number) => {
+      if (omittedCount === 1) {
+        // Just one omitted frame: Add it instead.
+        result.push(frames[i - 1]);
+      } else {
+        result.push({
+          kind: "OmittedFrames",
+          point: firstOmittedPoint!,
+          explanation: `${omittedCount - 1} more ${label}(s) were omitted.`,
+        });
+      }
+      omittedCount = 0;
+      firstOmittedPoint = null;
+    };
 
-    // const addOmittedFrame = (i: number) => {
-    //   if (omittedCount === 1) {
-    //     // Just one omitted frame: Add it instead.
-    //     result.push(frames[i - 1]);
-    //   } else {
-    //     result.push({
-    //       kind: "OmittedFrames",
-    //       point: firstOmittedPoint!,
-    //       explanation: `${omittedCount - 1} more ${label}(s) were omitted.`,
-    //     });
-    //   }
-    //   omittedCount = 0;
-    //   firstOmittedPoint = null;
-    // };
+    const frameOmissions: boolean[] = await Promise.all(frames.map(shouldOmitFrame));
 
-    // const frameOmissions: boolean[] = await Promise.all(frames.map(shouldOmitFrame));
+    // Interleave frames with omitted frames.
+    frames.forEach((frame, i) => {
+      if (!frameOmissions[i]) {
+        // Valid frame.
+        if (omittedCount) {
+          // Replace omitted frames with a single `OmittedFrames` object.
+          addOmittedFrame(i);
+        }
+        result.push(frame);
+      } else {
+        // Omitted frame.
+        firstOmittedPoint ||= frame.point;
+        omittedCount++;
+      }
+    });
 
-    // // Interleave frames with omitted frames.
-    // frames.forEach((frame, i) => {
-    //   if (!frameOmissions[i]) {
-    //     // Valid frame.
-    //     if (omittedCount) {
-    //       // Replace omitted frames with a single `OmittedFrames` object.
-    //       addOmittedFrame(i);
-    //     }
-    //     result.push(frame);
-    //   } else {
-    //     // Omitted frame.
-    //     firstOmittedPoint ||= frame.point;
-    //     omittedCount++;
-    //   }
-    // });
+    // Add a final omitted frame if needed.
+    if (omittedCount) addOmittedFrame(frames.length);
 
-    // // Add a final omitted frame if needed.
-    // if (omittedCount) addOmittedFrame(frames.length);
-
-    // return result;
+    return result;
   }
 
   /**
