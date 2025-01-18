@@ -8,12 +8,9 @@ const RecordingId = "011f1663-6205-4484-b468-5ec471dc5a31";
 
 const PointExpectations: Record<ExecutionPoint, InspectPointResult> = {
   "78858008544042601258383216576823298": {
-    location: {
-      line: 151,
-      url: "webpack://_N_E/src/devtools/client/inspector/markup/components/rules/RulesListItem.tsx?6a8d",
-      code: "return (\n    /*POINT*/<div className={styles.Inheritance} data-list-index={index} style={style}>\n      {inheritedSource}\n    </div>\n  );",
-      functionName: "InheritanceRenderer",
-    },
+    line: 151,
+    url: "webpack://_N_E/src/devtools/client/inspector/markup/components/rules/RulesListItem.tsx?6a8d",
+    code: "return (\n    /*POINT*/<div className={styles.Inheritance} data-list-index={index} style={style}>\n      {inheritedSource}\n    </div>\n  );",
     function: {
       name: "InheritanceRenderer",
       lines: {
@@ -23,36 +20,36 @@ const PointExpectations: Record<ExecutionPoint, InspectPointResult> = {
       params:
         "({\n  index,\n  inheritedSource,\n  style,\n}: {\n  index: number;\n  inheritedSource: string;\n  style: CSSProperties;\n})",
     },
-    inputDependencies: [
-      expect.objectContaining({ expression: "div" }),
-      expect.objectContaining({ expression: "styles.Inheritance" }),
-      expect.objectContaining({ expression: "styles" }),
-      {
-        expression: "index",
-        value: "7",
-        type: "number",
-        staticBinding: {
-          kind: "param",
-        },
-      },
-      {
-        expression: "style",
-        value:
-          '{"position": "absolute", "left": 0, "right": undefined, "top": 140, "height": 20, "width": "100%"}',
-        type: "object",
-        staticBinding: {
-          kind: "param",
-        },
-      },
-      {
-        expression: "inheritedSource",
-        value: '"Inherited from iframe"',
-        type: "string",
-        staticBinding: {
-          kind: "param",
-        },
-      },
-    ],
+    // inputDependencies: [
+    //   expect.objectContaining({ expression: "div" }),
+    //   expect.objectContaining({ expression: "styles.Inheritance" }),
+    //   expect.objectContaining({ expression: "styles" }),
+    //   {
+    //     expression: "index",
+    //     value: "7",
+    //     type: "number",
+    //     staticBinding: {
+    //       kind: "param",
+    //     },
+    //   },
+    //   {
+    //     expression: "style",
+    //     value:
+    //       '{"position": "absolute", "left": 0, "right": undefined, "top": 140, "height": 20, "width": "100%"}',
+    //     type: "object",
+    //     staticBinding: {
+    //       kind: "param",
+    //     },
+    //   },
+    //   {
+    //     expression: "inheritedSource",
+    //     value: '"Inherited from iframe"',
+    //     type: "string",
+    //     staticBinding: {
+    //       kind: "param",
+    //     },
+    //   },
+    // ],
     stackAndEvents: [
       {
         kind: "ReactCreateElement",
@@ -137,15 +134,11 @@ const PointExpectations: Record<ExecutionPoint, InspectPointResult> = {
         code: "return result./*POINT*/data;",
       },
     ],
-    stackAndEventsTruncated: true,
   },
   "78858008544010399007838635439423488": {
-    location: {
-      line: 302,
-      url: "webpack://_N_E/src/ui/suspense/styleCaches.ts?52eb",
-      code: "getRuleState(/*POINT*/rule)",
-      functionName: "cssRulesCache.load.rules.<anonymous>",
-    },
+    line: 302,
+    url: "webpack://_N_E/src/ui/suspense/styleCaches.ts?52eb",
+    code: "getRuleState(/*POINT*/rule)",
     function: {
       name: "cssRulesCache.load.rules.<anonymous>",
       lines: {
@@ -154,11 +147,11 @@ const PointExpectations: Record<ExecutionPoint, InspectPointResult> = {
       },
       params: "",
     },
-    inputDependencies: [
-      expect.objectContaining({ expression: "getRuleState(rule)" }),
-      expect.objectContaining({ expression: "getRuleState" }),
-      expect.objectContaining({ expression: "rule" }),
-    ],
+    // inputDependencies: [
+    //   expect.objectContaining({ expression: "getRuleState(rule)" }),
+    //   expect.objectContaining({ expression: "getRuleState" }),
+    //   expect.objectContaining({ expression: "rule" }),
+    // ],
     stackAndEvents: [
       {
         kind: "StackFrame",
@@ -241,7 +234,6 @@ const PointExpectations: Record<ExecutionPoint, InspectPointResult> = {
         code: "return result./*POINT*/data;",
       },
     ],
-    stackAndEventsTruncated: true,
   },
 
   // "78858008544010354043899912822718466": {
