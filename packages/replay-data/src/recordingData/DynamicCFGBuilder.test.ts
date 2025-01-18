@@ -102,7 +102,7 @@ describe("PointQueries basics", () => {
     );
 
     // Test render
-    const rendered = await cfgBuilder.render(5);
+    const rendered = await cfgBuilder.renderCode(5);
 
     expect(rendered.annotatedCode.split("\n")).toEqual([
       "          return;",

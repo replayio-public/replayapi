@@ -1,23 +1,8 @@
-import { NodePath } from "@babel/traverse";
-import truncate from "lodash/truncate";
-
 import { getReplaySessionForTest } from "../../testing/sessions";
-import DynamicCFGBuilder, { CFGBlock } from "./DynamicCFGBuilder";
+import DynamicCFGBuilder from "./DynamicCFGBuilder";
 import ReplaySession from "./ReplaySession";
 
 const RecordingId = "43a890bc-6f37-47e0-ba47-4d04827e4e44";
-
-function mapBlock(b: NodePath): { type: string; text: string } {
-  return {
-    type: b.type,
-    // eslint-disable-next-line @typescript-eslint/no-base-to-string
-    text: truncate(b.toString().replaceAll("\n", "\\n"), { length: 100 }),
-  };
-}
-
-function mapBlocks(blocks: CFGBlock[]): { type: string; text: string }[] {
-  return blocks.map(b => mapBlock(b.staticBlock));
-}
 
 describe("Render catch code", () => {
   let session: ReplaySession;
@@ -25,7 +10,7 @@ describe("Render catch code", () => {
     session = await getReplaySessionForTest(RecordingId);
   });
 
-  test("CFG for throwing useEffect cb", async () => {
+  test("renderCode basics", async () => {
     // Break on `console.error('Error updating map:', error);`
     const breakPoint = "59386895319809399210736544775143457";
 
@@ -36,17 +21,12 @@ describe("Render catch code", () => {
       })
     );
 
-    // while (parentNodeId) {
-    //       if (elem.nodeType == Node.ELEMENT_NODE) {
-    //         for (const { rule, pseudoElement } of parentApplied) {
-    //           if (!pseudoElement) {
-
     const cfgBuilder = new DynamicCFGBuilder(pq);
     // const cfg = await cfgBuilder.buildProjectedFrameCFG();
     // const root = cfg.root;
 
     // Render
-    const rendered = await cfgBuilder.render(5);
+    const rendered = await cfgBuilder.renderCode({ windowHalfSize: 10 });
 
     expect(rendered.annotatedCode.split("\n")).toEqual([
       "          padding: [50, 50],",
@@ -60,5 +40,27 @@ describe("Render catch code", () => {
       "    }",
       "  }",
     ]);
+  });
+
+  test("renderCode with mismatching points", async () => {
+    // Break on `console.error('Error updating map:', error);`
+    const breakPoint = "59386895319809859226417290928986813";
+
+    const pq = await session.queryPoint(breakPoint);
+    expect(await pq.getSourceLocation()).toEqual(
+      expect.objectContaining({
+        line: 150,
+      })
+    );
+
+    const cfgBuilder = new DynamicCFGBuilder(pq);
+    // const cfg = await cfgBuilder.buildProjectedFrameCFG();
+    // const root = cfg.root;
+
+    // Render
+    const rendered = await cfgBuilder.renderCode({ windowHalfSize: 1, annotateOtherPoints: false });
+
+    expect(rendered.annotatedCode).toContain(breakPoint);
+    expect(JSON.stringify(rendered.annotatedCode)).toEqual("\"\\t\\t    max2 = bounds.max,\\r\\n\\t\\t    xIntersects = (max2./*POINT:59386895319809859226417290928986813*/x >= min.x) && (min2.x <= max.x),\\r\\n\\t\\t    yIntersects = (max2.y >= min.y) && (min2.y <= max.y);\\r\"");
   });
 });

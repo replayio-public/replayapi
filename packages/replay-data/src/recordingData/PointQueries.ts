@@ -32,7 +32,7 @@ import {
 import { BigIntToPoint, ExecutionPointInfo } from "../util/points";
 import DynamicScope from "./bindings/DynamicScope";
 import DependencyChain, { RichStackFrame } from "./DependencyChain";
-import DynamicCFGBuilder, { CFGBlock } from "./DynamicCFGBuilder";
+import DynamicCFGBuilder, { CFGRenderOptions } from "./DynamicCFGBuilder";
 import { isDefaultHardcodedValueStub } from "./hardcodedCore";
 import { lookupHardcodedData, wrapAsyncWithHardcodedData } from "./hardcodedData";
 import ReplaySession from "./ReplaySession";
@@ -229,20 +229,23 @@ export default class PointQueries {
    * Code rendering.
    * ##########################################################################*/
 
+  async renderExecutedCode(renderOptions: CFGRenderOptions): Promise<string> {
+    const cfgBuilder = await this.queryCFG();
+    const rendered = await cfgBuilder.renderCode(renderOptions);
+    return rendered.annotatedCode;
+  }
+
   /**
    * Get data for the statement at `point`.
    */
   async queryCodeAndLocation(): Promise<CodeAtLocation> {
-    const [thisLocation, parser] = await Promise.all([
+    const [thisLocation, statementCode, functionInfo] = await Promise.all([
       this.getSourceLocation(),
-      this.parseSource(),
+      // TODO: Don't render this if `thisLocation` is already contained in the baseline code snippet.
+      // TODO: Generally, merge multiple code snippets of different data sources when they overlap.
+      this.renderExecutedCode({ windowHalfSize: 3, annotateOtherPoints: false }),
+      this.queryFunctionInfo(),
     ]);
-
-    const [statementCode, startLoc] = parser.getAnnotatedNodeTextAt(
-      thisLocation,
-      POINT_ANNOTATION
-    ) || ["", thisLocation];
-    const functionInfo = parser.getFunctionInfoAt(startLoc);
 
     if (!thisLocation.url) {
       console.warn(`[PointQueries] No source url found at point ${this.point}`);
@@ -381,12 +384,6 @@ export default class PointQueries {
     return new DynamicCFGBuilder(this);
   }
 
-  async renderCFGCode(windowHalfSize: number): Promise<string> {
-    const cfgBuilder = await this.queryCFG();
-    const rendered = await cfgBuilder.render(windowHalfSize);
-    return rendered.annotatedCode;
-  }
-
   /** ###########################################################################
    * Data Flow Queries.
    * ##########################################################################*/
@@ -445,8 +442,9 @@ export default class PointQueries {
 
     // 3. Try to guess missing `location`s.
     return {
-      staticBinding:
-        (!dependencies?.length && parser.getBindingAt(thisLocation, expression)) || undefined,
+      // TODO: Use the new renderExecutedCode method to get the code.
+      // staticBinding:
+      //   (!dependencies?.length && parser.getBindingAt(thisLocation, expression)) || undefined,
       objectCreationSite:
         (res.objectCreationSite &&
           (await this.supplementMissingDependencyData(res.objectCreationSite))) ||
@@ -634,7 +632,7 @@ export default class PointQueries {
       ]);
 
     const { line, url } = location;
-    const code = await this.renderCFGCode(10);
+    const code = await this.renderExecutedCode({ windowHalfSize: 10 });
 
     return {
       line,

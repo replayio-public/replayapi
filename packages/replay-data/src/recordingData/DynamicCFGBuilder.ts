@@ -1,7 +1,8 @@
 import { NodePath } from "@babel/traverse";
-import { ExecutionPoint } from "@replayio/protocol";
+import { ExecutionPoint, Location, SourceLocation } from "@replayio/protocol";
 import { annotateLine } from "@replayio/source-parser/src/annotations";
 import { isBabelLocContained } from "@replayio/source-parser/src/babel/babelLocations";
+import { truncateAround } from "@replayio/source-parser/src/util/truncateCenter";
 import { groupBy, minBy } from "lodash";
 
 import { assert } from "../util/assert";
@@ -9,21 +10,6 @@ import { groupByUnique } from "../util/groupByUnique";
 import PointQueries from "./PointQueries";
 import ReplaySession from "./ReplaySession";
 import { FrameStep } from "./types";
-
-/** ###########################################################################
- * Render config.
- * ##########################################################################*/
-
-/**
- * Max number of lines to render in each direction.
- */
-const DefaultWindowHalfSize = 20;
-
-/**
- * When rendering the summarized code, we add block comments at point
- * locations that are prefixed by this string.
- */
-const StepAnnotationLabelPrefix = "POINT";
 
 /** ###########################################################################
  * {@link DynamicCFGBuilder}
@@ -65,10 +51,42 @@ export type CFGBlock = {
   iterations?: CFGIteration[];
 };
 
+export interface CFGRenderOptions {
+  /**
+   * Max number of lines to render in each direction.
+   */
+  windowHalfSize?: number;
+  maxLineLength?: number;
+  /**
+   * Whether to annotate any points but the input point.
+   */
+  annotateOtherPoints?: boolean;
+  /**
+   * When rendering the summarized code, we add block comments at point
+   * locations that are prefixed by this string.
+   */
+  annotationLabelPrefix?: string;
+}
+
 export interface CFGRenderOutput {
   annotatedCode: string;
   steps: FrameStep[];
 }
+
+/** ###########################################################################
+ * Default render config.
+ * ##########################################################################*/
+
+const DefaultRenderOptions: Required<CFGRenderOptions> = {
+  windowHalfSize: 20,
+  maxLineLength: 100,
+  annotateOtherPoints: true,
+  annotationLabelPrefix: "POINT",
+};
+
+/** ###########################################################################
+ * {@link DynamicCFGBuilder}
+ * ##########################################################################*/
 
 export default class DynamicCFGBuilder {
   // uniqBy(steps.slice(0, idx).reverse(), s => s.)
@@ -267,9 +285,20 @@ export default class DynamicCFGBuilder {
   }
 
   /**
-   * Render a summarized version of the CFG.
+   * Render the in-frame code around `this.point`, focusing on and annotating steps within
+   * all cascading scopes of `this.point`.
+   * NOTE: This currently only works well for short lines.
+   * TODO: In case of minified code, we need to work against AST nodes rather than lines.
    */
-  async render(windowHalfSize = DefaultWindowHalfSize): Promise<CFGRenderOutput> {
+  async renderCode(_renderOptions: CFGRenderOptions): Promise<CFGRenderOutput> {
+    const renderOptions = { ...DefaultRenderOptions, ..._renderOptions };
+    const {
+      windowHalfSize,
+      maxLineLength,
+      annotateOtherPoints,
+      annotationLabelPrefix: StepAnnotationLabelPrefix,
+    } = renderOptions;
+
     const [thisLocation, parser] = await Promise.all([
       this.pointQueries.getSourceLocation(),
       this.pointQueries.parseSource(),
@@ -280,6 +309,13 @@ export default class DynamicCFGBuilder {
     const functionInfo = await this.pointQueries.queryFunctionInfo();
     assert(functionInfo, "Function info not found at point.");
     const { point } = this;
+
+    // 0. Create a step for `point`, in case it does not exist.
+    const stepAtPoint = {
+      point,
+      ...thisLocation,
+      index: parser.code.locationToIndex(thisLocation),
+    };
 
     // 1. Build CFG.
     const graph = await this.buildProjectedFrameCFG();
@@ -297,52 +333,63 @@ export default class DynamicCFGBuilder {
     const windowStart = minLine - functionLine;
     const windowEnd = maxLine - functionLine;
 
-    // 4. Use in-scope frames to annotate the lines.
-    const stepsByLineIndex = groupByUnique(
-      CFGQueries.getUniqueExecutedLineStepsInScope(graph, point),
-      s => s.line - functionLine
-    );
+    // 4. Get the source code.
     const functionCodeLines = parser.getInnermostFunction(thisLocation)!.text.split("\n");
     const codeWindow = functionCodeLines.slice(windowStart, windowEnd + 1);
 
+    // 5. Use in-scope frames to annotate the lines.
+    const stepsByLineIndex = groupByUnique(
+      CFGQueries.getUniqueExecutedLineStepsInScope(graph, stepAtPoint),
+      s => s.line - functionLine
+    );
     const stepsInWindow: FrameStep[] = [];
     const annotatedWindow = codeWindow.map((line, i) => {
       const step = stepsByLineIndex[i + windowStart];
       if (step) {
         stepsInWindow.push(step);
-        line = annotateLine(line, `${StepAnnotationLabelPrefix}:${step.point}`, step.column);
+        let annotation: string | undefined;
+        if (step.point === point || annotateOtherPoints) {
+          annotation = `${StepAnnotationLabelPrefix}:${step.point}`;
+        }
+        if (maxLineLength && line.length > maxLineLength) {
+          line = truncateAround(line, step.column, maxLineLength);
+        }
+        if (annotation) {
+          line = annotateLine(line, annotation, step.column);
+        }
       }
       return line;
     });
 
-    if (windowHalfSize > 0) {
-      // 5. If the earliest stepped line isn't the very first line, add the first step in that direction that is.
-      const firstStep = stepsInWindow[0];
-      const lastStep = stepsInWindow[stepsInWindow.length - 1];
-      const firstStepIndex = firstStep!.line - minLine;
-      const lastStepIndex = lastStep!.line - minLine;
-      const minStepWindowEdgeDistance = 2; // If lines this close to the edge don't have steps, add the next one over.
+    // TODO:
+    // if (windowHalfSize > 0) {
+    //   // 6. If the earliest stepped line isn't the very first line, add the first step in that direction that is.
+    //   const firstStep = stepsInWindow[0];
+    //   const lastStep = stepsInWindow[stepsInWindow.length - 1];
+    //   const firstStepIndex = firstStep!.line - minLine;
+    //   const lastStepIndex = lastStep!.line - minLine;
+    //   const minStepWindowEdgeDistance = 2; // If lines this close to the edge don't have steps, add the next one over.
 
-      if (firstStepIndex >= minStepWindowEdgeDistance) {
-        // Add step at the beginning.
-        const newStep = TODO;
-        const newLine = TODO;
-        annotatedWindow.splice(0, minStepWindowEdgeDistance, newLine, "...");
-        stepsInWindow.unshift(newStep);
-      }
-      if (lastStepIndex < annotatedWindow.length - minStepWindowEdgeDistance) {
-        // Add step at the end.
-        const newStep = TODO;
-        const newLine = TODO;
-        annotatedWindow.splice(
-          annotatedWindow.length - 1 - minStepWindowEdgeDistance,
-          minStepWindowEdgeDistance,
-          "...",
-          newLine
-        );
-        stepsInWindow.push(newStep);
-      }
-    }
+    //   if (firstStepIndex >= minStepWindowEdgeDistance) {
+    //     // Add step at the beginning.
+    //     const newStep = TODO;
+    //     const newLine = TODO;
+    //     annotatedWindow.splice(0, minStepWindowEdgeDistance, newLine, "...");
+    //     stepsInWindow.unshift(newStep);
+    //   }
+    //   if (lastStepIndex < annotatedWindow.length - minStepWindowEdgeDistance) {
+    //     // Add step at the end.
+    //     const newStep = TODO;
+    //     const newLine = TODO;
+    //     annotatedWindow.splice(
+    //       annotatedWindow.length - 1 - minStepWindowEdgeDistance,
+    //       minStepWindowEdgeDistance,
+    //       "...",
+    //       newLine
+    //     );
+    //     stepsInWindow.push(newStep);
+    //   }
+    // }
 
     // TODO: Omit code that untaken branches and other code that did not get executed; annotate correctly.
 
@@ -441,8 +488,10 @@ export const CFGQueries = {
    * Ancestor block steps should already have unique steps.
    * For children, select the step of closest point for each unqiue line.
    */
-  getUniqueExecutedLineStepsInScope(graph: ControlFlowGraph, point: ExecutionPoint): FrameStep[] {
-    // 1) Gather the set of blocks in all scopes of the given block's points.
+  getUniqueExecutedLineStepsInScope(graph: ControlFlowGraph, stepAtPoint: FrameStep): FrameStep[] {
+    const { point } = stepAtPoint;
+
+    // 1. Gather the set of blocks in all scopes of the given block's points.
     const block = CFGQueries.getBlock(graph, point);
     assert(block, "Block not found for point.");
 
@@ -450,31 +499,36 @@ export const CFGQueries = {
     const children = CFGQueries.getChildBlocks(block);
     const ownScopeBlocks = [block, ...parents, ...children];
 
-    // 2) Collect all line numbers from these blocks' frame steps
+    // 2. Collect all line numbers from these blocks' frame steps
     const steps: FrameStep[] = [];
-
     function collectSteps(b: CFGBlock) {
       if (!b.iterations) return;
 
       for (const iteration of b.iterations) {
         for (const step of iteration.steps) {
           if (!isCFGBlock(step)) {
-            // step is a FrameStep
+            // Add FrameStep leaf.
             steps.push(step);
           } else {
-            // step is a CFGBlock, gather lines recursively from nested blocks
+            // Recurse into CFGBlock.
             collectSteps(step);
           }
         }
       }
     }
-
     for (const b of ownScopeBlocks) {
       collectSteps(b);
     }
 
-    // 3) Deduplicate by line.
     const stepsByLines = groupBy(steps, s => s.line);
+
+    // 3. Make sure the input point always gets selected.
+    //    This is necessary because it might not be in frame steps.
+    //    E.g. it might be a bookmark.
+    stepsByLines[stepAtPoint.line] ||= [];
+    stepsByLines[stepAtPoint.line].push(stepAtPoint);
+
+    // 4. Deduplicate by line.
     return Object.values(stepsByLines).map(
       // Pick the step with the closest point to the given point.
       steps => minBy(steps, s => pointDistance(s.point, point))!

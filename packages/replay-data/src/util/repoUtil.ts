@@ -13,13 +13,21 @@ function getGitRoot(cwd: string): string {
   return execSync("git rev-parse --show-toplevel", { cwd }).toString().trim();
 }
 
-function getFileStats(filePath: string, gitRoot: string): FileWithDate {
+function getFileStats(filePath: string, gitRoot: string): FileWithDate | null {
   const fullPath = join(gitRoot, filePath);
-  const stats = statSync(fullPath);
-  return {
-    file: filePath,
-    date: stats.mtime,
-  };
+  try {
+    const stats = statSync(fullPath);
+    return {
+      file: filePath,
+      date: stats.mtime,
+    };
+  } catch (err: any) {
+    if (err.code === "ENOENT") {
+      // Ignore state if file was deleted, because pure deletions do not generally affect code output.
+      return null;
+    }
+    throw err;
+  }
 }
 
 export function getRepoFiles(cwd = __dirname): string[] {
@@ -50,7 +58,7 @@ export function getRepoFilesWithDates(cwd = __dirname): FileWithDate[] {
     throw new Error("No files found in repository");
   }
 
-  return files.map(file => getFileStats(file, gitRoot));
+  return files.map(file => getFileStats(file, gitRoot)).filter(file => !!file);
 }
 
 export function getRepoLatestModificationDate(cwd = __dirname): Date {
@@ -59,5 +67,6 @@ export function getRepoLatestModificationDate(cwd = __dirname): Date {
 }
 
 if (require.main === module) {
-  console.log(getRepoFilesWithDates());
+  const files = getRepoFilesWithDates();
+  console.log(files.sort((a, b) => b.date.getTime() - a.date.getTime()));
 }
