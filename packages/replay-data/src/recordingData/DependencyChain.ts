@@ -110,7 +110,7 @@ export default class DependencyChain {
         result.push({
           kind: "OmittedFrames",
           point: firstOmittedPoint!,
-          explanation: `${omittedCount - 1} ${label}(s) were omitted.`,
+          explanation: `${omittedCount - 1} more ${label}(s) were omitted.`,
         });
       }
       omittedCount = 0;
@@ -136,7 +136,7 @@ export default class DependencyChain {
     });
 
     // Add a final omitted frame if needed.
-    if (omittedCount) addOmittedFrame();
+    if (omittedCount) addOmittedFrame(frames.length);
 
     return result;
   }
