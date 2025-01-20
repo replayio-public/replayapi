@@ -73,20 +73,15 @@ export async function initialAnalysisAction({
       delete failureData.calleeFrame; // `calleeFrame` is hard to interpret by the agent.
       failureData.IMPORTANT_NOTES +=
         " This is a severe problem that crashes the app. FIXING THIS is the top priority: The application MUST work and NEVER crash. It is Ok to remove or weaken feature code to fix this. Adding `ErrorBoundary` does not fix this.";
+    } else {
+      // // Experiment: Focus on user code first. But then the error message does not match the point.
+      // const firstUserCodePoint = await p.getFirstUserCodePointOnStack();
+      // if (firstUserCodePoint && point !== firstUserCodePoint) {
+      //   // Use this point instead.
+      //   point = firstUserCodePoint;
+      //   p = await session.queryPoint(point);
+      // }
     }
-
-    // // Experiment: Focus on user code first. But then the error message does not match the point.
-    // const firstUserCodePoint = await p.getFirstUserCodePointOnStack();
-    // if (firstUserCodePoint) {
-    //   if (initialAnalysisData.failureData?.point === point) {
-    //     // Fix up nested point as well.
-    //     // initialAnalysisData.failureData.point = firstUserCodePoint;
-    //     initialAnalysisData.failureData.point = omitPoint("third-party");
-    //   }
-    //   // Use this point instead.
-    //   point = firstUserCodePoint;
-    //   p = await session.queryPoint(point);
-    // }
 
     // Inspect the point.
     const pointInfo = await p.inspectPoint();
