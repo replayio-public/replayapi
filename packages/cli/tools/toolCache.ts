@@ -23,8 +23,7 @@ export function getCachePath(input: InputSpec): string {
     throw new Error(`Missing recordingId in input args: ${JSON.stringify(input, null, 2)}`);
   }
   const folder = path.join(CacheFolder, recordingId);
-  // const fname = `${input.command}-${deterministicObjectHash(args)}.json`;
-  const fname = `${deterministicObjectHash(args)}.json`;
+  const fname = `${input.command}-${deterministicObjectHash(args)}.json`;
   return path.join(folder, fname);
 }
 
