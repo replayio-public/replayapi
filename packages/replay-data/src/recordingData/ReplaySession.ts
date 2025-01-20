@@ -151,8 +151,7 @@ export default class ReplaySession extends ReplayClient {
       name: "initialExecutionPointAnalysis",
       cb: async () => {
         const analysisResults = await runAnalysis<ExecutionDataAnalysisResult>(this, analysisInput);
-        const { point, commentText, consoleError, reactComponentName } = analysisResults;
-        return { point, commentText, consoleError, reactComponentName };
+        return analysisResults;
       },
     });
   }

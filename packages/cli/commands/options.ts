@@ -1,4 +1,4 @@
-import { ExecutionPoint } from "@replayio/protocol";
+import { HasPoint } from "@replayio/data/src/recordingData/types";
 import { Command, Option } from "commander";
 
 export interface RecordingOption {
@@ -34,9 +34,7 @@ export function requiresSession(command: Command): void {
   command.addOption(option);
 }
 
-export interface PointOption {
-  point: ExecutionPoint;
-}
+export type PointOption = HasPoint;
 
 export function requiresPoint(command: Command): void {
   const option = new Option("-p, --point <point>", "Execution point within a recording.")

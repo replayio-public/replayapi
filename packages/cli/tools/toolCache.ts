@@ -10,7 +10,8 @@ import { CommandOutputResult } from "../commandsShared/commandOutput";
 import { InputSpec } from "./toolWrapper";
 
 const debug = createDebug("replay:toolCache");
-const CacheFolder = path.resolve(__dirname, "..", "..", ".toolCache");
+const RootDir = path.resolve(__dirname, "..", "..", "..");
+const CacheFolder = path.resolve(RootDir, ".toolCache");
 
 export function isToolCacheEnabled(): boolean {
   return isTruthyEnvVar("REPLAY_ENABLE_TOOL_CACHE");
@@ -22,7 +23,8 @@ export function getCachePath(input: InputSpec): string {
     throw new Error(`Missing recordingId in input args: ${JSON.stringify(input, null, 2)}`);
   }
   const folder = path.join(CacheFolder, recordingId);
-  const fname = `${input.command}-${deterministicObjectHash(args)}.json`;
+  // const fname = `${input.command}-${deterministicObjectHash(args)}.json`;
+  const fname = `${deterministicObjectHash(args)}.json`;
   return path.join(folder, fname);
 }
 
