@@ -10,7 +10,8 @@ import { CommandOutputResult } from "../commandsShared/commandOutput";
 import { InputSpec } from "./toolWrapper";
 
 const debug = createDebug("replay:toolCache");
-const CacheFolder = path.resolve(__dirname, "..", "..", ".toolCache");
+const RootDir = path.resolve(__dirname, "..", "..", "..");
+const CacheFolder = path.resolve(RootDir, ".toolCache");
 
 export function isToolCacheEnabled(): boolean {
   return isTruthyEnvVar("REPLAY_ENABLE_TOOL_CACHE");

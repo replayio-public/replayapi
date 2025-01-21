@@ -61,17 +61,27 @@ export async function initialAnalysisAction({
     // NOTE: For initialAnalysis we ignore third party code, for now.
     let p = await session.queryPoint(point);
 
-    // Experiment: Focus on user code first. But then the error message does not match the point.
-    // const firstUserCodePoint = await p.getFirstUserCodePointOnStack();
-    // if (firstUserCodePoint) {
-    //   if (initialAnalysisData.firstReactRenderError?.point === point) {
-    //     // Fix up nested point as well.
-    //     initialAnalysisData.firstReactRenderError.point = firstUserCodePoint;
-    //   }
-    //   // Use this point instead.
-    //   point = firstUserCodePoint;
-    //   p = await session.queryPoint(point);
-    // }
+    const { failureData } = initialAnalysisData;
+    if (failureData) {
+      if (failureData.calleeFrame) {
+        failureData.IMPORTANT_NOTES =
+          "An exception is being thrown from hidden third-party code down-stack from here.";
+        delete failureData.errorText; // `errorText` is confusing in the given context.
+      } else {
+        failureData.IMPORTANT_NOTES = "An exception is being thrown from user code on this stack.";
+      }
+      delete failureData.calleeFrame; // `calleeFrame` is hard to interpret by the agent.
+      failureData.IMPORTANT_NOTES +=
+        " This is a severe problem that crashes the app. FIXING THIS is the top priority: The application MUST work and NEVER crash. It is Ok to remove or weaken feature code to fix this. Adding `ErrorBoundary` does not fix this.";
+    } else {
+      // // Experiment: Focus on user code first. But then the error message does not match the point.
+      // const firstUserCodePoint = await p.getFirstUserCodePointOnStack();
+      // if (firstUserCodePoint && point !== firstUserCodePoint) {
+      //   // Use this point instead.
+      //   point = firstUserCodePoint;
+      //   p = await session.queryPoint(point);
+      // }
+    }
 
     // Inspect the point.
     const pointInfo = await p.inspectPoint();

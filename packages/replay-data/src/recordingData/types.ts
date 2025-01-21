@@ -13,6 +13,9 @@ import { CodeAtLocation, LineOfCode, StaticFunctionInfo } from "@replayio/source
 
 import { RichStackFrame } from "./DependencyChain";
 
+export type HasPoint = { point: ExecutionPoint };
+export type MaybeHasPoint = { point?: ExecutionPoint };
+
 export type IndexedPointStackFrame = PointStackFrame & { index: number };
 
 export type FrameWithPoint = Frame & { point?: PointDescription };
@@ -37,15 +40,11 @@ export interface InputDependency extends ExpressionAnalysisResult {
   expression: string;
 }
 
-export interface CodeAtPoint extends CodeAtLocation {
-  point: ExecutionPoint;
-}
+export type CodeAtPoint = HasPoint & CodeAtLocation;
 
-export interface DependencyEventNode {
+export interface DependencyEventNode extends MaybeHasPoint, Partial<CodeAtLocation> {
   // Sometimes, we only have a single point for multiple dependency events.
   kind?: string | string[];
-  point?: ExecutionPoint;
-  location?: CodeAtLocation;
   inputs?: string[];
   expression?: string;
   value?: SimpleValuePreview;
@@ -104,16 +103,16 @@ export type NeighboringCodeSummary = {
   statements: SummarizedCodeAtPoint[];
 };
 
-export type FrameStep = SourceLocation & {
-  /** 1-dimensional index into the source code. */
-  index: number;
-  point: ExecutionPoint;
+export type FrameStep = HasPoint &
+  SourceLocation & {
+    /** 1-dimensional index into the source code. */
+    index: number;
 
-  // TODO: add a FrameStep type to distinguish between:
-  //   * DecisionStep
-  //   * CallStep
-  //   * ReturnStep
-  //   * CompletionStep (return, break, continue)
-  //   * etc.
-};
+    // TODO: add a FrameStep type to distinguish between:
+    //   * DecisionStep
+    //   * CallStep
+    //   * ReturnStep
+    //   * CompletionStep (return, break, continue)
+    //   * etc.
+  };
 export type UniqueFrameStep = FrameStep & { hits: number };

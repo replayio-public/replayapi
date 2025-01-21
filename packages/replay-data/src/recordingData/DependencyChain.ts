@@ -14,23 +14,22 @@ import { AnalyzeDependenciesResult } from "../analysis/specs/analyzeDependencies
 import { wrapAsyncWithHardcodedData } from "./hardcodedData";
 import PointQueries from "./PointQueries";
 import ReplaySession from "./ReplaySession";
-import { FrameWithPoint } from "./types";
+import { FrameWithPoint, HasPoint } from "./types";
 
 export const MaxEventChainLength = 10;
 
 const FilteredDGEventCodes = ["ReactCreateElement", "PromiseSettled"] as const;
 export type RichStackFrameKind = "StackFrame" | (typeof FilteredDGEventCodes)[number];
 
-export type RawRichStackFrame = {
+export type RawRichStackFrame = HasPoint & {
   kind: RichStackFrameKind;
-  point: ExecutionPoint;
   functionName?: string;
 };
-export type OmittedFrame = {
-  kind: "OmittedFrames";
-  point: ExecutionPoint;
-  explanation: string;
-};
+export type OmittedFrame = HasPoint &
+  Partial<CodeAtLocation> & {
+    kind: "OmittedFrames";
+    explanation: string;
+  };
 export type RawOrOmittedStackFrame = RawRichStackFrame | OmittedFrame;
 
 export type RichStackFrame = (CodeAtLocation & RawRichStackFrame) | OmittedFrame;
@@ -144,6 +143,8 @@ export default class DependencyChain {
   /**
    * The "rich stack" is not really a stack, but rather a mix of the synchronous call stack, interleaved with async events,
    * including high-level framework (e.g. React) events, order by time (latest first).
+   *
+   * @returns [isTruncated, stack]
    */
   async getNormalizedStackAndEventsAtPoint(
     pointQueries: PointQueries,

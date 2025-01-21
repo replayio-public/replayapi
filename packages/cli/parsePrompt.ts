@@ -7,7 +7,7 @@ import { ExecutionPoint } from "@replayio/protocol";
 
 export function parsePrompt(prompt: string): {
   recordingId: string | undefined;
-  point: ExecutionPoint | undefined;
+  point?: ExecutionPoint;
   githubInfo: GitHubParseResult;
   annotationDataUrl: string | undefined;
 } {

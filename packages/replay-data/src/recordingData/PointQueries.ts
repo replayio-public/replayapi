@@ -58,6 +58,13 @@ const debug = createDebug("replay:PointQueries");
 
 const POINT_ANNOTATION = "/*POINT*/";
 
+export function omitPoint(reason?: string): string {
+  if (reason) {
+    return `<PointHidden reason="${reason}"/>`;
+  }
+  return `<PointHidden/>`;
+}
+
 export interface BackendDataFlowAnalysisResult {
   entries: ExecutionDataEntry[];
 }
@@ -81,7 +88,16 @@ export default class PointQueries {
   }
 
   /** ###########################################################################
-   * Basic Queries.
+   * Utility high-level Queries.
+   * ##########################################################################*/
+
+  async isThirdPartyCode(): Promise<boolean> {
+    const thisLocation = await this.getSourceLocation();
+    return isThirdPartyUrl(thisLocation.url);
+  }
+
+  /** ###########################################################################
+   * Stack + Events.
    * ##########################################################################*/
 
   /**
@@ -132,6 +148,18 @@ export default class PointQueries {
       }),
     ]);
     return annotatedStack.find(f => f.isUserCode)?.point?.point;
+  }
+
+  async queryStackAndEvents(forceLookup = false): Promise<[boolean, RichStackFrame[]]> {
+    const events = await this.dg.getNormalizedStackAndEventsAtPoint(this, forceLookup);
+    events[1].forEach(e => {
+      if (!e.url) {
+        e.point = omitPoint();
+      } else if (isThirdPartyUrl(e.url)) {
+        e.point = omitPoint("third-party");
+      }
+    });
+    return events;
   }
 
   /** ###########################################################################
@@ -291,19 +319,6 @@ export default class PointQueries {
       )![0];
     }
     return codeSummary;
-  }
-
-  /** ###########################################################################
-   * Other high-level Queries.
-   * ##########################################################################*/
-
-  async isThirdPartyCode(): Promise<boolean> {
-    const thisLocation = await this.getSourceLocation();
-    return isThirdPartyUrl(thisLocation.url);
-  }
-
-  async queryStackAndEvents(forceLookup = false): Promise<[boolean, RichStackFrame[]]> {
-    return await this.dg.getNormalizedStackAndEventsAtPoint(this, forceLookup);
   }
 
   /** ###########################################################################
@@ -530,7 +545,8 @@ export default class PointQueries {
     node: DependencyEventNode,
     lookupLocation = true
   ): Promise<DependencyEventNode | null> {
-    let { point, location, expression, value, ...other } = node;
+    let { point, line, url, code, functionName, expression, value, ...other } = node;
+    let location = line ? ({ line, url, code, functionName } as Partial<CodeAtLocation>) : null;
     if (!point && !location && !expression) {
       return isEmpty(other) ? null : node;
     }
@@ -539,7 +555,7 @@ export default class PointQueries {
       const pointQuery = await this.session.queryPoint(point);
       if (locationMissing) {
         // Look up location if not provided already.
-        location = await pointQuery.queryCodeAndLocation();
+        location = (await pointQuery.queryCodeAndLocation()) as Partial<CodeAtLocation>;
       }
       if (!value && expression) {
         value = (await pointQuery.makeValuePreview(expression)) || undefined;
@@ -558,11 +574,11 @@ export default class PointQueries {
     }
     return {
       point,
-      ...(location && { location }),
+      ...(location && { ...location }),
       ...(expression && { expression }),
       ...(value && { value }),
       ...other,
-    };
+    } as DependencyEventNode;
   }
 
   /** ###########################################################################

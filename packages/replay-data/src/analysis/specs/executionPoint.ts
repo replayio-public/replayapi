@@ -71,8 +71,10 @@ export interface ExecutionDataAnalysisResult {
   // If the comment is on a React component, the name of the component.
   reactComponentName?: string;
 
-  firstReactRenderError?: DependencyEventNode & {
-    message: string;
+  failureData?: DependencyEventNode & {
+    errorText?: string;
+    calleeFrame?: boolean;
+    IMPORTANT_NOTES?: string;
   };
 
   // If the point is for a console error, the error text.
