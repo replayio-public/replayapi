@@ -6,6 +6,8 @@
 
 import "tsconfig-paths/register";
 
+import * as crypto from "node:crypto";
+
 import { Command } from "commander";
 import createDebug from "debug";
 
