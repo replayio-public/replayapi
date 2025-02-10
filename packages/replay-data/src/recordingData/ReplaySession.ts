@@ -102,6 +102,7 @@ export default class ReplaySession extends ReplayClient {
 
   async experimentalCommand(name: string, params: Record<string, any>): Promise<any> {
     const sessionId = await this.waitForSession();
+    debug(`Session.experimentalCommand: name=${name}, params=${JSON.stringify(params)}`)
     const result = await sendMessage("Session.experimentalCommand", { name, params }, sessionId);
     return result.rval;
   }

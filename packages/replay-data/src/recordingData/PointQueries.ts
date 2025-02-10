@@ -265,7 +265,7 @@ export default class PointQueries {
    * Code rendering.
    * ##########################################################################*/
 
-  async renderExecutedCode(renderOptions: CFGRenderOptions): Promise<string> {
+  async renderExecutedCode(renderOptions?: CFGRenderOptions): Promise<string> {
     const cfgBuilder = await this.queryCFG();
     const rendered = await cfgBuilder.renderCode(renderOptions);
     return rendered.annotatedCode;

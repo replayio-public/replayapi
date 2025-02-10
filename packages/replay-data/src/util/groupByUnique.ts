@@ -3,7 +3,7 @@ import identity from "lodash/identity";
 
 /**
  * If `transformCb` is not provided, this is like lodash/groupBy,
- * but assumes that each group only has a unique element.
+ * BUT only produces the first value per group.
  */
 export function groupByUnique<K, VIn, VOut = VIn>(
   arr: VIn[],
