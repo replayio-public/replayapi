@@ -19,7 +19,7 @@ import {
 import { LanguageInfo, TypeCover } from "./tree-sitter-nodes";
 import { createTreeSitterParser } from "./tree-sitter-setup";
 import { CodeAtLocation, StaticFunctionInfo } from "./types";
-import { truncateAround } from "./util/truncateCenter";
+import { truncateMiddle } from "./util/truncateCenter";
 
 const FailBabelParseSilently = process.env.NODE_ENV === "production";
 const MaxNodeLength = 300;
@@ -288,7 +288,7 @@ export default class SourceParser {
       loc,
       treeSitterPointToSourceLocation(node.startPosition)
     );
-    return truncateAround(node.text, relativeIndex, MaxNodeLength);
+    return truncateMiddle(node.text, relativeIndex, MaxNodeLength);
   }
 
   // Add `pointAnnotation` to `node.text` at `targetLoc`.

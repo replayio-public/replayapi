@@ -8,7 +8,7 @@ export function deterministicObjectValues(obj: Record<string, any>): string[] {
   const topValues = Object.keys(obj)
     .sort()
     .filter(key => typeof obj[key] !== "object" || obj[key] === null)
-    .map(key => String(obj[key]));
+    .map(key => `${key}:${String(obj[key])}`);
 
   // Then get nested values
   const nestedValues = Object.keys(obj)

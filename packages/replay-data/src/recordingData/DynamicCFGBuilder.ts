@@ -2,8 +2,10 @@ import { NodePath } from "@babel/traverse";
 import { ExecutionPoint } from "@replayio/protocol";
 import { annotateLine } from "@replayio/source-parser/src/annotations";
 import { isBabelLocContained } from "@replayio/source-parser/src/babel/babelLocations";
-import { truncateAround } from "@replayio/source-parser/src/util/truncateCenter";
-import { groupBy, minBy, sortBy } from "lodash";
+import { truncateMiddle } from "@replayio/source-parser/src/util/truncateCenter";
+import groupBy from "lodash/groupBy";
+import minBy from "lodash/minBy";
+import sortBy from "lodash/sortBy";
 
 import { assert } from "../util/assert";
 import { groupByUnique } from "../util/groupByUnique";
@@ -369,7 +371,7 @@ export default class DynamicCFGBuilder {
       annotation = `${StepAnnotationLabelPrefix}:${step.point}`;
     }
     if (maxLineLength && line.length > maxLineLength) {
-      line = truncateAround(line, step.column, maxLineLength);
+      line = truncateMiddle(line, step.column, maxLineLength);
     }
     if (annotation) {
       line = annotateLine(line, annotation, step.column);

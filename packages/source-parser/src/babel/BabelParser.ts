@@ -45,6 +45,16 @@ export function babelParse(code: SourceContents): BabelParser {
   return new BabelParser(code, ast);
 }
 
+function assertTypeOrAliasExist(...babelTypeOrAliases: string[]) {
+  if (
+    babelTypeOrAliases.length &&
+    // Little trick: NodePath prototype has a check for each type or alias.
+    !babelTypeOrAliases.some(t => (NodePath.prototype as any)["is" + t])
+  ) {
+    throw new Error(`Invalid babelTypeOrAlias: ${babelTypeOrAliases}`);
+  }
+}
+
 // /**
 //  * Returns whether the given binding is the binding of the given path.
 //  */
@@ -95,18 +105,8 @@ export class BabelParser {
     return null;
   }
 
-  private assertTypeOrAliasExist(...babelTypeOrAliases: string[]) {
-    if (
-      babelTypeOrAliases.length &&
-      // Little trick: NodePath prototype has a check for each type or alias.
-      !babelTypeOrAliases.some(t => (NodePath.prototype as any)["is" + t])
-    ) {
-      throw new Error(`Invalid babelTypeOrAlias: ${babelTypeOrAliases}`);
-    }
-  }
-
   getInnermostNodePathAt(loc: SourceLocation, ...babelTypeOrAliases: string[]): NodePath | null {
-    this.assertTypeOrAliasExist(...babelTypeOrAliases);
+    assertTypeOrAliasExist(...babelTypeOrAliases);
 
     const targetOffset = this.code.locationToIndex(loc);
     let matchingPath: NodePath | null = null;
@@ -148,7 +148,7 @@ export class BabelParser {
     if (!babelTypeOrAliases.length) {
       throw new Error(`babelTypeOrAliases missing`);
     }
-    this.assertTypeOrAliasExist(...babelTypeOrAliases);
+    assertTypeOrAliasExist(...babelTypeOrAliases);
 
     let seenTargetNode = false;
 
@@ -179,7 +179,6 @@ export class BabelParser {
    * NOTE: Removes all nested functions.
    */
   getAllBlockParentsWithinFunction(path: NodePath): NodePath[] {
-    // NOTE: IfStatement is not part of the BlockParent cover (must be a babel-types bug).
     const ActualBlockParentSet = ["BlockParent", "IfStatement"];
 
     // Ignore nested functions.

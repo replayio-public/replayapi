@@ -1,7 +1,7 @@
 /**
  * Truncate left and right of text, if it is more than maxLength characters from the center.
  */
-export function truncateAround(text: string, truncationCenter: number, maxLength = 100): string {
+export function truncateMiddle(text: string, truncationCenter: number, maxLength = 100): string {
   if (text.length <= maxLength) return text;
 
   const centerText = text.slice(
